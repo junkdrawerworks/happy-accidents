@@ -637,11 +637,12 @@ await page.keyboard.press('s');
 await goBack('signSheet');
 await page.click('#galleryBtn');
 await page.click('#closeGallery');
-await page.waitForFunction(() => !history.state?.['happy-accidents:overlay'], null, { timeout: 5000 });   // the step under it is the edge guard's (see below)
+await page.waitForFunction(() => history.state === null, null, { timeout: 5000 });   // and with no flick going on, no edge guard entry either (see below)
 
 // A Back that comes while a finger is on the canvas, or just after the browser took a touch from it (as Android's back
 // gesture does when a flick near the screen's side is taken for it), is taken for a slip: the studio stays, with the
 // painting as it was. A second later, Back leaves in one press, as it always has, and an overlay still closes on Back.
+// The guard's extra history entry goes on when a finger touches the canvas and comes off a second after it lifts.
 {
   const gctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
   const p = await gctx.newPage();
@@ -652,6 +653,9 @@ await page.waitForFunction(() => !history.state?.['happy-accidents:overlay'], nu
   await p.waitForFunction(() => window.happyAccidents?.skipIntro);
   await p.evaluate(() => window.happyAccidents.skipIntro());
   await p.tap('#line');   // a first tap, off the canvas
+  const guarded = () => p.evaluate(() => history.state?.__edgeGuard === true);
+  const gallery = () => p.evaluate(() => [!document.getElementById('gallery').hidden, history.state?.['happy-accidents:overlay'] === true]);
+  assert.equal(await guarded(), false, 'no extra history entry before the canvas is touched');
   const quiet = () => p.waitForFunction(() => !window.happyAccidents.busy && !window.happyAccidents.active.length, null, { timeout: 20000 });
   const painting = () => p.evaluate(() => JSON.stringify([window.happyAccidents.accidents, window.happyAccidents.counts, window.happyAccidents.elements.length]));
   const inStudio = async (what) => {
@@ -663,12 +667,16 @@ await page.waitForFunction(() => !history.state?.['happy-accidents:overlay'], nu
   // Back in the middle of a flick: the flick carries on, and letting go lands it.
   await quiet();
   const before = await p.evaluate(() => window.happyAccidents.accidents);
-  await p.mouse.move(at.x, at.y); await p.mouse.down(); await p.mouse.move(at.x + 40, at.y + 10, { steps: 4 });
+  await p.mouse.move(at.x, at.y); await p.mouse.down();
+  assert.equal(await guarded(), true, 'a finger down on the canvas adds the extra entry');
+  await p.mouse.move(at.x + 40, at.y + 10, { steps: 4 });
   await p.goBack();
   await inStudio('Back in the middle of a flick should stay in the studio');
   await p.mouse.move(at.x + 80, at.y + 20, { steps: 2 }); await p.mouse.up();
   await p.waitForFunction((n) => window.happyAccidents.accidents > n, before, { timeout: 5000 }).catch(() => assert.fail('the flick across a Back should still land'));
   await quiet();
+  await p.waitForTimeout(1300);
+  assert.equal(await guarded(), false, 'a second after the finger lifts, the extra entry is gone again');
   // The browser takes the touch, then a Back follows.
   const was = await painting();
   const cdp = await gctx.newCDPSession(p);
@@ -678,12 +686,31 @@ await page.waitForFunction(() => !history.state?.['happy-accidents:overlay'], nu
   await inStudio('Back just after the touch was taken should stay in the studio');
   await quiet();
   assert.equal(await painting(), was, 'the painting should be as it was');
-  // An overlay still closes on Back, and a second on, Back with none open leaves.
+  await p.waitForTimeout(1300);
+  assert.equal(await guarded(), false, 'and the entry goes once the second after the taken touch is up');
+  // The gallery opened within a second of a flick, while the guard's entry is still on: it stays open when the
+  // second is up, and Back closes it.
+  await p.mouse.move(at.x, at.y); await p.mouse.down(); await p.mouse.move(at.x + 60, at.y + 15, { steps: 3 }); await p.mouse.up();
   await p.tap('#galleryBtn');
+  assert.deepEqual(await gallery(), [true, true], 'the gallery opens just after a flick, with its own step');
+  await p.waitForTimeout(1300);
+  assert.deepEqual(await gallery(), [true, true], 'and is still open, on its own step, when the guard\'s second is up');
+  await p.goBack();
+  await p.waitForFunction(() => document.getElementById('gallery').hidden, null, { timeout: 5000 });
+  await inStudio('Back from the gallery wall opened just after a flick should close it');
+  // The guard's entry it was opened over is a plain one now: it takes one Back, once, and the studio stays.
+  assert.equal(await guarded(), false, 'the entry under the gallery is plain now');
+  await p.goBack();
+  await inStudio('the one plain entry left under the gallery takes a Back and the studio stays');
+  await quiet();
+  // An overlay opened with no flick going on still closes on Back, and then Back with none open leaves in one press.
+  await p.waitForTimeout(1300);
+  await p.tap('#galleryBtn');
+  assert.deepEqual(await gallery(), [true, true], 'the gallery opens with its own step');
   await p.goBack();
   await p.waitForFunction(() => document.getElementById('gallery').hidden, null, { timeout: 5000 });
   await inStudio('Back from the gallery wall should close it');
-  await p.waitForTimeout(1100);
+  assert.equal(await p.evaluate(() => history.state), null, 'with the gallery shut and no flick going on, no extra entry is left');
   await p.goBack();
   await p.waitForURL(/icon\.svg$/, { timeout: 5000 }).catch(() => assert.fail('Back a while after a touch was taken should leave in one press'));
   assert.deepEqual(errors, []);

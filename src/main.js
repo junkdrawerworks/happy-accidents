@@ -270,9 +270,9 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 // A flick near the screen's side can set off Android's back gesture (or Chrome's swipe to go back), which takes the
 // touch (pointercancel) and then goes Back, leaving the studio and the painting on the easel. A Back that comes while a
 // finger is on the canvas, or within a second of the canvas's touch being taken, is a slip, and the painting stays as
-// it was. The overlays' own steps (see stepOn() below) close the overlay on Back as before; with none open, the guard
-// keeps one extra entry of its own under them, and a deliberate Back still leaves in one press. Not inside another
-// page's frame, for the same reason as the overlays.
+// it was. The guard adds an extra history entry of its own only while a finger is on the canvas and for a second
+// after, so at any other time a deliberate Back leaves in one press; the overlays' own steps (see stepOn() below) close
+// the overlay on Back as before. Not inside another page's frame, for the same reason as the overlays.
 guardEdges({ surfaces: [canvas], history: !inFrame });
 
 // ——— actions ———

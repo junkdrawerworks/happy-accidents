@@ -61,14 +61,18 @@
   box-sizing: border-box;
 }
 
+/* No swipe sideways starts the browser's Back or Forward (Chrome's overscroll navigation): a flick that runs off the
+   canvas's side would otherwise leave the studio. */
 html {
   height: 100%;
   background: var(--set);
+  overscroll-behavior: none;
 }
 
 body {
   height: 100%;
   margin: 0;
+  overscroll-behavior: none;
   background: var(--set);
   color: var(--ink);
   font: 400 15px/1.45 var(--body);

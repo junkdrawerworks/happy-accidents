@@ -432,6 +432,14 @@ for (const mood of ['golden-hour', 'misty-morning']) {
   assert.equal(cabin.top, 0, `the chimney smoke runs into the top edge of the cabin's layer (${mood})`);
 }
 
+// A swipe sideways is nobody's, so it can't run on into Chrome's swipe to go Back or Forward: the page doesn't
+// overscroll, and the canvas takes every touch.
+{
+  const look = await S(() => ['html', 'body', '#canvas'].map((s) => { const c = getComputedStyle(document.querySelector(s)); return [c.overscrollBehaviorX, c.touchAction]; }));
+  assert.deepEqual(look.slice(0, 2).map((l) => l[0]), ['none', 'none'], 'the page should not overscroll sideways');
+  assert.equal(look[2][1], 'none', 'the canvas should take every touch');
+}
+
 // Fits a phone: nothing scrolls sideways. Nor on a tablet, in the same stacked layout.
 assert.equal(await S(() => document.documentElement.scrollWidth <= innerWidth), true, 'the page scrolls sideways on a phone');
 for (const width of [600, 768, 959]) {

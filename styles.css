@@ -324,6 +324,14 @@ kbd {
   box-shadow: 0 10px 22px -8px rgba(0, 0, 0, 0.8);
 }
 
+/* On a phone's touch screen the canvas keeps 24 px from the screen's sides, clear of where Android's back gesture
+   starts (a flick from the canvas's edge would otherwise set it off). The page's gutter gives 16 of it. */
+@media (pointer: coarse) and (max-width: 560px) {
+  .easel {
+    width: calc(100% - 2 * (24px - var(--gutter)));
+  }
+}
+
 /* Below the wide layout the easel spans the page, so the ledge can only reach into the gutter, not past it. */
 @media (max-width: 959px) {
   .ledge {

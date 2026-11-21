@@ -440,6 +440,18 @@ for (const mood of ['golden-hour', 'misty-morning']) {
   assert.equal(look[2][1], 'none', 'the canvas should take every touch');
 }
 
+// On a phone's touch screen the canvas keeps 24 px from the screen's sides, where Android's back gesture starts, at any
+// phone width; with a mouse it keeps the page's 16 px gutter.
+for (const [width, height, touch] of [[320, 568, true], [320, 700, true], [360, 740, true], [390, 844, true], [412, 915, true], [390, 844, false]]) {
+  const ectx = await browser.newContext({ viewport: { width, height }, hasTouch: touch, isMobile: touch, serviceWorkers: 'block' });
+  const p = await ectx.newPage();
+  await p.goto(base);
+  const r = await p.evaluate(() => { const r = document.getElementById('canvas').getBoundingClientRect(); return { left: r.left, right: innerWidth - r.right }; });
+  if (touch) assert.ok(r.left >= 23.5 && r.right >= 23.5, `the canvas comes ${Math.min(r.left, r.right).toFixed(1)} px from the screen's side at ${width}x${height}`);
+  else assert.deepEqual([r.left, r.right].map(Math.round), [16, 16], 'with a mouse the canvas keeps the page gutter');
+  await ectx.close();
+}
+
 // Fits a phone: nothing scrolls sideways. Nor on a tablet, in the same stacked layout.
 assert.equal(await S(() => document.documentElement.scrollWidth <= innerWidth), true, 'the page scrolls sideways on a phone');
 for (const width of [600, 768, 959]) {

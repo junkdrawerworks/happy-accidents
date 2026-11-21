@@ -637,7 +637,58 @@ await page.keyboard.press('s');
 await goBack('signSheet');
 await page.click('#galleryBtn');
 await page.click('#closeGallery');
-await page.waitForFunction(() => history.state === null, null, { timeout: 5000 });
+await page.waitForFunction(() => !history.state?.['happy-accidents:overlay'], null, { timeout: 5000 });   // the step under it is the edge guard's (see below)
+
+// A Back that comes while a finger is on the canvas, or just after the browser took a touch from it (as Android's back
+// gesture does when a flick near the screen's side is taken for it), is taken for a slip: the studio stays, with the
+// painting as it was. A second later, Back leaves in one press, as it always has, and an overlay still closes on Back.
+{
+  const gctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
+  const p = await gctx.newPage();
+  const errors = [];
+  p.on('pageerror', (e) => errors.push(e.message));
+  await p.goto(base + 'icon.svg');   // somewhere to go Back to
+  await p.goto(base);
+  await p.waitForFunction(() => window.happyAccidents?.skipIntro);
+  await p.evaluate(() => window.happyAccidents.skipIntro());
+  await p.tap('#line');   // a first tap, off the canvas
+  const quiet = () => p.waitForFunction(() => !window.happyAccidents.busy && !window.happyAccidents.active.length, null, { timeout: 20000 });
+  const painting = () => p.evaluate(() => JSON.stringify([window.happyAccidents.accidents, window.happyAccidents.counts, window.happyAccidents.elements.length]));
+  const inStudio = async (what) => {
+    await p.waitForTimeout(300);
+    assert.equal(p.url(), base, what);
+  };
+  const b = await p.locator('#canvas').boundingBox();
+  const at = { x: b.x + b.width * 0.5, y: b.y + b.height * 0.3 };
+  // Back in the middle of a flick: the flick carries on, and letting go lands it.
+  await quiet();
+  const before = await p.evaluate(() => window.happyAccidents.accidents);
+  await p.mouse.move(at.x, at.y); await p.mouse.down(); await p.mouse.move(at.x + 40, at.y + 10, { steps: 4 });
+  await p.goBack();
+  await inStudio('Back in the middle of a flick should stay in the studio');
+  await p.mouse.move(at.x + 80, at.y + 20, { steps: 2 }); await p.mouse.up();
+  await p.waitForFunction((n) => window.happyAccidents.accidents > n, before, { timeout: 5000 }).catch(() => assert.fail('the flick across a Back should still land'));
+  await quiet();
+  // The browser takes the touch, then a Back follows.
+  const was = await painting();
+  const cdp = await gctx.newCDPSession(p);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [at] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+  await p.goBack();
+  await inStudio('Back just after the touch was taken should stay in the studio');
+  await quiet();
+  assert.equal(await painting(), was, 'the painting should be as it was');
+  // An overlay still closes on Back, and a second on, Back with none open leaves.
+  await p.tap('#galleryBtn');
+  await p.goBack();
+  await p.waitForFunction(() => document.getElementById('gallery').hidden, null, { timeout: 5000 });
+  await inStudio('Back from the gallery wall should close it');
+  await p.waitForTimeout(1100);
+  await p.goBack();
+  await p.waitForURL(/icon\.svg$/, { timeout: 5000 }).catch(() => assert.fail('Back a while after a touch was taken should leave in one press'));
+  assert.deepEqual(errors, []);
+  await gctx.close();
+}
 
 // Inside another page's frame (the claude.ai viewer), overlays leave the history alone: going back from in there would
 // move the whole page back.

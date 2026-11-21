@@ -3,6 +3,7 @@ import { PIGMENTS } from './schemes.js';
 import { makeTitle, featureLine, madeFrom, line } from './words.js';
 import { pick, rand, gauss } from './util.js';
 import * as sound from './sound.js';
+import { guardEdges } from './edge-guard.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -266,6 +267,13 @@ canvas.addEventListener('pointercancel', (e) => finishGesture(e, true));
 // there, so it can't keep the next one from painting.
 canvas.addEventListener('lostpointercapture', (e) => finishGesture(e, true));
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+// A flick near the screen's side can set off Android's back gesture (or Chrome's swipe to go back), which takes the
+// touch (pointercancel) and then goes Back, leaving the studio and the painting on the easel. A Back that comes while a
+// finger is on the canvas, or within a second of the canvas's touch being taken, is a slip, and the painting stays as
+// it was. The overlays' own steps (see stepOn() below) close the overlay on Back as before; with none open, the guard
+// keeps one extra entry of its own under them, and a deliberate Back still leaves in one press. Not inside another
+// page's frame, for the same reason as the overlays.
+guardEdges({ surfaces: [canvas], history: !inFrame });
 
 // ——— actions ———
 

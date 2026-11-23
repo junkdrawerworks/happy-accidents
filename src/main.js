@@ -449,6 +449,13 @@ function openSign() {
   setAuto(false);
   cancelDone();
   userActed();
+  // Signed already, with nothing added since: its label comes up again instead of a second copy going on the wall.
+  const done = studio.signed;
+  const hung = done?.id && done.accidents === studio.accidents && readGallery().find((r) => r.id === done.id);
+  if (hung) {
+    showPlacard(hung, done.full);
+    return;
+  }
   const saved = store.get(KEY.name, '');
   artistName.value = typeof saved === 'string' ? saved : '';
   artTitle.value = makeTitle(studio.counts, studio.scheme.id);
@@ -492,6 +499,9 @@ $('signForm').addEventListener('submit', async (e) => {
       features: featureLine(s.counts),
     };
     hang(record);
+    // What's on the wall from this canvas, and how many accidents it had then (any that landed while it was being
+    // signed are in the picture too).
+    Object.assign(studio.signed, { id: record.id, full, accidents: s.accidents });
     showPlacard(record, full);
   } finally {
     signing = false;

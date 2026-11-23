@@ -617,6 +617,15 @@ assert.equal(await page.textContent('#galleryCount'), '1');
 assert.equal(await S(() => document.getElementById('app').inert), false);
 assert.equal(await S(() => document.activeElement.id), 'signBtn', 'after the label, focus goes back to Sign it');
 
+// Sign it again with nothing new on the canvas brings its label back up, instead of hanging a second copy.
+await page.click('#signBtn');
+await page.waitForSelector('#placard:not([hidden])', { timeout: 5000 }).catch(() => assert.fail('Sign it again with nothing new didn’t bring the label back'));
+assert.equal(await page.isHidden('#signSheet'), true, 'Sign it again with nothing new opened the sign form');
+assert.equal(await page.textContent('#plTitle'), 'Test Pattern at Otter Cove');
+assert.equal(await S(() => JSON.parse(localStorage.getItem('happy-accidents:gallery')).length), 1, 'signing again with nothing new hung a second copy');
+await page.click('#keepBtn');
+assert.equal(await page.textContent('#galleryCount'), '1');
+
 // Paint added after signing isn't on the wall, so New canvas asks first.
 await page.click('#oopsBtn');
 await page.waitForTimeout(200);

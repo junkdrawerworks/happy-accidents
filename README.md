@@ -91,7 +91,6 @@ It's Canvas 2D with no framework and no image files: everything on the canvas is
 - `src/edge-guard.js`: a Back that comes mid-flick (Android's back gesture, set off by a finger near the screen's side) is taken for a slip, and the painting stays.
 - `fonts/`: Caprasimo, Figtree and Mrs Saint Delafield (SIL Open Font License), served from here so nothing loads from elsewhere.
 - `sw.js`: keeps a copy for painting offline. `npm test` checks that it lists every file the page needs. On a connection that isn't answering, a page opens from that copy after four seconds. `FILES` in it is a fingerprint of the files it keeps: change one and `npm test` says what to set it to, so a release never leaves the copy half old.
-- `carry.js`: the first time the game opens at happy-accidents.junkdrawer.works, brings over the paintings and settings saved at its old address, junkdrawer.works/happy-accidents.
 - `tools/`: the screenshot and icon scripts above. `scripts/build.mjs`: the single-file build.
 
 The studio is on `window.happyAccidents` if you want to play from the console:

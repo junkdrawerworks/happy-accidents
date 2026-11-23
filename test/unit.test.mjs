@@ -7,19 +7,22 @@ import { fileURLToPath } from 'node:url';
 import { featureLine, madeFrom, durationText, makeTitle, toolInfo, keptNote, LINES } from '../src/words.js';
 import { topEdge, heights, at, span, sideProfile } from '../src/shape.js';
 import { ramp, mix, hex, mixPaint, familyOf, colorName } from '../src/color.js';
-import { weighted, pickFresh, clamp } from '../src/util.js';
+import { weighted, pickFresh, clamp, rand, chance, pick, TAU } from '../src/util.js';
 import { SCHEMES, PIGMENTS } from '../src/schemes.js';
 import { decide } from '../src/decide.js';
 import { makeSplat } from '../src/splat.js';
+import * as P from '../src/paint/index.js';
 import { flowers, canoe, glints } from '../src/paint/index.js';
 import { autumn, treeGlow, sunlitCloud } from '../src/paint/react.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-// Just enough of a studio to ask decide() what a splat becomes: ground everywhere below the horizon, nothing painted yet.
-function bareStudio(schemeId = 'golden-hour') {
+// Just enough of a studio to ask decide() what a splat becomes: ground everywhere below the horizon (or where land(x, y)
+// says), nothing painted yet (or only target, which every splat lands on), and the sun or moon already up if sunUp.
+function bareStudio(schemeId = 'golden-hour', { land = (x, y) => y > 480, target = null, sunUp = false } = {}) {
   const reserved = new Set();
   const scheme = SCHEMES.find((s) => s.id === schemeId);
+  if (sunUp) reserved.add(scheme.sunType);
   return {
     W: 1200,
     H: 900,
@@ -27,8 +30,10 @@ function bareStudio(schemeId = 'golden-hour') {
     lightDir: 1,
     scheme,
     haze: scheme.haze,
-    elementAt: () => null,
-    isLand: (x, y) => y > 480,
+    elements: [{ kind: 'sky' }],
+    elementAt: () => target,
+    isLand: land,
+    addLand: () => {},
     has: (kind) => reserved.has(kind),
     count: () => 0,
     reserve: (kind) => reserved.add(kind),
@@ -127,9 +132,9 @@ function colorsOf(spec) {
 }
 
 // Runs fn with Math.random started from the same seed every time, so two runs make the same choices.
-function sameDice(fn) {
+function sameDice(fn, seed = 7) {
   const real = Math.random;
-  let a = 7;
+  let a = seed;
   Math.random = () => {
     a = (a + 0x6d2b79f5) | 0;
     let t = Math.imul(a ^ (a >>> 15), 1 | a);
@@ -278,4 +283,323 @@ test('the offline copy lists every file the page needs', async () => {
   const needed = [...(await walk('src')), ...(await walk('fonts')), 'styles.css', 'index.html', 'icon.svg', 'manifest.webmanifest'];
   for (const f of needed) assert.ok(listed.has(f), `sw.js doesn't list ${f}`);
   for (const f of listed) assert.ok(needed.includes(f), `sw.js lists ${f}, which doesn't exist`);
+});
+
+// ——— the rules: the README's two tables ———
+// Each cell of the README's tables is written out here as the outcomes it allows. For every paint, place and time of day,
+// a few hundred splats of every size and shape go through decide() on a clean canvas: each must become something its cell
+// allows, and everything the cell lists must turn up. The cell's text is checked against the README too, so changing a
+// rule means changing it in both places.
+
+// Node has no Path2D; the painters only build paths here, they never draw them.
+globalThis.Path2D ??= class {
+  moveTo() {}
+  lineTo() {}
+  closePath() {}
+  quadraticCurveTo() {}
+  bezierCurveTo() {}
+  arc() {}
+  ellipse() {}
+  rect() {}
+};
+
+const paintOf = (id) => PIGMENTS.find((p) => p.id === id);
+const FAMILIES = ['white', 'yellow', 'red', 'green', 'blue', 'brown'];
+const PAINTS = Object.fromEntries(FAMILIES.map((f) => [f, PIGMENTS.filter((p) => p.family === f).map((p) => p.id)]));
+const DAY = SCHEMES.filter((s) => !s.night).map((s) => s.id);
+const NIGHT = SCHEMES.filter((s) => s.night).map((s) => s.id);
+// The rules canvas: a bank of land down the left of the lake (x under 300), water everywhere else below the horizon.
+const leftBank = (x, y) => y > 480 && x < 300;
+
+// What a plan paints, in the README's words.
+function outcomeOf(plan) {
+  const [first] = plan;
+  if (!first) return 'nothing';
+  const kinds = plan.map((s) => s.kind);
+  if (first.say === 'tallTree') return 'tall pine';
+  switch (first.kind) {
+    case 'cloud':
+      return first.say === 'stormCloud' ? 'storm cloud' : 'cloud';
+    case 'mountain':
+      return first.say === 'goldMountain' ? 'golden mountain' : 'mountain';
+    case 'bank':
+      return 'land';
+    case 'rock':
+      return kinds.includes('moss') ? 'mossy rock' : 'rock';
+    case 'evergreen':
+      return kinds.includes('treeSnow') ? 'snowy pine' : first.say === 'blueSpruce' ? 'blue spruce' : 'pine';
+    case 'deciduous':
+      return first.say === 'birch' ? 'birch' : first.say === 'bareTree' ? 'bare tree' : 'leafy tree';
+    default:
+      return first.kind;
+  }
+}
+
+// An outcome a cell allows: is (one name, or several that count as one listed outcome), and optionally only at
+// night or by day, or only from some of the family's paints.
+const may = (is, more = {}) => ({ is: [].concat(is), ...more });
+const night = { when: 'night' };
+const day = { when: 'day' };
+
+// The first table. text is the cell as the README has it. todo marks a cell the code doesn't follow yet.
+const CELLS = {
+  'high in the sky': {
+    white: { text: 'a white cloud, the sun or moon, or stars at night', allows: [may('cloud'), may('sun', day), may('moon', night), may('stars', night)] },
+    yellow: { text: 'the sun, then golden clouds', allows: [may('sun', day), may('cloud')], todo: { night: 'yellow at night makes the moon' } },
+    red: { text: 'a sunset cloud', allows: [may('cloud')] },
+    green: { text: 'the top of a tall pine, or an aurora at night', allows: [may('tall pine'), may('aurora', night)] },
+    blue: { text: 'a cool cloud, or a storm from Prussian Blue', allows: [may('cloud'), may('storm cloud', { only: ['prussian-blue'] })], todo: 'blue taps up to R 24 make birds a quarter of the time' },
+    brown: { text: 'a storm cloud, or birds', allows: [may('storm cloud'), may('birds')] },
+  },
+  'low in the sky': {
+    white: { text: 'a snowy mountain or a cloud', allows: [may('mountain'), may('cloud')] },
+    yellow: { text: 'the sun or golden clouds', allows: [may('sun', day), may('cloud')], todo: 'Yellow Ochre makes a golden mountain, and at night yellow makes the moon' },
+    red: { text: 'a red-rock mountain or a sunset cloud', allows: [may('mountain'), may('cloud')] },
+    green: { text: 'a wooded mountain', allows: [may('mountain')] },
+    blue: { text: 'a blue mountain or a cool cloud', allows: [may('mountain'), may('cloud')], todo: 'blue taps up to R 24 make birds a quarter of the time' },
+    brown: { text: 'a mountain', allows: [may('mountain')], todo: 'brown low in the sky also makes storm clouds and birds' },
+  },
+  'on the lake': {
+    white: { text: 'a sailboat, or light on the water', allows: [may('sailboat'), may(['glints', 'ripples'])] },
+    yellow: { text: 'glints of light, or land from Yellow Ochre', allows: [may('glints', { only: ['cadmium-yellow', 'indian-yellow'] }), may(['land', 'island'], { only: ['yellow-ochre'] })], todo: 'a small Yellow Ochre splat on open water makes a rock' },
+    red: { text: 'a canoe', allows: [may('canoe')] },
+    green: { text: 'land, an island or a mossy rock', allows: [may('land'), may('island'), may('mossy rock')] },
+    blue: { text: 'ripples', allows: [may('ripples')] },
+    brown: { text: 'land, or a rock', allows: [may(['land', 'island']), may('rock')] },
+  },
+  'on land': {
+    white: { text: 'a snowy pine, a birch or a white cabin', allows: [may('snowy pine'), may('birch'), may('cabin')], todo: 'small splats make flowers' },
+    yellow: { text: 'a golden tree or bush', allows: [may('leafy tree'), may('bush')], todo: 'small splats make flowers' },
+    red: { text: 'a red tree or bush, or a red cabin', allows: [may('leafy tree'), may('bush'), may('cabin')], todo: 'small splats make flowers' },
+    green: { text: 'pines, leafy trees and bushes', allows: [may('pine'), may('leafy tree'), may('bush')] },
+    blue: { text: 'a blue spruce', allows: [may('blue spruce')], todo: 'small splats make flowers' },
+    brown: { text: 'a cabin, a bare tree or a bush', allows: [may('cabin'), may('bare tree'), may('bush')] },
+  },
+};
+
+// Where each column lands on the rules canvas (horizon at 480 of 900). The middle of the sky, between high and low, is
+// checked against both columns at once, and the horizon on its own.
+const PLACES = {
+  'high in the sky': (S) => ({ x: rand(30, S.W - 30), y: S.hy * rand(0.05, 0.42) }),
+  'low in the sky': (S) => ({ x: rand(30, S.W - 30), y: S.hy * rand(0.72, 0.93) }),
+  'on the lake': (S) => ({ x: rand(330, S.W - 30), y: rand(S.hy + 36, S.H - 8) }),
+  'on land': (S) => ({ x: rand(30, 270), y: rand(S.hy + 36, S.H - 10) }),
+  middle: (S) => ({ x: rand(30, S.W - 30), y: S.hy * rand(0.42, 0.72) }),
+  horizon: (S) => ({ x: rand(30, S.W - 30), y: S.hy + rand(-0.03, 0.03) * S.H }),
+};
+
+// Small flecks up high are birds, stars or wisps of cloud, whatever the paint (How it plays).
+const FLECK_R = 17;
+const FLECKS = ['birds', 'stars', 'cloud'];
+
+// A splat of any size the page makes: half of them taps (R 11 to 22), half bigger flicks and pours, some stretched.
+function throwAt(spot, id) {
+  const R = chance(0.5) ? rand(11, 22) : rand(22, 56);
+  const speed = chance(0.5) ? 0 : rand(0.4, 2.5);
+  const a = rand(TAU);
+  return makeSplat({ ...spot, R, pigment: paintOf(id), vx: Math.cos(a) * speed, vy: Math.sin(a) * speed });
+}
+
+// Throws n splats of each paint at a place, and returns each outcome with the paints that made it, and anything
+// allowed() refused.
+function throwMany(place, ids, time, n, allowed) {
+  const made = new Map();
+  const wrong = new Map();
+  for (const id of ids) {
+    for (let i = 0; i < n; i++) {
+      const S = bareStudio(pick(time === 'night' ? NIGHT : DAY), { land: leftBank, sunUp: chance(0.4) });
+      const sp = throwAt(PLACES[place](S), id);
+      const what = outcomeOf(decide(S, sp));
+      if (allowed(what, id, sp)) {
+        if (!made.has(what)) made.set(what, new Set());
+        made.get(what).add(id);
+      } else {
+        const key = `${paintOf(id).name} became ${what}`;
+        wrong.set(key, (wrong.get(key) || 0) + 1);
+      }
+    }
+  }
+  return { made, wrong };
+}
+
+const reportWrong = (wrong) => [...wrong].map(([k, n]) => `${k} (${n}×)`).join('; ');
+
+test('the rules table in the README is the one written out here', async () => {
+  const readme = await readFile(join(root, 'README.md'), 'utf8');
+  for (const fam of FAMILIES) {
+    const row = `| ${fam[0].toUpperCase() + fam.slice(1)} | ${Object.values(CELLS).map((cells) => cells[fam].text).join(' | ')} |`;
+    assert.ok(readme.includes(row), `the README's row for ${fam} isn't ${row}`);
+  }
+});
+
+let seed = 100;
+for (const [place, cells] of Object.entries(CELLS)) {
+  for (const fam of FAMILIES) {
+    for (const time of ['day', 'night']) {
+      const cell = cells[fam];
+      const todo = typeof cell.todo === 'string' ? cell.todo : cell.todo?.[time];
+      const dice = seed++;
+      test(`the rules: ${fam} ${place}, by ${time === 'day' ? 'day' : 'night'}, is ${cell.text}`, { todo }, () =>
+        sameDice(() => {
+          const sky = place.includes('sky');
+          const fits = (a, id) => (!a.when || a.when === time) && (!a.only || a.only.includes(id));
+          const allowed = (what, id, sp) => cell.allows.some((a) => fits(a, id) && a.is.includes(what)) || (sky && sp.R < FLECK_R && FLECKS.includes(what));
+          const { made, wrong } = throwMany(place, PAINTS[fam], time, 250, allowed);
+          assert.equal(wrong.size, 0, reportWrong(wrong));
+          for (const a of cell.allows) {
+            const ids = PAINTS[fam].filter((id) => fits(a, id));
+            if (!ids.length) continue;
+            assert.ok(
+              a.is.some((what) => [...(made.get(what) || [])].some((id) => ids.includes(id))),
+              `${a.is.join(' or ')} never turned up (made: ${[...made.keys()].join(', ')})`,
+            );
+          }
+        }, dice),
+      );
+    }
+  }
+}
+
+test('the rules: in the middle of the sky, paint becomes something from the high column or the low one', () =>
+  sameDice(() => {
+    for (const fam of FAMILIES) {
+      for (const time of ['day', 'night']) {
+        const ok = (what, id, sp) => {
+          if (sp.R < FLECK_R && FLECKS.includes(what)) return true;
+          return ['high in the sky', 'low in the sky'].some((place) => {
+            const cell = CELLS[place][fam];
+            if (cell.todo) return true;
+            return cell.allows.some((a) => (!a.when || a.when === time) && (!a.only || a.only.includes(id)) && a.is.includes(what));
+          });
+        };
+        const { wrong } = throwMany('middle', PAINTS[fam], time, 150, ok);
+        assert.equal(wrong.size, 0, `${fam} by ${time}: ${reportWrong(wrong)}`);
+      }
+    }
+  }, 31));
+
+test('the rules: on the horizon, any paint makes a far-off row of trees', () =>
+  sameDice(() => {
+    const { wrong } = throwMany('horizon', PIGMENTS.map((p) => p.id), 'day', 40, (what) => what === 'treeline');
+    assert.equal(wrong.size, 0, reportWrong(wrong));
+  }, 32));
+
+// The second table: paint that lands on something already there. Each row's targets are painted for real, and every
+// splat of every paint in the row lands on a fresh one, so it's always the first hit.
+const YELLOW_RED = [...PAINTS.yellow, ...PAINTS.red];
+const ground = 680;
+const TARGETS = {
+  evergreen: (S) => P.evergreen(S, { x: 150, baseY: ground, h: 140, tint: [60, 90, 40] }),
+  deciduous: (S) => P.deciduous(S, { x: 150, baseY: ground, h: 140, tint: [60, 90, 40] }),
+  birch: (S) => P.deciduous(S, { x: 150, baseY: ground, h: 140, tint: [244, 242, 234], birch: true, bare: true, sparse: 0.14 }),
+  bush: (S) => P.bush(S, { x: 150, baseY: ground, r: 30, tint: [60, 90, 40] }),
+  'island tree': (S) => P.evergreen(S, { x: 700, baseY: ground, h: 140, tint: [60, 90, 40] }),
+  mountain: (S) => P.mountain(S, { x: 600, y: 200, R: 40, index: 0, tint: [62, 43, 29] }),
+  sun: (S) => P.sun(S, { x: 900, y: 150, R: 24 }),
+  cloud: (S) => P.cloud(S, { x: 600, y: 150, R: 30, tint: [244, 242, 234], elong: 1 }),
+  cabin: (S) => P.cabin(S, { x: 150, baseY: ground, size: 90, tint: [62, 43, 29] }),
+  'lit cabin': (S) => P.cabin(S, { x: 150, baseY: ground, size: 90, tint: [62, 43, 29] }),
+  rock: (S) => P.rock(S, { x: 600, y: 620, R: 16, tint: [62, 43, 29] }),
+};
+// Where on the target the paint lands.
+const HIT = {
+  mountain: (t) => ({ x: t.meta.peak[0] + rand(-30, 30), y: t.meta.peak[1] + t.meta.hgt * rand(0.15, 0.4) }),
+  sun: (t) => ({ x: t.meta.x, y: t.meta.y }),
+  cloud: (t) => ({ x: t.meta.x, y: t.meta.baseY - t.meta.h * 0.4 }),
+  rock: (t) => ({ x: t.meta.x, y: t.meta.y - t.meta.hh * 0.5 }),
+  tree: (t) => ({ x: t.meta.x + rand(-10, 10), y: t.meta.baseY - t.meta.size * 0.5 }),
+};
+const hitOn = (name, t) => (HIT[name] || (t.meta.peak ? HIT.mountain : t.meta.puffs ? HIT.cloud : t.meta.hh ? HIT.rock : t.meta.r ? HIT.sun : HIT.tree))(t);
+
+const REACTIONS = [
+  { row: ['a tree', 'white', 'snow settles on it'], targets: ['evergreen', 'deciduous', 'bush'], paints: PAINTS.white, first: () => ['treeSnow'] },
+  { row: ['an evergreen', 'yellow or red', 'late light catches its side'], targets: ['evergreen'], paints: YELLOW_RED, first: () => ['treeGlow'] },
+  { row: ['a leafy tree or bush', 'yellow or red', 'it turns to autumn'], targets: ['deciduous', 'bush'], paints: YELLOW_RED, first: () => ['autumn'] },
+  {
+    row: ['a tree', 'anything else', 'a friend grows next to it (with no ground beside it, light catches it instead)'],
+    targets: ['evergreen', 'deciduous', 'birch', 'bush', 'island tree'],
+    paints: [...PAINTS.green, ...PAINTS.blue, ...PAINTS.brown],
+    first: (target) => (target === 'island tree' ? ['treeGlow'] : ['friend']),
+  },
+  {
+    row: ['a mountain', 'white / blue / yellow or red / green', 'fresh snow / a waterfall / alpenglow / trees up the slope'],
+    targets: ['mountain'],
+    paints: [...PAINTS.white, ...PAINTS.blue, ...YELLOW_RED, ...PAINTS.green],
+    first: (target, fam) => ({ white: ['snowfall'], blue: ['waterfall'], yellow: ['alpenglow'], red: ['alpenglow'], green: ['foothills'] })[fam],
+  },
+  { row: ['a mountain', 'anything else', 'trees up the slope, or a drift of mist'], targets: ['mountain'], paints: PAINTS.brown, first: () => ['foothills', 'mist'] },
+  { row: ['the sun or moon', 'warm or white', 'the whole sky warms into a sunset, or lights up around the moon'], targets: ['sun'], paints: [...PAINTS.white, ...YELLOW_RED], first: () => ['sunset'] },
+  { row: ['the sun or moon', 'anything else', 'a cloud drifts across it'], targets: ['sun'], paints: [...PAINTS.green, ...PAINTS.blue, ...PAINTS.brown], first: () => ['cloudOverSun'] },
+  { row: ['a cloud', 'something dark', 'it turns stormy and rains'], targets: ['cloud'], paints: [...PAINTS.blue, ...PAINTS.brown], first: () => ['storm'] },
+  { row: ['a cloud', 'yellow or red', 'its edges catch the light'], targets: ['cloud'], paints: YELLOW_RED, first: () => ['sunlitCloud'], todo: 'Alizarin Crimson counts as dark and makes a storm' },
+  {
+    row: ['the cabin', 'white / warm / anything', 'snow on the roof / the lights come on (if they aren\'t on already) / a garden'],
+    targets: ['cabin', 'lit cabin'],
+    paints: PIGMENTS.map((p) => p.id),
+    first: (target, fam) => (fam === 'white' ? ['roofSnow'] : target === 'cabin' && (fam === 'yellow' || fam === 'red') ? ['lights'] : ['garden']),
+    todo: 'any paint turns the lights on 40% of the time, not only warm paint',
+  },
+  { row: ['a rock', 'green / white', 'moss / snow'], targets: ['rock'], paints: [...PAINTS.green, ...PAINTS.white], first: (target, fam) => (fam === 'green' ? ['moss'] : ['rockSnow']) },
+];
+
+// What the first step of a reaction is: a friend is a new tree the painter calls company.
+const reactionOf = (plan) => (plan[0]?.say === 'company' ? 'friend' : plan[0]?.kind ?? 'nothing');
+
+test('the second rules table in the README is the one written out here', async () => {
+  const readme = await readFile(join(root, 'README.md'), 'utf8');
+  for (const { row } of REACTIONS) assert.ok(readme.includes(`| ${row.join(' | ')} |`), `the README has no row | ${row.join(' | ')} |`);
+});
+
+for (const [i, r] of REACTIONS.entries()) {
+  test(`the rules: paint on ${r.row[0]}, ${r.row[1]}: ${r.row[2]}`, { todo: r.todo }, () =>
+    sameDice(() => {
+      const wrong = new Map();
+      for (const time of ['day', 'night']) {
+        for (const target of r.targets) {
+          for (const id of r.paints) {
+            const fam = paintOf(id).family;
+            const want = r.first(target, fam);
+            const seen = new Set();
+            for (let n = 0; n < 30; n++) {
+              const mood = pick(time === 'night' ? NIGHT : DAY);
+              const el = { ...TARGETS[target](bareStudio(mood, { land: leftBank })) };
+              // Some moods start with the cabin's lights on; these start them off, or on.
+              if (el.kind === 'cabin') el.meta.glow = target === 'lit cabin';
+              const S = bareStudio(mood, { land: leftBank, target: el });
+              const what = reactionOf(decide(S, makeSplat({ ...hitOn(target, el), R: rand(12, 26), pigment: paintOf(id) })));
+              seen.add(what);
+              if (!want.includes(what)) {
+                const key = `${paintOf(id).name} on a ${target} by ${time} made ${what}`;
+                wrong.set(key, (wrong.get(key) || 0) + 1);
+              }
+            }
+            for (const w of want) if (!seen.has(w)) wrong.set(`${paintOf(id).name} on a ${target} by ${time} never made ${w}`, 1);
+          }
+        }
+      }
+      assert.equal(wrong.size, 0, reportWrong(wrong));
+    }, 200 + i),
+  );
+}
+
+// The README's mixes. Yellow into blue makes green for every yellow and every blue, half and half. Red into yellow makes
+// orange, which acts like yellow (a little red into more yellow: half and half, Alizarin and Yellow Ochre make a brick
+// red). White into red makes pink, which acts like red, however much white. Red into green makes brown.
+const mixOf = (a, b, wa = 1, wb = 1) => mixPaint([[paintOf(a).rgb, wa], [paintOf(b).rgb, wb]]);
+for (const y of PAINTS.yellow) {
+  for (const b of PAINTS.blue) {
+    const todo = familyOf(mixOf(y, b)) === 'green' ? undefined : 'a dull olive reads as brown';
+    test(`the rules: ${paintOf(y).name} into ${paintOf(b).name} makes green`, { todo }, () => assert.equal(familyOf(mixOf(y, b)), 'green', colorName(mixOf(y, b))));
+  }
+}
+test('the rules: red into yellow makes orange, white into red makes pink, red into green makes brown', () => {
+  for (const r of PAINTS.red) {
+    for (const y of PAINTS.yellow) {
+      assert.equal(familyOf(mixOf(r, y, 1, 2)), 'yellow', `${r} into ${y}`);
+      assert.equal(colorName(mixOf(r, y, 1, 2)), 'orange', `${r} into ${y}`);
+    }
+    for (const [ww, wr] of [[2, 1], [1, 1], [1, 2]]) assert.equal(familyOf(mixOf('titanium-white', r, ww, wr)), 'red', `white into ${r}, ${ww}:${wr}`);
+    assert.equal(colorName(mixOf('titanium-white', r, 2, 1)), 'pink', `white into ${r}`);
+    for (const g of PAINTS.green) assert.equal(familyOf(mixOf(r, g)), 'brown', `${r} into ${g}`);
+  }
 });

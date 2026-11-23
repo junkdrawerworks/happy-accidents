@@ -259,13 +259,30 @@ export class Studio {
     return p.getImageData(0, 0, 1, 1).data[3];
   }
 
+  // A random point on the ground. Random tries find a big bank at once; a thin far one (a strip of shore that's 1% of
+  // the lake) can slip through all of them, so then it looks over the whole land mask, every second pixel, and picks
+  // one of the spots it finds.
   findLand() {
+    const y0 = this.hy + (H - this.hy) * 0.08;
     for (let i = 0; i < 80; i++) {
       const x = rand(W * 0.03, W * 0.97);
-      const y = rand(this.hy + (H - this.hy) * 0.08, H * 0.97);
+      const y = rand(y0, H * 0.97);
       if (this.isLand(x, y)) return { x, y };
     }
-    return null;
+    const mw = this.mask.width;
+    const top = Math.ceil(y0 / 4);
+    const rows = Math.floor((H * 0.97) / 4) - top;
+    if (rows <= 0) return null;
+    const d = this.mctx.getImageData(0, top, mw, rows).data;
+    const found = [];
+    for (let my = 0; my < rows; my += 2) {
+      for (let mx = Math.ceil((W * 0.03) / 4); mx < (W * 0.97) / 4; mx += 2) {
+        if (d[(my * mw + mx) * 4 + 3] > 100) found.push([mx, my + top]);
+      }
+    }
+    if (!found.length) return null;
+    const [mx, my] = pick(found);
+    return { x: mx * 4 + 2, y: my * 4 + 2 };
   }
 
   findWater() {
@@ -478,7 +495,7 @@ export class Studio {
 
   // An accident nobody asked for. hint nudges it toward something the painting could use.
   // With a paint given, it only aims where that color makes sense; without one, it picks a
-  // paint that suits what it's aiming at.
+  // paint that suits what it's aiming at. spot, if given, overrides part of where it lands ({ y } for the intro's bank).
   randomAccident(opts = {}) {
     const ang = rand(TAU);
     const speed = chance(0.5) ? rand(0.2, 1.6) : 0;
@@ -505,7 +522,7 @@ export class Studio {
       spot = this.spotFor(hint);
     }
     const pigment = opts.pigment ?? paintFor(hint);
-    return this.addSplat({ ...motion, pigment, ...spot, hint });
+    return this.addSplat({ ...motion, pigment, ...spot, ...(hint === opts.hint ? opts.spot : null), hint });
   }
 
   // A point that's actually on an element.

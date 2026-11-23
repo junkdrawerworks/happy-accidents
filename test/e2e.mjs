@@ -343,6 +343,22 @@ const aimed = await S(async () => {
 assert.ok(aimed.ochre.includes('bank'), `Let it happen never aimed Yellow Ochre at the shore (${aimed.ochre})`);
 assert.ok(!aimed.cadmium.includes('bank'), `Let it happen aimed Cadmium Yellow at the shore (${aimed.cadmium})`);
 
+// A thin strip of far shore is still ground a tree can be aimed at: a tree that Oops, Let it happen or the intro aims
+// at the land finds it, instead of turning into a cloud because random tries all missed it.
+const farTrees = await S(() => {
+  const st = window.happyAccidents;
+  const out = [];
+  for (let i = 0; i < 20; i++) {
+    st.newCanvas('golden-hour');
+    const y = Math.ceil((st.hy + 50) / 4) * 4;
+    st.addLand([[st.W * 0.8, y], [st.W * 0.9, y], [st.W * 0.9, y + 8], [st.W * 0.8, y + 8]]);
+    const sp = st.randomAccident({ hint: 'tree' });
+    out.push(sp.hint === 'tree' && st.isLand(sp.x, sp.y) ? 'on the shore' : sp.hint);
+  }
+  return out;
+});
+assert.deepEqual(farTrees.filter((t) => t !== 'on the shore'), [], 'a tree aimed at a thin strip of shore missed it');
+
 // Let it happen counts what it adds itself, so on a canvas that already has plenty of accidents (your own splats count
 // too) it still keeps going until it has added 8. (The count is set here rather than splashed 29 times.)
 await S(() => window.happyAccidents.newCanvas('golden-hour'));

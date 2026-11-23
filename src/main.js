@@ -183,14 +183,21 @@ function userActed() {
   hintEl.classList.add('gone');
 }
 
+// A mountain, a near bank (in the lower half of the lake, so it's big enough for the tree to find) and a tree on it.
+// The first-time hint stays out of the way until the demo is over, then comes up with the painter's "Your turn".
 function runDemo() {
   const steps = [
     ['mountain', 2100],
-    ['bank', 4000],
+    ['bank', 4000, () => ({ y: studio.hy + (studio.H - studio.hy) * rand(0.5, 0.8) })],
     ['tree', 5800],
   ];
-  for (const [hint, at] of steps) demoTimers.push(setTimeout(() => studio.randomAccident({ hint, delay: 400 }), at));
-  demoTimers.push(setTimeout(() => narrate({ line: line('invite'), info: '' }), 8600));
+  for (const [hint, at, spot] of steps) demoTimers.push(setTimeout(() => studio.randomAccident({ hint, delay: 400, spot: spot?.() }), at));
+  demoTimers.push(
+    setTimeout(() => {
+      narrate({ line: line('invite'), info: '' });
+      hintEl.classList.remove('gone');
+    }, 8600),
+  );
 }
 
 // ——— painting with the pointer ———

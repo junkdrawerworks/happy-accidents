@@ -77,16 +77,25 @@ function page(e) {
 function network(e, keep = () => true) {
   let stored;
   const got = fresh(e.request).then(res => {
-    if (res.ok && keep()) { const copy = res.clone(); stored = caches.open(CACHE).then(c => c.put(e.request, copy)); }
+    if (res.ok && keep()) { const copy = res.clone(); stored = caches.open(CACHE).then(c => c.put(keyFor(e.request), copy)); }
     return res;
   });
   try { e.waitUntil(got.then(() => stored, () => {})); } catch { /* the event is over: the copy goes in anyway */ }
   return got;
 }
 
+// A page is kept under its address without the query string, so a page opened from a shared link (?fbclid=…) is the
+// same page in the copy: a release refreshes it with the rest, instead of an old one staying on under the query, and
+// the copy doesn't gain a page for every link. Files are kept under their own address.
+const keyFor = request => {
+  if (request.mode !== 'navigate') return request;
+  const url = new URL(request.url);
+  return url.origin + url.pathname;
+};
 // A file from the copy, marked like the network's (see askAgainNextTime() below), so a reload once the network is
-// back asks again rather than reusing it.
-const kept = request => caches.match(request, { ignoreSearch: true }).then(r => r && askAgainNextTime(r));
+// back asks again rather than reusing it. A page is looked up by its plain address only.
+const kept = request => (request.mode === 'navigate' ? caches.match(keyFor(request)) : caches.match(request, { ignoreSearch: true }))
+  .then(r => r && askAgainNextTime(r));
 // With no network: the file from the copy, or for anything it hasn't got, the app's page.
 const offline = request => kept(request).then(r => r || caches.match('index.html'));
 

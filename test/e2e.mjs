@@ -996,6 +996,10 @@ assert.deepEqual(problems.filter((p) => !p.startsWith('failed:')), [], 'problems
   await page.goto(base);
   await page.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 15000 });
   const title = await page.title();
+  // The page opened from a link with a query string (a shared link's ?fbclid=…), kept in the copy under its plain
+  // address: see the release below.
+  await page.goto(base + '?x=1');
+  await page.goto(base);
 
   // Works offline once it has been opened.
   net = 'down';
@@ -1023,6 +1027,15 @@ assert.deepEqual(problems.filter((p) => !p.startsWith('failed:')), [], 'problems
     assert.ok(Date.now() < end, "the new release's offline copy kept the old index.html");
     await new Promise(r => setTimeout(r, 100));
   }
+  // With the network down, the page opens from the new release's copy, not from an old page kept under ?x=1 (which
+  // would run the old index.html with the new release's files).
+  net = 'down';
+  await ctx.setOffline(true);
+  await page.reload();
+  assert.equal(await page.evaluate(() => [...document.childNodes].some((n) => n.nodeType === Node.COMMENT_NODE && n.data.includes('the next release'))), true, 'offline after a release, the page opened from an old copy kept under its query string');
+  assert.deepEqual(await page.evaluate(async () => (await (await caches.open((await caches.keys())[0])).keys()).map((r) => r.url).filter((u) => u.includes('?'))), [], 'the copy kept a page under its query string');
+  await ctx.setOffline(false);
+  net = 'up';
   assert.deepEqual(problems, [], 'problems while offline or on a stalled connection');
   await ctx.close();
   server.close();

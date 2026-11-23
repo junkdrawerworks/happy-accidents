@@ -26,7 +26,13 @@ const store = {
     }
   },
 };
-const KEY = { brush: 'happy-accidents:brush', name: 'happy-accidents:artist', sound: 'happy-accidents:sound', gallery: 'happy-accidents:gallery' };
+const KEY = {
+  brush: 'happy-accidents:brush',
+  name: 'happy-accidents:artist',
+  sound: 'happy-accidents:sound',
+  gallery: 'happy-accidents:gallery',
+  canvases: 'happy-accidents:canvases',
+};
 
 const canvas = $('canvas');
 const stage = $('stage');
@@ -81,6 +87,7 @@ const studio = new Studio(canvas, {
   scale,
   onNarrate: narrate,
   onCanvas(s) {
+    store.set(KEY.canvases, s.number);
     $('canvasNo').textContent = `Canvas No. ${s.number}`;
     $('schemeName').textContent = s.scheme.name;
   },
@@ -729,6 +736,9 @@ window.addEventListener('keydown', sound.wake, true);
 
 setSound(store.get(KEY.sound, false) === true);
 updateCount();
+// Canvas numbers carry on from the last visit, so no two paintings on the wall share one.
+const lastCanvas = store.get(KEY.canvases, 0);
+studio.number = Number.isInteger(lastCanvas) && lastCanvas > 0 ? lastCanvas : 0;
 studio.newCanvas();
 runDemo();
 

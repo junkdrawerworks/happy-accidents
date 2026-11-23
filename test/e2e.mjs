@@ -648,10 +648,12 @@ await page.click('#anotherBtn');
 assert.notEqual(await page.textContent('#canvasNo'), canvasNo, 'a second tap of Paint another starts over');
 assert.equal(await page.isHidden('#placard'), true);
 
-// The gallery survives a reload.
+// The gallery survives a reload, and the canvas numbers carry on from where they were.
+const lastNo = Number((await page.textContent('#canvasNo')).match(/\d+/)[0]);
 await page.reload();
 await page.evaluate(() => document.fonts.ready);
 assert.equal(await page.textContent('#galleryCount'), '1', 'the signed painting is still in the gallery after a reload');
+assert.equal(await page.textContent('#canvasNo'), `Canvas No. ${lastNo + 1}`, 'the canvas numbers started over after a reload');
 await page.keyboard.press('g');
 assert.equal(await page.locator('.wall-item').count(), 1);
 await page.keyboard.press('Escape');
@@ -801,10 +803,12 @@ await S(() => {
   const hung = JSON.parse(localStorage.getItem('happy-accidents:gallery'));
   localStorage.setItem('happy-accidents:gallery', JSON.stringify([null, 1, 'x', {}, ...hung]));
   localStorage.setItem('happy-accidents:artist', '{"x":1}');
+  localStorage.setItem('happy-accidents:canvases', '"lots"');
 });
 await page.reload();
 await page.evaluate(() => document.fonts.ready);
 assert.equal(await page.textContent('#galleryCount'), '1', 'junk in storage counted as paintings');
+assert.equal(await page.textContent('#canvasNo'), 'Canvas No. 1', 'a canvas count that isn’t a number should start the count again');
 await page.keyboard.press('g');
 assert.equal(await page.isHidden('#gallery'), false, 'the gallery opens with junk in storage');
 assert.equal(await page.locator('.wall-item').count(), 1, 'only the real painting hangs');

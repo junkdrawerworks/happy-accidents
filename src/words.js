@@ -98,7 +98,16 @@ export const LINES = {
   canoe: ['Red on the water. That’s a canoe.', 'A red canoe, just drifting. Nobody’s in a hurry.'],
   glints: ['Light on the water. That’s where the paint went.', 'A little sparkle where the light hits the lake.'],
   blueRipples: ['Blue on the water just moves the water around.', 'A few ripples, cool and blue.'],
-  signature: ['Now sign it. That makes it yours.'],
+  signature: [
+    'Now sign it. That makes it yours.',
+    'A little red, down in the corner. That makes it yours.',
+    'Sign it small, in the corner. Good paintings don’t shout.',
+  ],
+  hung: [
+    'It’s on the wall. Paint on if you like, or start a fresh one.',
+    'That one’s hanging now. There’s always more paint.',
+    'Up on the wall it goes. The easel’s still here if you want it.',
+  ],
   invite: ['Your turn. Tap, flick, or press and hold. Try hitting what’s already there, too.'],
   done: [
     'That might be done. Sign it whenever you’re ready.',

@@ -402,9 +402,14 @@ function closeOverlay(el, focusEl = returnFocus) {
   stepOff();
   focusEl?.focus?.();
 }
+// Escape, a tap outside and the phone's Back close the overlay on top; the label goes through leavePlacard().
+function dismiss(el) {
+  if (el === $('placard')) leavePlacard();
+  else closeOverlay(el);
+}
 for (const o of overlays) {
   o.addEventListener('click', (e) => {
-    if (e.target === o) closeOverlay(o);
+    if (e.target === o) dismiss(o);
   });
 }
 const openOverlayEl = () => overlays.find((o) => !o.hidden);
@@ -436,7 +441,7 @@ window.addEventListener('popstate', () => {
     return;
   }
   const open = openOverlayEl();
-  if (open) closeOverlay(open);
+  if (open) dismiss(open);
 });
 
 // ——— signing ———
@@ -502,7 +507,7 @@ $('signForm').addEventListener('submit', async (e) => {
     // What's on the wall from this canvas, and how many accidents it had then (any that landed while it was being
     // signed are in the picture too).
     Object.assign(studio.signed, { id: record.id, full, accidents: s.accidents });
-    showPlacard(record, full);
+    showPlacard(record, full, 'signing');
   } finally {
     signing = false;
     if (!openOverlayEl()) {
@@ -516,7 +521,11 @@ function slug(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'happy-accident';
 }
 
-function showPlacard(record, src) {
+// Where the label on show was opened from: 'signing' right after the signature went on, or null (the painting on the
+// easel, signed earlier).
+let placardFrom = null;
+function showPlacard(record, src, from = null) {
+  placardFrom = from;
   const img = $('placardImg');
   img.src = src || record.img;
   img.alt = `${record.title}, a landscape painting by ${record.artist}`;
@@ -563,10 +572,20 @@ const anotherBtn = $('anotherBtn');
 anotherBtn.addEventListener('click', () => {
   if (!askFirst(anotherBtn, 'Paint another')) return;
   setAuto(false);
+  placardFrom = null;
   studio.newCanvas();
   closeOverlay($('placard'), canvas);
 });
-$('keepBtn').addEventListener('click', () => closeOverlay($('placard')));
+$('keepBtn').addEventListener('click', leavePlacard);
+
+// Back to the easel. Right after a signing, the painter says it's up on the wall, so the line from while the signature
+// went on doesn't stay up under a painting that's already signed.
+function leavePlacard() {
+  const from = placardFrom;
+  placardFrom = null;
+  closeOverlay($('placard'));
+  if (from === 'signing') narrate({ line: line('hung'), info: '' });
+}
 
 // ——— the gallery wall ———
 
@@ -662,7 +681,7 @@ const shortcuts = new Map([
 window.addEventListener('keydown', (e) => {
   const open = openOverlayEl();
   if (open) {
-    if (e.key === 'Escape') closeOverlay(open);
+    if (e.key === 'Escape') dismiss(open);
     return;
   }
   if (e.target.closest?.('input, textarea')) return;

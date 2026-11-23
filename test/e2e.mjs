@@ -616,6 +616,10 @@ await page.click('#keepBtn');
 assert.equal(await page.textContent('#galleryCount'), '1');
 assert.equal(await S(() => document.getElementById('app').inert), false);
 assert.equal(await S(() => document.activeElement.id), 'signBtn', 'after the label, focus goes back to Sign it');
+// Back at the easel the painter says it's on the wall, instead of still saying to sign it.
+await page.waitForTimeout(300);
+const hungLines = await S(async () => (await import('./src/words.js')).LINES.hung);
+assert.ok(hungLines.includes(await page.textContent('#line')), `after signing, the painter said “${await page.textContent('#line')}”`);
 
 // Sign it again with nothing new on the canvas brings its label back up, instead of hanging a second copy.
 await page.click('#signBtn');

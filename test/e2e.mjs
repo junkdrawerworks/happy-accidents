@@ -818,6 +818,59 @@ await page.waitForSelector('#placard:not([hidden])', { timeout: 30000 });
 assert.equal(await page.textContent('#plArtist'), 'Anonymous', 'a blank name didn’t sign as Anonymous');
 await page.click('#keepBtn');
 
+// The wall keeps the 12 newest: the 13th signing takes the oldest down, and the badge stays at 12. (The 12 already up
+// are copies of the one there, hung by hand, rather than signed one by one.) Then, when the browser won't keep that
+// many, the oldest come down until it will, and the label says so; and when it won't keep any (site data blocked, or
+// no room at all), the label says this one won't go up, and the wall stays as it was.
+const signAgain = async () => {
+  await S(() => window.happyAccidents.newCanvas('golden-hour'));
+  await S(() => window.happyAccidents.randomAccident());
+  await page.waitForTimeout(200);
+  await settle();
+  await page.keyboard.press('s');
+  await page.click('#signForm button[type=submit]');
+  await page.waitForSelector('#placard:not([hidden])', { timeout: 30000 });
+};
+const wall = () => S(() => JSON.parse(localStorage.getItem('happy-accidents:gallery')).map((r) => r.title));
+await S(() => {
+  const [rec] = JSON.parse(localStorage.getItem('happy-accidents:gallery'));
+  localStorage.setItem('happy-accidents:gallery', JSON.stringify(Array.from({ length: 12 }, (_, i) => ({ ...rec, id: `old${i}`, title: `Painting ${12 - i}` }))));
+});
+await signAgain();
+let hungNow = await wall();
+assert.equal(hungNow.length, 12, 'the wall should keep 12');
+assert.equal(hungNow[0], await page.textContent('#plTitle'), 'the new painting goes up first');
+assert.ok(!hungNow.includes('Painting 1') && hungNow.includes('Painting 2'), `the 13th signing should take the oldest down (${hungNow})`);
+assert.equal(await page.isHidden('#keptNote'), true, 'a usual 13th signing has nothing to say under the label');
+assert.equal(await page.textContent('#galleryCount'), '12');
+await page.click('#keepBtn');
+await S(() => {
+  window.realSetItem = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (k, v) {
+    if (k === 'happy-accidents:gallery' && JSON.parse(v).length > 5) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+    return window.realSetItem.call(this, k, v);
+  };
+});
+await signAgain();
+assert.equal((await wall()).length, 5);
+assert.equal(await page.isHidden('#keptNote'), false, 'the label didn’t say older paintings came down');
+assert.match(await page.textContent('#keptNote'), /the seven oldest paintings came down/);
+assert.equal(await page.textContent('#galleryCount'), '5');
+await page.click('#keepBtn');
+await S(() => {
+  Storage.prototype.setItem = function () {
+    throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+  };
+});
+hungNow = await wall();
+await signAgain();
+assert.equal(await page.isHidden('#keptNote'), false, 'the label didn’t say the browser isn’t keeping the painting');
+assert.match(await page.textContent('#keptNote'), /This browser isn’t keeping paintings, so this one won’t go up on the wall\. Download it to keep it\./);
+assert.deepEqual(await wall(), hungNow, 'the wall changed when the browser wouldn’t keep the new painting');
+assert.equal(await page.textContent('#galleryCount'), '5');
+await S(() => (Storage.prototype.setItem = window.realSetItem));
+await page.click('#keepBtn');
+
 // With sound saved on, nothing tries to start audio before the first tap or key (the browser refuses and says so in
 // the console); the first tap starts it.
 const audioComplaints = [];

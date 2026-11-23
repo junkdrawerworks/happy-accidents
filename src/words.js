@@ -254,6 +254,15 @@ const FEATURE_NAMES = [
 const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
 const num = (n) => WORDS[n] || String(n);
 
+// Under the label, when the browser wouldn't keep the painting, or kept it by taking older ones down beyond the usual
+// 12th. Empty when all went as usual.
+export function keptNote({ kept, dropped }, canSave = true) {
+  if (!kept) return `This browser isn’t keeping paintings, so this one won’t go up on the wall. ${canSave ? 'Download it to keep it.' : 'Save the picture to keep it.'}`;
+  if (dropped === 1) return 'The browser ran short of room, so the oldest painting came down to make space for this one.';
+  if (dropped > 1) return `The browser ran short of room, so the ${num(dropped)} oldest paintings came down to make space for this one.`;
+  return '';
+}
+
 export function featureLine(counts) {
   const parts = [];
   for (const [key, one, many] of FEATURE_NAMES) {

@@ -1,6 +1,6 @@
 import { Studio } from './studio.js';
 import { PIGMENTS } from './schemes.js';
-import { makeTitle, featureLine, madeFrom, line } from './words.js';
+import { makeTitle, featureLine, madeFrom, line, keptNote } from './words.js';
 import { pick, rand, gauss } from './util.js';
 import * as sound from './sound.js';
 import { guardEdges } from './edge-guard.js';
@@ -503,11 +503,11 @@ $('signForm').addEventListener('submit', async (e) => {
       number: s.number,
       features: featureLine(s.counts),
     };
-    hang(record);
+    const hung = hang(record);
     // What's on the wall from this canvas, and how many accidents it had then (any that landed while it was being
     // signed are in the picture too).
     Object.assign(studio.signed, { id: record.id, full, accidents: s.accidents });
-    showPlacard(record, full, 'signing');
+    showPlacard(record, full, 'signing', hung);
   } finally {
     signing = false;
     if (!openOverlayEl()) {
@@ -524,7 +524,8 @@ function slug(text) {
 // Where the label on show was opened from: 'signing' right after the signature went on, or null (the painting on the
 // easel, signed earlier).
 let placardFrom = null;
-function showPlacard(record, src, from = null) {
+// hung is what hang() said, right after a signing.
+function showPlacard(record, src, from = null, hung = null) {
   placardFrom = from;
   const img = $('placardImg');
   img.src = src || record.img;
@@ -541,6 +542,9 @@ function showPlacard(record, src, from = null) {
   saveBtn.textContent = 'Download image';
   saveBtn.onclick = () => saveImage(src || record.img, `${slug(record.title)}.jpg`);
   $('saveHint').hidden = canSave;
+  const note = hung ? keptNote(hung, canSave) : '';
+  $('keptNote').textContent = note;
+  $('keptNote').hidden = !note;
   disarm(anotherBtn, 'Paint another');
   openOverlay($('placard'), anotherBtn);
 }
@@ -595,10 +599,15 @@ function readGallery() {
   return Array.isArray(list) ? list.filter((r) => r && typeof r === 'object' && typeof r.img === 'string') : [];
 }
 
+// Hangs a newly signed painting, newest first, keeping the 12 newest. When the browser won't take that many, the
+// oldest come down until it does, and when it won't keep any, the wall stays as it was. Says whether the new painting
+// was kept, and how many older ones came down beyond the usual 12th.
 function hang(record) {
   const list = [record, ...readGallery()].slice(0, 12);
+  const room = list.length;
   while (list.length && !store.set(KEY.gallery, list)) list.pop();
   updateCount();
+  return { kept: list.length > 0, dropped: list.length ? room - list.length : 0 };
 }
 
 function updateCount() {

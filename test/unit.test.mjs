@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { featureLine, madeFrom, durationText, makeTitle, toolInfo, LINES } from '../src/words.js';
+import { featureLine, madeFrom, durationText, makeTitle, toolInfo, keptNote, LINES } from '../src/words.js';
 import { topEdge, heights, at, span, sideProfile } from '../src/shape.js';
 import { ramp, mix, hex, mixPaint, familyOf, colorName } from '../src/color.js';
 import { weighted, pickFresh, clamp } from '../src/util.js';
@@ -51,6 +51,14 @@ test('painting time and accident counts read naturally', () => {
   assert.equal(madeFrom(1, 20), 'Painted wet-on-wet from one happy accident in 20 seconds.');
   assert.equal(madeFrom(14, 192), 'Painted wet-on-wet from 14 happy accidents in 3 min 12 s.');
   assert.equal(madeFrom(0, 2), 'Painted wet-on-wet without a single accident, in 2 seconds.', 'a blank canvas isn’t made from 0 happy accidents');
+});
+
+test('the label says when the browser didn’t keep the painting, or took older ones down for it', () => {
+  assert.equal(keptNote({ kept: true, dropped: 0 }), '', 'a usual signing says nothing');
+  assert.match(keptNote({ kept: false, dropped: 0 }), /won’t go up on the wall\. Download it to keep it\.$/);
+  assert.match(keptNote({ kept: false, dropped: 0 }, false), /Save the picture to keep it\.$/, 'with no Download button it doesn’t point at one');
+  assert.match(keptNote({ kept: true, dropped: 1 }), /the oldest painting came down/);
+  assert.match(keptNote({ kept: true, dropped: 7 }), /the seven oldest paintings came down/);
 });
 
 test('titles are always real words', () => {

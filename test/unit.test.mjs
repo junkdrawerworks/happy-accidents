@@ -188,6 +188,27 @@ test('at night and dusk, what paint adds sits in the shade like everything else'
   }
 });
 
+test('a pine’s trunk reaches the ground, however tall the pine', () => {
+  // The trunk is painted first. Each bristle's lowest point should be down at the base, under the grass, not a sixteenth
+  // of the tree's height above it (44px on a pine that fills the canvas).
+  const S = bareStudio();
+  for (const h of [80, 150, 300, 500, 700, 900]) {
+    const spec = P.evergreen(S, { x: 300, baseY: 800, h, tint: [60, 90, 40] });
+    const strokes = [];
+    const ctx = new Proxy(
+      {},
+      {
+        get: (t, k) => (k === 'beginPath' ? () => strokes.push([]) : k === 'moveTo' || k === 'lineTo' ? (x, y) => strokes.at(-1).push(y) : k in t ? t[k] : () => {}),
+        set: (t, k, v) => ((t[k] = v), true),
+      },
+    );
+    spec.ops[0](ctx);
+    const gaps = strokes.filter((s) => s.length).map((s) => 800 - Math.max(...s)).sort((a, b) => a - b);
+    const median = gaps[gaps.length >> 1];
+    assert.ok(median <= Math.max(5, h * 0.015), `a ${h}px pine's trunk stops ${median.toFixed(1)}px above the ground`);
+  }
+});
+
 test('a splat outline turns into a silhouette', () => {
   // A circle of radius 10 centered at (50, 50).
   const circle = Array.from({ length: 72 }, (_, i) => [50 + Math.cos((i / 72) * Math.PI * 2) * 10, 50 + Math.sin((i / 72) * Math.PI * 2) * 10]);

@@ -58,8 +58,11 @@ export function evergreen(S, p) {
 
   const ops = [];
   const trunk = darken(mix(scheme.tree.dark, [62, 42, 26], 0.45), 0.15);
+  // A point every 4px or so: each bristle starts at the first point past its own taper, so with a fixed 16 points a tall
+  // pine's trunk began a sixteenth of its height above the ground. It stops a tenth of the way down from the tip, under
+  // the top tiers.
   ops.push((ctx) =>
-    bristle(ctx, linePts(x, baseY, x + lean, top + h * 0.05, 16), { width: Math.max(2, h * 0.03), color: trunk, alpha: 0.95, taper: 0.05, colorVar: 0.02 }),
+    bristle(ctx, linePts(x, baseY, x + lean, top + h * 0.1, Math.max(16, Math.round(h / 4))), { width: Math.max(2, h * 0.03), color: trunk, alpha: 0.95, taper: 0.02, colorVar: 0.02 }),
   );
   for (let i = 0; i < tiers.length; i += 2) {
     const pair = tiers.slice(i, i + 2);
@@ -86,7 +89,8 @@ export function evergreen(S, p) {
     });
   }
   const gc = groundColors(S, hz);
-  ops.push((ctx) => grass(ctx, x, baseY, h * 0.16, gc, Math.round(clamp(h / 3, 8, 70)), clamp(h / 90, 0.6, 2.6)));
+  // Grass round the foot, no wider than a strip of bank, so a tall pine's doesn't spill out over the water.
+  ops.push((ctx) => grass(ctx, x, baseY, Math.min(h * 0.16, 40), gc, Math.round(clamp(h / 3, 8, 70)), clamp(h / 90, 0.6, 2.6)));
 
   return {
     kind: 'evergreen',

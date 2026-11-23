@@ -203,6 +203,7 @@ canvas.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   canvas.setPointerCapture?.(e.pointerId);
   userActed();
+  cancelDone();
   const p = toCanvas(e);
   const pigment = currentPigment();
   gesture = { id: e.pointerId, start: p, cx: e.clientX, cy: e.clientY, pts: [p], moved: 0, pigment, drops: [] };
@@ -279,6 +280,7 @@ guardEdges({ surfaces: [canvas], history: !inFrame });
 
 function oops() {
   userActed();
+  cancelDone();
   studio.randomAccident({ pigment: accidentPigment() });
 }
 
@@ -299,6 +301,7 @@ function setAuto(on) {
   autoBtn.setAttribute('aria-pressed', String(on));
   autoBtn.textContent = on ? 'Stop' : 'Let it happen';
   if (on) {
+    cancelDone();
     autoStart = studio.accidents;
     userActed();
     tickAuto(250);
@@ -308,12 +311,29 @@ function tickAuto(delay) {
   autoTimer = setTimeout(() => {
     if (studio.accidents - autoStart >= Math.max(8, 24 - autoStart)) {
       setAuto(false);
-      narrate({ line: line('done'), info: '' });
+      sayDone();
       return;
     }
     if (studio.active.length < 2) studio.randomAccident({ pigment: accidentPigment() });
     tickAuto(rand(1300, 2400));
   }, delay);
+}
+
+// When Let it happen has made its last accident, the painter says it might be done once everything has been painted
+// in (or after 15 seconds at most), so the line isn't talked over by the last few splats. New canvas, Let it happen
+// again, Sign it or another splat in the meantime calls it off.
+let doneTimer = null;
+function sayDone(gen = studio.gen, until = Date.now() + 15000) {
+  doneTimer = setTimeout(() => {
+    doneTimer = null;
+    if (studio.gen !== gen) return;
+    if (studio.busy && Date.now() < until) sayDone(gen, until);
+    else narrate({ line: line('done'), info: '' });
+  }, 200);
+}
+function cancelDone() {
+  clearTimeout(doneTimer);
+  doneTimer = null;
 }
 
 // A button that starts over asks first when there's paint that isn't on the gallery wall (all of it on an unsigned
@@ -340,6 +360,7 @@ const newBtn = $('newBtn');
 function newCanvas() {
   if (signing || !askFirst(newBtn, 'New canvas')) return;
   setAuto(false);
+  cancelDone();
   userActed();
   studio.newCanvas();
 }
@@ -426,6 +447,7 @@ const artTitle = $('artTitle');
 function openSign() {
   if (signing) return;
   setAuto(false);
+  cancelDone();
   userActed();
   const saved = store.get(KEY.name, '');
   artistName.value = typeof saved === 'string' ? saved : '';

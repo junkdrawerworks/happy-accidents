@@ -351,11 +351,25 @@ await S(() => (window.happyAccidents.accidents = 29));
 await page.click('#autoBtn');
 await page.waitForFunction(() => window.happyAccidents.accidents > 29, null, { timeout: 5000 }).catch(() => assert.fail('Let it happen added nothing to a canvas with 29 accidents'));
 assert.equal(await page.getAttribute('#autoBtn', 'aria-pressed'), 'true', 'Let it happen stopped straight away on a canvas with 29 accidents');
-await S(() => (window.happyAccidents.accidents = 36)); // one short of 8 more
+// The painter says it might be done once everything still going on has been painted in, so the line isn't talked over
+// (here by a slow splat that lands just as Let it happen stops).
+await S(async () => {
+  const { PIGMENTS } = await import('./src/schemes.js');
+  const st = window.happyAccidents;
+  const btn = document.getElementById('autoBtn');
+  new MutationObserver((_, obs) => {
+    obs.disconnect();
+    st.addSplat({ x: st.W * 0.3, y: st.hy * 0.3, R: 22, pigment: PIGMENTS.find((p) => p.id === 'titanium-white'), delay: 1500 });
+  }).observe(btn, { attributes: true, attributeFilter: ['aria-pressed'] });
+  st.accidents = 36; // one short of 8 more
+});
 await page.waitForFunction(() => document.getElementById('autoBtn').getAttribute('aria-pressed') === 'false', null, { timeout: 15000 });
-assert.equal(await S(() => window.happyAccidents.accidents), 37, 'Let it happen should stop once it has added 8 to a busy canvas');
+assert.equal(await S(() => window.happyAccidents.accidents), 38, 'Let it happen should stop once it has added 8 to a busy canvas (and then the slow splat)');
 assert.equal(await page.textContent('#autoBtn'), 'Let it happen');
 await settle();
+await page.waitForTimeout(800);
+const doneLines = await S(async () => (await import('./src/words.js')).LINES.done);
+assert.ok(doneLines.includes(await page.textContent('#line')), `the painter didn’t end on “that might be done” (${await page.textContent('#line')})`);
 
 // Things painted near the edges stay on the canvas: the sun or moon from paint at the very top, the bush beside a
 // cabin built at the edge of a bank, and the trees climbing a green mountain near a side.

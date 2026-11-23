@@ -100,7 +100,12 @@ export const LINES = {
   blueRipples: ['Blue on the water just moves the water around.', 'A few ripples, cool and blue.'],
   signature: ['Now sign it. That makes it yours.'],
   invite: ['Your turn. Tap, flick, or press and hold. Try hitting what’s already there, too.'],
-  done: ['That might be done. Sign it whenever you’re ready.'],
+  done: [
+    'That might be done. Sign it whenever you’re ready.',
+    'Let’s step back and look at it. I think it’s done.',
+    'I wouldn’t touch it again. Sign it when you’re ready.',
+    'It’s found what it wanted to be. Sign it, or keep going.',
+  ],
   undo: ['There’s no undo in here. Let’s see what it turns into instead.'],
   leave: ['That one landed off the canvas. Happens to everybody.'],
 };

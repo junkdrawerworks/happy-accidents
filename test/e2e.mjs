@@ -7,7 +7,7 @@ import { execSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { join, dirname, extname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
 
 const require = createRequire(import.meta.url);
@@ -575,6 +575,21 @@ const oopsAt = await S(async () => {
 });
 assert.equal(oopsAt.length, 1, `the buttons moved as the painter talked, to ${oopsAt.join(', ')} px`);
 
+// Space is Oops, M turns the sound on and off (and remembers it), and Ctrl+Z gets a word about there being no undo.
+await S(() => document.activeElement?.blur());
+before = await S(() => window.happyAccidents.accidents);
+await page.keyboard.press(' ');
+assert.equal(await S(() => window.happyAccidents.accidents), before + 1, 'Space should make an accident');
+await page.keyboard.press('m');
+assert.deepEqual([await page.textContent('#soundBtn'), await S(() => localStorage.getItem('happy-accidents:sound'))], ['Sound on', 'true'], 'M should turn the sound on');
+await page.keyboard.press('m');
+assert.deepEqual([await page.textContent('#soundBtn'), await S(() => localStorage.getItem('happy-accidents:sound'))], ['Sound off', 'false'], 'M again should turn it off');
+await page.waitForTimeout(1500);
+await settle();
+await page.keyboard.press('Control+z');
+await page.waitForTimeout(400);
+assert.ok((await S(async () => (await import('./src/words.js')).LINES.undo)).includes(await page.textContent('#line')), 'Ctrl+Z should get the line about there being no undo');
+
 // The S key opens the sign form without typing an "s" into it.
 const watchTyping = () => S(() => {
   window.typed = [];
@@ -918,6 +933,23 @@ assert.equal(await page.textContent('#galleryCount'), '5');
 await S(() => (Storage.prototype.setItem = window.realSetItem));
 await page.click('#keepBtn');
 
+// On the wall, Remove asks first: the first tap turns it into "Remove it?", and only a second one takes the painting
+// down. A painting opened there downloads as a JPEG named for its title.
+await page.keyboard.press('g');
+await page.locator('.wall-item .quiet').first().click();
+assert.equal(await page.locator('.wall-item .quiet').first().textContent(), 'Remove it?');
+assert.equal(await page.locator('.wall-item').count(), 5, 'the first tap of Remove took the painting down');
+await page.locator('.wall-item .quiet').first().click();
+assert.equal(await page.locator('.wall-item').count(), 4, 'the second tap of Remove didn’t take the painting down');
+assert.equal(await page.textContent('#galleryCount'), '4');
+assert.equal((await wall()).length, 4);
+await page.locator('.wall-open').first().click();
+const [saved] = await Promise.all([page.waitForEvent('download'), page.click('#downloadBtn')]);
+assert.equal(saved.suggestedFilename(), `${(await wall())[0].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.jpg`, 'the download is named for the painting');
+await page.keyboard.press('Escape');
+await page.keyboard.press('Escape');
+assert.equal(await page.isHidden('#gallery'), true);
+
 // With sound saved on, nothing tries to start audio before the first tap or key (the browser refuses and says so in
 // the console); the first tap starts it.
 const audioComplaints = [];
@@ -938,12 +970,27 @@ b = await box();
 await page.touchscreen.tap(b.x + b.width * 0.5, b.y + b.height * 0.3);
 await page.waitForFunction(() => window.audioContexts?.[0]?.state === 'running', null, { timeout: 10000 });
 
-// Works offline once it has been opened.
+// Works offline once it has been opened: it opens, paints, signs and hangs the painting on the wall.
 await page.waitForFunction(() => navigator.serviceWorker && navigator.serviceWorker.controller, null, { timeout: 15000 });
+assert.deepEqual(problems, [], 'problems while painting');
+problems.length = 0;
 await ctx.setOffline(true);
 await page.reload();
 await page.waitForFunction(() => window.happyAccidents && window.happyAccidents.elements.length > 0, null, { timeout: 15000 });
 assert.equal(await page.title(), 'Happy Accidents');
+await page.evaluate(() => document.fonts.ready);
+await S(() => window.happyAccidents.skipIntro());
+await S(() => window.happyAccidents.randomAccident());
+await page.waitForTimeout(200);
+await settle();
+const hungOnline = Number(await page.textContent('#galleryCount'));
+await page.keyboard.press('s');
+await page.click('#signForm button[type=submit]');
+await page.waitForSelector('#placard:not([hidden])', { timeout: 30000 });
+await page.click('#keepBtn');
+await page.keyboard.press('g');
+assert.equal(await page.locator('.wall-item').count(), hungOnline + 1, 'the painting signed offline isn’t on the wall');
+await page.keyboard.press('Escape');
 await ctx.setOffline(false);
 
 // With JavaScript off, the page says what it needs on the first screen, not below an easel that does nothing.
@@ -954,7 +1001,7 @@ const note = await plain.locator('.noscript').boundingBox();
 assert.ok(note && note.y + note.height <= 844, `the note about JavaScript is below the first screen (${JSON.stringify(note)})`);
 await noScript.close();
 
-assert.deepEqual(problems.filter((p) => !p.startsWith('failed:')), [], 'problems while painting');
+assert.deepEqual(problems, [], 'problems while painting offline, or since');
 // Offline, checked the junkdrawer house kit's way, from a server that answers like GitHub Pages: a browser may keep
 // each file for ten minutes, and asks again by its ETag. `net` is the connection: 'up', 'down' (the server drops every
 // connection) or 'stalled' (a plane's or a train's wifi: it takes each request and holds on to it). With `release`
@@ -996,6 +1043,32 @@ assert.deepEqual(problems.filter((p) => !p.startsWith('failed:')), [], 'problems
   await page.goto(base);
   await page.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 15000 });
   const title = await page.title();
+  // It can be installed: Chromium has nothing to say against the manifest, its icons or the worker. That takes full
+  // Chromium (the headless shell says nothing about any page) with a profile on disk (a private window can't install
+  // anything). A page with no manifest is checked first, to see the check can see.
+  {
+    const { mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const dir = mkdtempSync(join(tmpdir(), 'happy-accidents-'));
+    const full = await pw.chromium.launchPersistentContext(dir, { channel: 'chromium' }).catch(() => null);
+    if (full) {
+      try {
+        const p = full.pages()[0] || (await full.newPage());
+        const errors = async (url) => {
+          await p.goto(url);
+          await p.waitForTimeout(500);
+          return (await (await full.newCDPSession(p)).send('Page.getInstallabilityErrors')).installabilityErrors.map((e) => e.errorId);
+        };
+        assert.ok((await errors(base + 'LICENSE')).includes('no-manifest'), 'the install check can’t see a page with no manifest');
+        await p.goto(base);
+        await p.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 15000 });
+        assert.deepEqual(await errors(base), [], 'Chromium says the game can’t be installed');
+      } finally {
+        await full.close();
+        rmSync(dir, { recursive: true, force: true });
+      }
+    } else console.log('(there’s no full Chromium here, so the install check was skipped)');
+  }
   // The page opened from a link with a query string (a shared link's ?fbclid=…), kept in the copy under its plain
   // address: see the release below.
   await page.goto(base + '?x=1');
@@ -1049,6 +1122,26 @@ assert.deepEqual(problems.filter((p) => !p.startsWith('failed:')), [], 'problems
   for (const f of shell) all.update(createHash('sha1').update(await readFile(join(root, f.endsWith('/') ? f + 'index.html' : f))).digest());
   const files = all.digest('hex').slice(0, 8);
   assert.equal(sw.match(/const FILES = '([0-9a-f]*)'/)?.[1], files, `a file sw.js keeps for offline has changed: set FILES in sw.js to '${files}'`);
+}
+
+// The single-file build opens from disk and paints, with nothing in the console and nothing fetched from anywhere.
+{
+  execSync('node scripts/build.mjs', { cwd: root, stdio: 'ignore' });
+  const fctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  const p = await fctx.newPage();
+  const errors = [];
+  p.on('pageerror', (e) => errors.push(e.message));
+  p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  p.on('request', (r) => { if (!/^(file|data):/.test(r.url())) errors.push('fetched ' + r.url()); });
+  await p.goto(pathToFileURL(join(root, 'dist/happy-accidents.html')).href);
+  await p.waitForFunction(() => window.happyAccidents?.skipIntro);
+  await p.evaluate(() => window.happyAccidents.skipIntro());
+  const fb = await p.locator('#canvas').boundingBox();
+  await p.mouse.click(fb.x + fb.width * 0.3, fb.y + fb.height * 0.2);
+  await p.waitForFunction(() => window.happyAccidents.accidents === 1 && !window.happyAccidents.busy && !window.happyAccidents.active.length, null, { timeout: 20000 });
+  assert.ok(await p.evaluate(() => Object.keys(window.happyAccidents.counts).some((k) => k !== 'sky')), 'a tap in the single-file build turned into nothing');
+  assert.deepEqual(errors, [], 'problems in the single-file build opened from disk');
+  await fctx.close();
 }
 
 await browser.close();

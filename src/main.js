@@ -535,12 +535,19 @@ function slug(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'happy-accident';
 }
 
-// Where the label on show was opened from: 'signing' right after the signature went on, or null (the painting on the
-// easel, signed earlier).
+// Where the label on show was opened from: 'signing' right after the signature went on, 'wall' for a painting opened
+// on the gallery wall, or null (the painting on the easel, signed earlier). A painting from the wall goes back to the
+// wall, where it was scrolled to.
 let placardFrom = null;
+let wallAt = { scroll: 0, id: null };
 // hung is what hang() said, right after a signing.
 function showPlacard(record, src, from = null, hung = null) {
+  if (!from && !$('gallery').hidden) {
+    from = 'wall';
+    wallAt = { scroll: $('gallery').scrollTop, id: record.id };
+  }
   placardFrom = from;
+  $('keepBtn').textContent = from === 'wall' ? 'Back to the wall' : 'Back to the easel';
   const img = $('placardImg');
   img.src = src || record.img;
   img.alt = `${record.title}, a landscape painting by ${record.artist}`;
@@ -596,11 +603,15 @@ anotherBtn.addEventListener('click', () => {
 });
 $('keepBtn').addEventListener('click', leavePlacard);
 
-// Back to the easel. Right after a signing, the painter says it's up on the wall, so the line from while the signature
-// went on doesn't stay up under a painting that's already signed.
+// Back to the wall for a painting opened there; otherwise back to the easel. Right after a signing, the painter says
+// it's up on the wall, so the line from while the signature went on doesn't stay up under a painting already signed.
 function leavePlacard() {
   const from = placardFrom;
   placardFrom = null;
+  if (from === 'wall') {
+    backToWall();
+    return;
+  }
   closeOverlay($('placard'));
   if (from === 'signing') narrate({ line: line('hung'), info: '' });
 }
@@ -636,6 +647,16 @@ function openGallery() {
   openOverlay($('gallery'), $('closeGallery'));
 }
 
+// The wall takes over from the label again (on the same step in the history), scrolled back to where it was, with
+// focus on the painting that was opened.
+function backToWall() {
+  renderWall();
+  const wallEl = $('gallery');
+  openOverlay(wallEl, $('closeGallery'));
+  wallEl.scrollTop = wallAt.scroll;
+  [...$('wallGrid').querySelectorAll('.wall-open')].find((b) => b.dataset.id === wallAt.id)?.focus({ preventScroll: true });
+}
+
 function renderWall() {
   const list = readGallery();
   const grid = $('wallGrid');
@@ -648,6 +669,7 @@ function renderWall() {
     open.type = 'button';
     open.className = 'wall-open';
     open.setAttribute('aria-label', `Open ${rec.title}`);
+    open.dataset.id = rec.id;
     const img = document.createElement('img');
     img.src = rec.img;
     img.alt = '';

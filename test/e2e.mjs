@@ -691,7 +691,10 @@ await page.keyboard.press('g');
 await goBack('gallery');
 await page.keyboard.press('g');
 await page.click('.wall-open');
+assert.equal(await page.textContent('#keepBtn'), 'Back to the wall', 'a painting opened from the wall should offer to go back to it');
 await goBack('placard');
+assert.equal(await page.isHidden('#gallery'), false, 'Back from a painting opened from the wall should go back to the wall');
+await goBack('gallery');
 await page.keyboard.press('s');
 await goBack('signSheet');
 await page.click('#galleryBtn');
@@ -811,7 +814,10 @@ await page.keyboard.press('Enter');
 assert.equal(await page.isHidden('#placard'), false);
 assert.equal(await page.isHidden('#gallery'), true);
 await page.keyboard.press('Escape');
-assert.equal(await S(() => document.activeElement.id), 'galleryBtn', 'closing a painting opened from the wall goes back to Gallery');
+assert.equal(await page.isHidden('#gallery'), false, 'Escape on a painting opened from the wall goes back to the wall');
+assert.equal(await S(() => document.activeElement.className), 'wall-open', 'back on the wall, focus is on the painting that was open');
+await page.keyboard.press('Escape');
+assert.equal(await S(() => document.activeElement.id), 'galleryBtn', 'closing the wall goes back to Gallery');
 
 // Junk in storage (a hand edit, a bad write) doesn't stop the wall opening or hang as a broken painting, and a stored
 // name that isn't text stays out of the name field.
@@ -864,6 +870,27 @@ assert.ok(!hungNow.includes('Painting 1') && hungNow.includes('Painting 2'), `th
 assert.equal(await page.isHidden('#keptNote'), true, 'a usual 13th signing has nothing to say under the label');
 assert.equal(await page.textContent('#galleryCount'), '12');
 await page.click('#keepBtn');
+// A painting opened from far down the wall goes back to the wall, scrolled to where it was, from its button or Back,
+// and the after-signing button is back to the easel again.
+assert.equal(await page.textContent('#keepBtn'), 'Back to the easel');
+await page.keyboard.press('g');
+const wallScroll = await S(() => {
+  const g = document.getElementById('gallery');
+  g.scrollTop = g.scrollHeight;
+  return g.scrollTop;
+});
+assert.ok(wallScroll > 200, `the wall of 12 should scroll on a phone (${wallScroll})`);
+for (const how of ['button', 'Back']) {
+  await page.locator('.wall-open').last().click();
+  assert.equal(await page.textContent('#keepBtn'), 'Back to the wall');
+  if (how === 'button') await page.click('#keepBtn');
+  else await S(() => history.back());
+  await page.waitForFunction(() => !document.getElementById('gallery').hidden, null, { timeout: 5000 });
+  assert.equal(await page.isHidden('#placard'), true);
+  assert.ok(Math.abs((await S(() => document.getElementById('gallery').scrollTop)) - wallScroll) < 2, `back on the wall (by ${how}), it wasn't scrolled to where it was`);
+}
+await page.click('#closeGallery');
+await page.waitForFunction(() => history.state === null, null, { timeout: 5000 }).catch(() => assert.fail('going from the wall to a painting and back left an extra step in the history'));
 await S(() => {
   window.realSetItem = Storage.prototype.setItem;
   Storage.prototype.setItem = function (k, v) {

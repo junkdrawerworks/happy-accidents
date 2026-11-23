@@ -343,6 +343,20 @@ const aimed = await S(async () => {
 assert.ok(aimed.ochre.includes('bank'), `Let it happen never aimed Yellow Ochre at the shore (${aimed.ochre})`);
 assert.ok(!aimed.cadmium.includes('bank'), `Let it happen aimed Cadmium Yellow at the shore (${aimed.cadmium})`);
 
+// Let it happen counts what it adds itself, so on a canvas that already has plenty of accidents (your own splats count
+// too) it still keeps going until it has added 8. (The count is set here rather than splashed 29 times.)
+await S(() => window.happyAccidents.newCanvas('golden-hour'));
+await settle();
+await S(() => (window.happyAccidents.accidents = 29));
+await page.click('#autoBtn');
+await page.waitForFunction(() => window.happyAccidents.accidents > 29, null, { timeout: 5000 }).catch(() => assert.fail('Let it happen added nothing to a canvas with 29 accidents'));
+assert.equal(await page.getAttribute('#autoBtn', 'aria-pressed'), 'true', 'Let it happen stopped straight away on a canvas with 29 accidents');
+await S(() => (window.happyAccidents.accidents = 36)); // one short of 8 more
+await page.waitForFunction(() => document.getElementById('autoBtn').getAttribute('aria-pressed') === 'false', null, { timeout: 15000 });
+assert.equal(await S(() => window.happyAccidents.accidents), 37, 'Let it happen should stop once it has added 8 to a busy canvas');
+assert.equal(await page.textContent('#autoBtn'), 'Let it happen');
+await settle();
+
 // Things painted near the edges stay on the canvas: the sun or moon from paint at the very top, the bush beside a
 // cabin built at the edge of a bank, and the trees climbing a green mountain near a side.
 const outside = await S(async () => {

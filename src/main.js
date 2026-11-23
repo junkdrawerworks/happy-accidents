@@ -287,7 +287,10 @@ function oops() {
 // (From the wall, Paint another on an older painting would start over under the signature, and it would never finish.)
 let signing = false;
 
+// Let it happen counts the accidents it makes itself, from wherever the canvas was when it started: on a fresh canvas
+// it stops at 24 in all, and on a busy one (your own splats count too) it still adds at least 8.
 let autoTimer = null;
+let autoStart = 0;
 const autoBtn = $('autoBtn');
 function setAuto(on) {
   if (on && signing) return;
@@ -296,13 +299,14 @@ function setAuto(on) {
   autoBtn.setAttribute('aria-pressed', String(on));
   autoBtn.textContent = on ? 'Stop' : 'Let it happen';
   if (on) {
+    autoStart = studio.accidents;
     userActed();
     tickAuto(250);
   }
 }
 function tickAuto(delay) {
   autoTimer = setTimeout(() => {
-    if (studio.accidents >= 24) {
+    if (studio.accidents - autoStart >= Math.max(8, 24 - autoStart)) {
       setAuto(false);
       narrate({ line: line('done'), info: '' });
       return;

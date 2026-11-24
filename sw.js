@@ -1,5 +1,5 @@
 // Offline support: keep a copy of Happy Accidents so it paints with no signal.
-// Signed paintings live in localStorage, not here.
+// Signed paintings live in localStorage and IndexedDB, not here.
 // Network first, so a new version shows up as soon as you're online, but a page the network hasn't answered in a few
 // seconds opens from the copy instead (see page()).
 // When you add, rename or remove a file the page loads, update SHELL (npm test checks it) and bump CACHE.
@@ -9,7 +9,7 @@
 // fingerprint of every file in SHELL: change any of them and test/e2e.mjs fails until FILES is changed to match (it
 // says what to), which changes this file, so every copy is made whole again at once.
 const CACHE = 'happy-accidents-v4';
-const FILES = '0d574190'; // test/e2e.mjs checks this
+const FILES = 'f1e8e2c4'; // test/e2e.mjs checks this
 const SHELL = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest', 'icon.svg',
   'fonts/caprasimo.woff2', 'fonts/figtree.woff2', 'fonts/figtree-italic.woff2', 'fonts/mrs-saint-delafield.woff2',

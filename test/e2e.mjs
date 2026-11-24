@@ -714,6 +714,12 @@ await S(async () => {
   };
 });
 const accidentsSigned = await S(() => window.happyAccidents.accidents);
+// (Once the painting is up, the page asks the browser to keep the wall: counted here.)
+await S(() => {
+  window.askedToKeep = 0;
+  navigator.storage.persisted = async () => false;
+  navigator.storage.persist = async () => ++window.askedToKeep > 0 && false;
+});
 await page.click('#signBtn');
 await page.fill('#artistName', 'Robin');
 await page.fill('#artTitle', 'Test Pattern at Otter Cove');
@@ -751,6 +757,7 @@ assert.equal(await page.textContent('#plArtist'), 'Robin');
 assert.match(await page.textContent('#plNote'), new RegExp(`from ${accidentsSigned} happy accidents`));
 assert.equal(await S(() => window.happyAccidents.accidents), accidentsSigned, 'paint went on the canvas while the signature went on');
 assert.equal(await S(() => window.happyAccidents.signed.accidents), accidentsSigned, 'the label and the easel disagree on how many accidents were signed');
+assert.equal(await S(() => window.askedToKeep), 1, 'hanging the first painting didn’t ask the browser to keep the wall');
 assert.equal(await S(() => document.getElementById('app').inert), true, 'the page behind the label is out of reach');
 await page.click('#keepBtn');
 assert.equal(await page.textContent('#galleryCount'), '1');

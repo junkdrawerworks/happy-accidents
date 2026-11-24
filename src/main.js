@@ -735,8 +735,27 @@ function hang(record, picture) {
   const room = list.length;
   while (list.length && !store.set(KEY.gallery, list)) list.pop();
   updateCount();
-  if (list.length) pictures.keep(list.map((r) => r.id), { id: record.id, picture });
+  if (list.length) {
+    pictures.keep(list.map((r) => r.id), { id: record.id, picture });
+    askToKeep();
+  }
   return { kept: list.length > 0, dropped: list.length ? room - list.length : 0 };
+}
+
+// Once a painting is up, the browser is asked to keep the wall when it clears out stored data to make room. Chrome and
+// Safari decide for themselves without asking; Firefox asks the person. Once a visit, and not when it's kept already.
+let askedToKeep = false;
+function askToKeep() {
+  if (askedToKeep) return;
+  askedToKeep = true;
+  try {
+    const st = navigator.storage;
+    st?.persisted?.()
+      .then((kept) => kept || st.persist?.())
+      .catch(() => {});
+  } catch {
+    /* no storage manager: nothing to ask */
+  }
 }
 
 function updateCount() {

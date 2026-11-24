@@ -1086,8 +1086,9 @@ const shortcuts = new Map([
 let lastInput = 'key';
 window.addEventListener('pointerdown', () => (lastInput = 'pointer'), true);
 // A key held down does its job once. Its repeats are let go here, before anything else hears them, while it's still held
-// from doing something (a letter key, Space as Oops, Enter on the canvas or a button): held S opens the sign form and
-// then would type "sss" into the name, and held Enter on Sign it would go on through the form and sign.
+// from doing something (a letter key, Space as Oops, Enter on the canvas, a button or a sign-form field): held S opens the
+// sign form and then would type "sss" into the name, held Enter on Sign it would go on through the form and sign, and
+// held Enter in the title would sign and then press Paint another on the label, skipping it.
 const held = new Set();
 window.addEventListener(
   'keydown',
@@ -1096,7 +1097,7 @@ window.addEventListener(
     if (e.repeat && held.has(e.code)) {
       e.preventDefault();
       e.stopPropagation();
-    } else if (!e.repeat && e.key === 'Enter' && e.target.closest?.('button, #artistName')) held.add(e.code);
+    } else if (!e.repeat && e.key === 'Enter' && e.target.closest?.('button, #artistName, #artTitle')) held.add(e.code);
   },
   true,
 );

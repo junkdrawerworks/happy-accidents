@@ -1637,9 +1637,15 @@ await ctx.setOffline(false);
   assert.notEqual(await p.textContent('#canvasNo'), no2, 'N N with the mouse held down on the canvas didn’t start over');
   assert.deepEqual(await p.evaluate(() => [window.happyAccidents.accidents, window.happyAccidents.splats.length]), [0, 0], 'paint held when the canvas started over landed on the new one');
   await paint(1);
+  // Holding Enter in the title signs once: its repeats don't go on to press Paint another on the label that comes up.
   await p.click('#signBtn');
-  await p.click('#signForm button[type=submit]');
+  await p.focus('#artTitle');
+  const [, no3] = await state();
+  await p.keyboard.down('Enter');
   await p.waitForSelector('#placard:not([hidden])', { timeout: 30000 });
+  for (let i = 0; i < 4; i++) await p.keyboard.down('Enter'); // the key repeating
+  await p.keyboard.up('Enter');
+  assert.deepEqual([await p.isVisible('#placard'), (await state())[1]], [true, no3], 'holding Enter in the title signed and then started over');
   await p.click('#keepBtn');
   await p.click('#galleryBtn');
   await p.dblclick('.wall-item .quiet');

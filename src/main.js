@@ -512,17 +512,21 @@ function cancelDone() {
 // A button that starts over asks first when there's paint that isn't on the gallery wall (all of it on an unsigned
 // canvas, or whatever was added since signing): the first tap turns it into "Start over?" for three seconds, and only
 // a tap on that goes ahead. Returns true when it's fine to start over.
+// A second press within 400 ms of the first is a double-click (or a key bouncing), not a yes: it's let go and the button
+// stays asking, so a deliberate second tap still starts over.
+const DOUBLE_MS = 400;
 const armed = new Map();
 function disarm(btn, label) {
-  clearTimeout(armed.get(btn));
+  clearTimeout(armed.get(btn)?.timer);
   armed.delete(btn);
   btn.textContent = label;
 }
 function askFirst(btn, label) {
   const unsaved = studio.accidents > (studio.signed?.accidents ?? 0);
+  if (armed.has(btn) && performance.now() - armed.get(btn).at < DOUBLE_MS) return false;
   if (unsaved && !armed.has(btn)) {
     btn.textContent = 'Start over?';
-    armed.set(btn, setTimeout(() => disarm(btn, label), 3000));
+    armed.set(btn, { at: performance.now(), timer: setTimeout(() => disarm(btn, label), 3000) });
     srSay(`Press again to start over. ${studio.signed ? 'What you’ve painted since signing isn’t on the wall.' : 'The painting on the easel isn’t on the wall yet.'}`);
     return false;
   }
@@ -986,7 +990,9 @@ function renderWall() {
       remove.setAttribute('aria-label', `Remove ${rec.title}`);
     };
     unarmed();
+    let armedAt = 0;
     remove.addEventListener('click', () => {
+      if (remove.dataset.armed && performance.now() - armedAt < DOUBLE_MS) return;
       if (remove.dataset.armed) {
         const rest = readGallery().filter((r) => r.id !== rec.id);
         if (store.set(KEY.gallery, rest)) pictures.keep(rest.map((r) => r.id));
@@ -997,6 +1003,7 @@ function renderWall() {
         return;
       }
       remove.dataset.armed = '1';
+      armedAt = performance.now();
       remove.textContent = 'Remove it?';
       remove.setAttribute('aria-label', `Remove it? Press again to take down ${rec.title}`);
       setTimeout(unarmed, 3000);
@@ -1025,13 +1032,23 @@ const shortcuts = new Map([
 // that button again: reload the same paint, or turn New canvas into "Start over?" and then start over.
 let lastInput = 'key';
 window.addEventListener('pointerdown', () => (lastInput = 'pointer'), true);
+// A key held down does its job once. Its repeats are let go here, before anything else hears them, while it's still held
+// from doing something (a letter key, Space as Oops, Enter on the canvas or a button): held S opens the sign form and
+// then would type "sss" into the name, and held Enter on Sign it would go on through the form and sign.
+const held = new Set();
 window.addEventListener(
   'keydown',
   (e) => {
     if (e.key === 'Tab' || e.key?.startsWith('Arrow')) lastInput = 'key';
+    if (e.repeat && held.has(e.code)) {
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (!e.repeat && e.key === 'Enter' && e.target.closest?.('button, #artistName')) held.add(e.code);
   },
   true,
 );
+window.addEventListener('keyup', (e) => held.delete(e.code), true);
+window.addEventListener('blur', () => held.clear());
 const spaceIsOops = (e) => {
   const onButton = e.target.closest?.('button');
   return !onButton || onButton.classList.contains('dab') || lastInput === 'pointer';
@@ -1058,16 +1075,25 @@ window.addEventListener('keydown', (e) => {
   }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const shortcut = shortcuts.get(e.key?.toLowerCase());
+  // One press, one go: a held N doesn't start over on its first repeat and then run through a canvas a repeat, a held A
+  // doesn't flicker Let it happen on and off, and a held Space is one Oops, not a stream of them.
+  if (e.repeat) {
+    if (shortcut || e.key === ' ' || (e.key === 'Enter' && e.target === canvas)) e.preventDefault();
+    return;
+  }
   if (e.key === ' ' && spaceIsOops(e)) {
     e.preventDefault();
     spaceOops = true;
+    held.add(e.code);
     oops();
   } else if (e.key === 'Enter' && e.target === canvas) {
+    held.add(e.code);
     oops();
   } else if (shortcut) {
     // The key does its job and nothing else: S moves focus into the sign form during this keydown,
     // and the browser would then type the "s" into it.
     e.preventDefault();
+    held.add(e.code);
     shortcut();
   }
 });

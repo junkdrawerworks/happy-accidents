@@ -999,6 +999,7 @@ await page.click('#anotherBtn');
 assert.equal(await page.textContent('#anotherBtn'), 'Start over?', 'Paint another on a painting from the wall asks first when the easel has paint that isn’t hung');
 assert.match(await page.textContent('#placard .sr-status'), /^Press again to start over\./, 'a screen reader in the label isn’t told Paint another is asking first');
 assert.equal(await page.textContent('#canvasNo'), canvasNo, 'the first tap of Paint another kept the painting');
+await page.waitForTimeout(450); // a second tap, not a double-click
 await page.click('#anotherBtn');
 assert.notEqual(await page.textContent('#canvasNo'), canvasNo, 'a second tap of Paint another starts over');
 assert.equal(await page.isHidden('#placard'), true);
@@ -1364,6 +1365,7 @@ assert.equal(await page.locator('.wall-item .quiet').first().getAttribute('aria-
 assert.equal(await page.locator('.wall-item').count(), 5, 'the first tap of Remove took the painting down');
 const removed = await page.locator('.wall-open').first().getAttribute('data-id');
 assert.ok((await pictureIds()).includes(removed), 'the painting about to be removed had no full-size picture kept');
+await page.waitForTimeout(450); // a second tap, not a double-click
 await page.locator('.wall-item .quiet').first().click();
 assert.equal(await page.locator('.wall-item').count(), 4, 'the second tap of Remove didn’t take the painting down');
 assert.equal(await page.textContent('#gallery .sr-status'), `${firstTitle} came down from the wall.`, 'a screen reader isn’t told the painting came down');
@@ -1488,7 +1490,9 @@ await ctx.setOffline(false);
 }
 
 // With a mouse, Space is still Oops: after clicking a paint, or New canvas (where two Spaces used to start over). A
-// button reached with Tab still presses on Space.
+// button reached with Tab still presses on Space. A key held down does its job once: Space is one Oops, N asks and
+// doesn't start over, S doesn't type into the name. A double-click can't get past "Start over?" or "Remove it?", but a
+// second press half a second later still does. And paint held when the canvas starts over doesn't land on the new one.
 {
   const dctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
   const p = await dctx.newPage();
@@ -1506,10 +1510,40 @@ await ctx.setOffline(false);
   await p.click('.dab >> nth=2');
   await p.keyboard.press(' ');
   assert.equal((await state())[0], 6, 'Space after picking a paint didn’t make an accident');
+  const keyHeld = async (key) => {
+    await p.keyboard.down(key);
+    await p.waitForTimeout(500);
+    for (let i = 0; i < 4; i++) await p.keyboard.down(key); // the key repeating
+    await p.keyboard.up(key);
+  };
+  await keyHeld(' ');
+  assert.equal((await state())[0], 7, 'holding Space made more than one accident');
+  await p.evaluate(() => document.activeElement.blur());
+  await keyHeld('n');
+  assert.deepEqual(await state(), [7, no, 'Start over?'], 'holding N started over without asking');
+  await p.waitForFunction(() => document.getElementById('newBtn').textContent === 'New canvas', null, { timeout: 4000 });
   await p.focus('#autoBtn');
   await p.keyboard.press('Tab');
   await p.keyboard.press(' ');
   assert.equal(await p.textContent('#newBtn'), 'Start over?', 'Space on New canvas reached with Tab didn’t press it');
+  await p.waitForTimeout(500);
+  await p.keyboard.press('Enter');
+  assert.notEqual(await p.textContent('#canvasNo'), no, 'a second press half a second later didn’t start over');
+  await paint(1);
+  await p.evaluate(() => document.activeElement.blur());
+  await keyHeld('s');
+  assert.equal(await p.inputValue('#artistName'), '', 'holding S typed into the name');
+  await p.keyboard.press('Escape');
+  const [, no2] = await state();
+  await p.dblclick('#newBtn');
+  assert.deepEqual(await state(), [1, no2, 'Start over?'], 'a double-click on New canvas started over');
+  await p.click('#signBtn');
+  await p.click('#signForm button[type=submit]');
+  await p.waitForSelector('#placard:not([hidden])', { timeout: 30000 });
+  await p.click('#keepBtn');
+  await p.click('#galleryBtn');
+  await p.dblclick('.wall-item .quiet');
+  assert.equal(await p.locator('.wall-item').count(), 1, 'a double-click on Remove took the painting down');
   await dctx.close();
 }
 

@@ -78,13 +78,16 @@ export const LINES = {
     'Put a little home in there. Everybody deserves a place to be.',
     'A cabin. Somebody’s got a good view from that porch.',
   ],
-  bank: [
-    'This needs some land under it. Let’s make some ground.',
-    'Pull a little land in from the side. It’s the same shape as your splat.',
-    'Let’s give the lake an edge over here.',
-    'A little shore. Somewhere for things to stand.',
-    'Land, the same shape as the paint. Pull it right down to the water.',
-  ],
+  bank: {
+    lines: [
+      'Some ground to stand on. Hit it again and see what grows.',
+      'Let’s give the lake an edge over here.',
+      'A little shore. Somewhere for things to stand.',
+      'Land, the same shape as the paint. Pull it right down to the water.',
+    ],
+    you: ['Pull a little land in from the side. It’s the same shape as your splat.'],
+    auto: ['Pull a little land in from the side. Something might come up on it.'],
+  },
   bankTree: ['He needs somewhere to stand. Land first, then the tree.'],
   island: [
     'It spilled into an island. Same shape and everything.',

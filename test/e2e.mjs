@@ -1355,6 +1355,65 @@ assert.equal(await page.locator('.wall-item').count(), hungOnline + 1, 'the pain
 await page.keyboard.press('Escape');
 await ctx.setOffline(false);
 
+// The first minute. Left alone, the intro paints in and then the painter says "Your turn" (the only line that says you
+// can flick and hold), with the hint under the canvas, and nothing the intro paints talks over it.
+// Touching the canvas before the intro is over cuts it short but doesn't skip that: it comes once your first splat has
+// been painted in, and the hint fades after your next go. Four taps in a row get one line, once, about flinging and
+// pouring.
+{
+  const ictx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
+  const p = await ictx.newPage();
+  const errors = [];
+  p.on('pageerror', (e) => errors.push(e.message));
+  const lines = (q) => p.evaluate(async (q) => (await import('./src/words.js')).LINES[q], q);
+  const watchLines = () => p.evaluate(() => {
+    window.lines = [];
+    const el = document.getElementById('line');
+    new MutationObserver(() => window.lines.push({ text: el.textContent, busy: window.happyAccidents.busy })).observe(el, { childList: true });
+  });
+  const hintShows = () => p.evaluate(() => !document.getElementById('hint').classList.contains('gone'));
+
+  await p.goto(base);
+  await p.waitForFunction(() => window.happyAccidents);
+  await watchLines();
+  const [invite] = await lines('invite');
+  await p.waitForFunction((t) => window.lines.some((l) => l.text === t), invite, { timeout: 25000 }).catch(() => assert.fail('left alone, the intro never said “Your turn”'));
+  const said = await p.evaluate(() => window.lines);
+  assert.equal(said.at(-1).text, invite, 'something talked over “Your turn” at the end of the intro');
+  assert.equal(said.at(-1).busy, false, '“Your turn” came while the intro was still being painted');
+  assert.equal(await hintShows(), true, 'the hint didn’t come up with “Your turn”');
+  await p.waitForTimeout(2500);
+  assert.equal((await p.evaluate(() => window.lines)).at(-1).text, invite, 'something talked over “Your turn” after the intro');
+
+  await p.reload();
+  await p.waitForFunction(() => window.happyAccidents);
+  await watchLines();
+  await p.waitForTimeout(2500);
+  const c = await p.locator('#canvas').boundingBox();
+  const tap = (u, v) => p.touchscreen.tap(c.x + c.width * u, c.y + c.height * v);
+  await tap(0.3, 0.2);
+  await p.waitForFunction((t) => window.lines.some((l) => l.text === t), invite, { timeout: 12000 }).catch(() => assert.fail('a tap during the intro skipped “Your turn”'));
+  assert.equal(await hintShows(), true, 'a tap during the intro skipped the hint');
+  await tap(0.6, 0.25);
+  await p.waitForTimeout(700);
+  assert.equal(await hintShows(), false, 'the hint stayed up after the next go');
+  for (const [u, v] of [[0.2, 0.8], [0.8, 0.85]]) {
+    await tap(u, v);
+    await p.waitForTimeout(400);
+  }
+  const nudges = await lines('nudge');
+  await p.waitForFunction((n) => window.lines.some((l) => n.includes(l.text)), nudges, { timeout: 20000 }).catch(() => assert.fail('four taps in a row didn’t get the line about flinging and pouring'));
+  for (const [u, v] of [[0.4, 0.3], [0.5, 0.7], [0.7, 0.2], [0.3, 0.9]]) {
+    await tap(u, v);
+    await p.waitForTimeout(400);
+  }
+  await p.waitForTimeout(8000);
+  assert.equal((await p.evaluate(() => window.lines)).filter((l) => nudges.includes(l.text)).length, 1, 'the line about flinging and pouring came more than once');
+  assert.equal((await p.evaluate(() => window.lines)).filter((l) => l.text === invite).length, 1, '“Your turn” came more than once');
+  assert.deepEqual(errors, []);
+  await ictx.close();
+}
+
 // With JavaScript off, the page says what it needs on the first screen, not below an easel that does nothing.
 const noScript = await browser.newContext({ viewport: { width: 390, height: 844 }, javaScriptEnabled: false });
 const plain = await noScript.newPage();

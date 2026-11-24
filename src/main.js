@@ -222,18 +222,85 @@ const accidentPigment = () => (loaded === 'surprise' ? undefined : currentPigmen
 
 // ——— intro demo and first-time hint ———
 
+// The painter's "Your turn" and the hint under the canvas are the only place that says you can flick and hold, so they
+// come up once whatever happens: after the intro has finished painting, or, if you start before it's over, once your
+// first splat has been painted in (and then the hint fades after your next go, or six seconds).
 let demoTimers = [];
 let acted = false;
+let invited = false;
+let inviteFor = null; // 'demo' or 'you' while "Your turn" waits for a quiet moment
+let ownSplats = 0; // splats from your own hand or Oops, this visit
+let hintTimer = 0;
+let helpTimer = 0;
+function hideHint() {
+  clearTimeout(hintTimer);
+  hintEl.classList.add('gone');
+}
 function userActed() {
+  hideHint();
   if (acted) return;
   acted = true;
   demoTimers.forEach(clearTimeout);
   demoTimers = [];
-  hintEl.classList.add('gone');
+  if (!invited) {
+    inviteFor = 'you';
+    startHelp();
+  }
+}
+// For tests and the screenshots: no intro, no "Your turn", no hint.
+function skipIntro() {
+  userActed();
+  invited = true;
+  inviteFor = null;
+}
+
+// Nothing being painted, poured or dragged, and nothing else about to talk (Let it happen, its "that might be done",
+// an overlay, a signature going on).
+const quiet = () => !studio.busy && !studio.pool && !gesture && !autoTimer && !doneTimer && !signing && !openOverlayEl();
+
+// Someone whose first four goes on the canvas are all taps hears once a visit that there's more to it, when things have
+// gone quiet (and not on top of "Your turn"). A flick or a hold among them, or before it's said, and it isn't.
+let taps = 0;
+let nudge = 'not yet'; // 'not yet', 'waiting' or 'done'
+let invitedAt = 0;
+function countGesture(kind) {
+  if (nudge === 'done') return;
+  if (kind !== 'tap') {
+    nudge = 'done';
+    return;
+  }
+  if (++taps === 4) {
+    nudge = 'waiting';
+    startHelp();
+  }
+}
+
+function startHelp() {
+  if (!helpTimer) helpTimer = setInterval(helpTick, 250);
+}
+function helpTick() {
+  if (inviteFor && quiet() && (inviteFor === 'demo' || ownSplats > 0)) {
+    const early = inviteFor === 'you';
+    inviteFor = null;
+    invited = true;
+    invitedAt = Date.now();
+    narrate({ line: line('invite'), info: '' });
+    hintEl.classList.remove('gone');
+    clearTimeout(hintTimer);
+    if (early) hintTimer = setTimeout(hideHint, 6000);
+  } else if (nudge === 'waiting' && !inviteFor && quiet() && Date.now() - invitedAt > 4000) {
+    nudge = 'done';
+    narrate({ line: line('nudge'), info: '' });
+  }
+  if (!inviteFor && nudge !== 'waiting') {
+    clearInterval(helpTimer);
+    helpTimer = 0;
+  }
 }
 
 // A mountain, a near bank (in the lower half of the lake, so it's big enough for the tree to find) and a tree on it.
-// The first-time hint stays out of the way until the demo is over, then comes up with the painter's "Your turn".
+// The first-time hint stays out of the way until the demo has been painted in, then comes up with the painter's "Your
+// turn", so nothing the demo says (a tree's friend showing up) talks over it.
 function runDemo() {
   const steps = [
     ['mountain', 2100],
@@ -243,9 +310,9 @@ function runDemo() {
   for (const [hint, at, spot] of steps) demoTimers.push(setTimeout(() => studio.randomAccident({ hint, delay: 400, spot: spot?.() }), at));
   demoTimers.push(
     setTimeout(() => {
-      narrate({ line: line('invite'), info: '' });
-      hintEl.classList.remove('gone');
-    }, 8600),
+      inviteFor = 'demo';
+      startHelp();
+    }, 6400),
   );
 }
 
@@ -304,6 +371,8 @@ function finishGesture(e, cancelled = false) {
     return;
   }
   const p = toCanvas(e);
+  ownSplats++;
+  countGesture(studio.pool ? 'hold' : g.moved >= 10 ? 'flick' : 'tap');
   if (studio.pool) {
     studio.commitPool();
     return;
@@ -346,6 +415,7 @@ function oops() {
   if (signing) return;
   userActed();
   cancelDone();
+  ownSplats++;
   studio.randomAccident({ pigment: accidentPigment() });
 }
 
@@ -944,4 +1014,4 @@ runDemo();
 
 // Exposed for tinkering from the console, and for test/e2e.mjs and tools/screenshots.mjs.
 window.happyAccidents = studio;
-studio.skipIntro = userActed;
+studio.skipIntro = skipIntro;

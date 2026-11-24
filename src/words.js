@@ -393,6 +393,12 @@ export const LINES = {
   // After a signing the browser wouldn't keep (the label has said so).
   unkept: ['It’s signed, but this browser wouldn’t keep it, so it isn’t on the wall.'],
   invite: ['Your turn. Tap, flick, or press and hold. Try hitting what’s already there, too.'],
+  // Once a visit, when the first four goes on the canvas were all taps.
+  nudge: [
+    'Try flinging one. Or press and hold and let it pool.',
+    'Taps are fine. Give one a flick sometime, or hold still and let it pool.',
+    'Drag and let go to fling it. Or hold still and the paint pools.',
+  ],
   done: [
     'That might be done. Sign it whenever you’re ready.',
     'Let’s step back and look at it. I think it’s done.',

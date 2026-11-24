@@ -198,7 +198,7 @@ test('the painter has at least three things to say for everything a splat can be
   for (const m of src.matchAll(/'(\w+)' : '(\w+)'/g)) said.add(m[1]).add(m[2]);
   for (const k of said) assert.ok(LINES[k], `decide.js says “${k}”, which has no lines`);
   // Everything but what the page itself says around the painting (signing, the wall, the intro, Let it happen's end).
-  const page = ['signature', 'hung', 'unkept', 'invite', 'done', 'undo'];
+  const page = ['signature', 'hung', 'unkept', 'invite', 'nudge', 'done', 'undo'];
   for (const key of Object.keys(LINES).filter((k) => !page.includes(k))) {
     for (const sc of SCHEMES) {
       for (const auto of [false, true]) {

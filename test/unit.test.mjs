@@ -6,10 +6,10 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { featureLine, canvasContents, madeFrom, durationText, makeTitle, toolInfo, keptNote, mixLine, line, linesFor, LINES } from '../src/words.js';
 import { topEdge, heights, at, span, sideProfile } from '../src/shape.js';
-import { ramp, mix, hex, mixPaint, familyOf, colorName } from '../src/color.js';
+import { ramp, mix, hex, mixPaint, familyOf, colorName, lum } from '../src/color.js';
 import { weighted, pickFresh, clamp, rand, chance, pick, TAU, slug } from '../src/util.js';
 import { SCHEMES, PIGMENTS, pickScheme, moodsAfter } from '../src/schemes.js';
-import { decide } from '../src/decide.js';
+import { decide, birdColor } from '../src/decide.js';
 import { makeSplat, splatShape } from '../src/splat.js';
 import { lineKey, Studio, landInside } from '../src/studio.js';
 import * as P from '../src/paint/index.js';
@@ -1189,4 +1189,28 @@ test('paint flung off the picture lands just inside its edge, and paint well ins
     const inside = landInside(makeSplat({ x: 600, y: 450, R, vx: 1, pigment: white }));
     assert.deepEqual([inside.x, inside.y], [600, 450], 'paint landing well inside the picture moved');
   }
+});
+
+// Birds stand out from the sky behind them in every mood, dark paint at night too (70% Prussian Blue on Northern
+// Night's near-black bird color was the color of the night sky). Checked over the sky where birds fly, from the top
+// down to three quarters of the way to the horizon, with and without the mood's glow over it.
+test('birds in dark paint can be seen against the sky in every mood', () => {
+  for (const s of SCHEMES) {
+    for (const id of ['prussian-blue', 'phthalo-blue', 'van-dyke-brown', 'sap-green']) {
+      const paint = PIGMENTS.find((p) => p.id === id).rgb;
+      for (let t = 0; t <= 0.75; t += 0.05) {
+        for (const glow of [0, 0.2, 0.45]) {
+          const sky = mix(ramp(s.sky, t), s.glow, glow);
+          const gap = Math.abs(lum(birdColor(s, paint, sky)) - lum(sky));
+          assert.ok(gap >= 0.15, `${s.name}, ${id} birds ${(t * 100).toFixed(0)}% down the sky differ from it by ${gap.toFixed(3)}`);
+        }
+      }
+    }
+  }
+  // Where the paint already stands out, the birds keep most of it.
+  const golden = SCHEMES.find((s) => s.id === 'golden-hour');
+  assert.deepEqual(birdColor(golden, PIGMENTS.find((p) => p.id === 'van-dyke-brown').rgb, [248, 220, 154]), mix(golden.bird, hex('#3e2b1d'), 0.7));
+  // At night the painter says so.
+  assert.ok(linesFor('birds', { scheme: 'northern-night' }).includes('Night birds, heading home.'));
+  assert.ok(!linesFor('birds', { scheme: 'golden-hour' }).includes('Night birds, heading home.'));
 });

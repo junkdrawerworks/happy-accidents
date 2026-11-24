@@ -5,7 +5,7 @@
 // Returns a plan: a list of steps, each of which builds one painted element (or paints onto
 // an existing one) when its turn comes.
 import { chance, clamp, rand, weighted, pick } from './util.js';
-import { hex, mix, lighten, darken, lum, hsl, dim } from './color.js';
+import { hex, mix, lighten, darken, lum, hsl, dim, ramp } from './color.js';
 import { splatShape } from './splat.js';
 import * as P from './paint/index.js';
 import * as R from './paint/react.js';
@@ -337,7 +337,20 @@ function stormSteps(S, b, c, rainChance) {
 }
 
 function birdsStep(S, b, c) {
-  return step('birds', () => P.birds(S, { ...b, color: mix(S.scheme.bird, c.rgb, 0.7) }));
+  const sky = S.skyAt?.(b.x, b.y) ?? ramp(S.scheme.sky, clamp(b.y / S.hy, 0, 1));
+  return step('birds', () => P.birds(S, { ...b, color: birdColor(S.scheme, c.rgb, sky) }));
+}
+
+// Birds take the paint's color, as much of it as still shows against the sky behind them: most of the paint, then a
+// little of it on the mood's own bird color, then (where both are as dark as the sky, as dark paint is at night) paler
+// and paler toward the moon's or the glow's light, so they read as pale shapes. The first that's far enough from the
+// sky in lightness wins; if none is, the farthest.
+export function birdColor(scheme, paint, sky) {
+  const far = (col) => Math.abs(lum(col) - lum(sky));
+  const bold = mix(scheme.bird, paint, 0.7);
+  const light = scheme.sunType === 'moon' ? scheme.sun : scheme.glow;
+  const tries = [bold, mix(scheme.bird, paint, 0.3), ...[0.25, 0.4, 0.55, 0.7, 0.85].map((t) => mix(bold, light, t))];
+  return tries.find((col) => far(col) >= 0.15) ?? tries.reduce((a, col) => (far(col) > far(a) ? col : a));
 }
 
 function sunSteps(S, b, c) {

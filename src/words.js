@@ -232,13 +232,16 @@ export const LINES = {
     'A couple of rings on the lake. Something stirred.',
     'Just a few lines on the water. Let them be.',
   ],
-  birds: [
-    'Every little drop that flew off turned into a bird.',
-    'A couple of birds heard about the view.',
-    'A few birds came by to see what we’re up to.',
-    'Birds. Just a little check mark for each one.',
-    'Some birds, way up. They’re heading somewhere.',
-  ],
+  birds: {
+    lines: [
+      'Every little drop that flew off turned into a bird.',
+      'A couple of birds heard about the view.',
+      'A few birds came by to see what we’re up to.',
+      'Birds. Just a little check mark for each one.',
+      'Some birds, way up. They’re heading somewhere.',
+    ],
+    night: ['A few birds, out late.', 'Night birds, heading home.', 'A few birds still up. They’ll sleep when they get there.'],
+  },
   stars: [
     'Look at that. Every drop’s a star.',
     'A little spatter up there and the night fills itself in.',

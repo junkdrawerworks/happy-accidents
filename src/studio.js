@@ -305,6 +305,17 @@ export class Studio {
     return null;
   }
 
+  // The sky's own color at a point (under anything painted on it), from its layer.
+  skyAt(x, y) {
+    const el = this.elements.find((e) => e.kind === 'sky');
+    if (!el) return null;
+    const p = this.pix;
+    p.clearRect(0, 0, 1, 1);
+    p.drawImage(el.canvas, Math.floor((clamp(x, 0, W - 1) - el.bbox.x) * this.k), Math.floor((clamp(y, 0, el.bbox.h - 1) - el.bbox.y) * this.k), 1, 1, 0, 0, 1, 1);
+    const d = p.getImageData(0, 0, 1, 1).data;
+    return d[3] ? [d[0], d[1], d[2]] : null;
+  }
+
   alphaAt(el, x, y) {
     const p = this.pix;
     p.clearRect(0, 0, 1, 1);

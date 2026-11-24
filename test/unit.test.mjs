@@ -609,7 +609,8 @@ test('the gallery wall says how many paintings it keeps', async () => {
   // Signing one more than that takes the oldest painting down, so the wall says so.
   const main = await readFile(join(root, 'src/main.js'), 'utf8');
   const html = await readFile(join(root, 'index.html'), 'utf8');
-  const cap = main.match(/\[record, \.\.\.readGallery\(\)\]\.slice\(0, (\d+)\)/)?.[1];
+  const cap = main.match(/const WALL_SIZE = (\d+);/)?.[1];
+  assert.match(main, /\.slice\(0, WALL_SIZE\)/, 'main.js doesn’t keep the wall to WALL_SIZE');
   assert.ok(cap, 'main.js keeps the wall to some other number of paintings now');
   assert.match(html, new RegExp(`keeps your ${cap} newest paintings`), `the wall doesn't say it keeps ${cap} paintings`);
 });

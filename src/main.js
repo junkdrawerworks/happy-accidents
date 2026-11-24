@@ -761,6 +761,9 @@ $('signForm').addEventListener('submit', async (e) => {
     $('signSheet').hidden = true;
     app.inert = false;
     narrate({ line: line('signature'), info: 'Liner brush · Bright Red' });
+    // Signed before and painted on since: the new version takes the earlier one's place on the wall, so each canvas
+    // hangs once, as it is now. (When the browser wouldn't keep the earlier signing, the copy before it is the one.)
+    const earlier = studio.signed?.replaces ?? studio.signed?.id;
     await studio.sign(name);
     // Let anything still being painted finish before we frame it. The longest plans (a family of snowy pines in the
     // foreground) take about 12 seconds, so this waits up to 15.
@@ -780,11 +783,11 @@ $('signForm').addEventListener('submit', async (e) => {
       number: s.number,
       features: featureLine(s.counts),
     };
-    // What's on the wall from this canvas, and how many accidents it had then.
-    Object.assign(studio.signed, { id: record.id, full, accidents: s.accidents });
     store.set(KEY.canvases, studio.number);
     thrown = 0;
-    const hung = hang(record, full);
+    const hung = hang(record, full, earlier);
+    // What's on the wall from this canvas, and how many accidents it had then.
+    Object.assign(studio.signed, { id: record.id, full, accidents: s.accidents, replaces: hung.kept ? null : earlier });
     showPlacard(record, full, 'signing', hung);
   } finally {
     signing = false;
@@ -946,12 +949,14 @@ function readGallery() {
   return Array.isArray(list) ? list.filter((r) => r && typeof r === 'object' && typeof r.img === 'string') : [];
 }
 
-// Hangs a newly signed painting, newest first, keeping the 12 newest. When the browser won't take that many, the
-// oldest come down until it does, and when it won't keep any, the wall stays as it was. Says whether the new painting
-// was kept, and how many older ones came down beyond the usual 12th. The full-size picture goes in with it, and the
-// pictures of any that came down go with them.
-function hang(record, picture) {
-  const list = [record, ...readGallery()].slice(0, 12);
+// Hangs a newly signed painting, newest first, keeping the 12 newest. A canvas signed again takes down its earlier
+// copy (the painting with the id in replaces), so the new version is the newest, and nothing else comes down for it.
+// When the browser won't take that many, the oldest come down until it does, and when it won't keep any, the wall stays
+// as it was. Says whether the new painting was kept, and how many older ones came down beyond the usual 12th. The
+// full-size picture goes in with it, and the pictures of any that came down go with them.
+const WALL_SIZE = 12;
+function hang(record, picture, replaces = null) {
+  const list = [record, ...readGallery().filter((r) => !replaces || r.id !== replaces)].slice(0, WALL_SIZE);
   const room = list.length;
   while (list.length && !store.set(KEY.gallery, list)) list.pop();
   updateCount();

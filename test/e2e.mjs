@@ -1573,6 +1573,24 @@ await page.waitForTimeout(300);
   assert.ok(kept.includes(ids[0]), 'the new painting’s full-size picture wasn’t kept');
   assert.deepEqual(kept.filter((id) => !ids.includes(id)), [], 'pictures of paintings that came down were kept');
 }
+// Painted on again and signed again, the canvas takes its earlier copy's place: still 12 on the wall, the new version
+// first with its new title, the earlier copy and its full-size picture gone, and nothing else coming down for it.
+{
+  await page.click('#keepBtn');
+  const before = await wallIds();
+  await page.click('#oopsBtn');
+  await page.waitForTimeout(200);
+  await settle();
+  await page.keyboard.press('s');
+  await page.fill('#artTitle', 'Second Thoughts');
+  await page.click('#signForm button[type=submit]');
+  await page.waitForSelector('#placard:not([hidden])', { timeout: 30000 });
+  const after = await wallIds();
+  assert.deepEqual([after.length, (await wall())[0], after.includes(before[0]), after.slice(1)], [12, 'Second Thoughts', false, before.slice(1)], 'a canvas signed again should replace its earlier copy on the wall, not hang a second one');
+  assert.equal(await page.textContent('#galleryCount'), '12');
+  await page.waitForTimeout(300);
+  assert.ok(!(await pictureIds()).includes(before[0]), 'the earlier copy’s full-size picture was kept');
+}
 await page.click('#keepBtn');
 // A painting opened from far down the wall goes back to the wall, scrolled to where it was, from its button or Back,
 // and the after-signing button is back to the easel again.

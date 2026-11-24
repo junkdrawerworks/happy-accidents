@@ -67,7 +67,10 @@ const FITS = {
 const fitsFor = (pigment) => (earthy(pigment) ? [...FITS.yellow, 'bank', 'rock', 'island'] : FITS[pigment.family]);
 
 // Things a splat can land on without touching them: the sky itself, light, weather and small marks.
-const SEE_THROUGH = new Set(['sky', 'sunpath', 'signature', 'mist', 'aurora', 'stars', 'birds', 'ripples', 'rain', 'snowShower', 'foothills', 'waterfall', 'flowers']);
+const SEE_THROUGH = new Set(['sky', 'sunpath', 'signature', 'mist', 'aurora', 'stars', 'birds', 'ripples', 'rain', 'snowShower', 'foothills', 'waterfall', 'flowers', 'mirror']);
+
+// Things standing on land that the lake mirrors when it comes right up to their foot (mirrorFor).
+const SHORE_MIRRORED = new Set(['evergreen', 'deciduous', 'bush', 'cabin']);
 
 // Things floating on the lake, which land laid over them covers.
 const AFLOAT = new Set(['sailboat', 'canoe', 'loons', 'glints', 'ripples']);
@@ -505,6 +508,14 @@ export class Studio {
     m.fill();
     m.restore();
     if (depth === undefined) return;
+    // A reflection the new land lies across is painted again, so it stays on the water.
+    const xs = pts.map((p) => p[0]);
+    const ys = pts.map((p) => p[1]);
+    const box = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+    for (const el of this.elements) {
+      const b = el.bbox;
+      if (el.kind === 'mirror' && b.x < box.x + box.w && box.x < b.x + b.w && b.y < box.y + box.h && box.y < b.y + b.h) this.repaintMirror(el);
+    }
     for (const el of [...this.elements]) {
       if (!AFLOAT.has(el.kind) || el.depth < depth || !el.meta || !this.isLand(el.meta.x, el.meta.y - 2)) continue;
       if (el.kind === 'sailboat') this.sailAside(el);
@@ -638,13 +649,85 @@ export class Studio {
     this.elements.push(el);
     this.elements.sort((a, c) => a.depth - c.depth || a.seq - c.seq);
     this.active.push(el);
+    if (spec.reflect) this.dirtyReflection(b);
+    this.kick();
+    // A reflection (silent) isn't counted, and makes no sound of its own.
+    if (spec.silent) return el;
     this.counts[spec.kind] = (this.counts[spec.kind] || 0) + 1;
     // A bare tree or a birch is still a deciduous tree to the titles and to decide(); only the label tells them apart.
     if (spec.meta?.bare) this.counts[spec.meta.birch ? 'birch' : 'bare'] = (this.counts[spec.meta.birch ? 'birch' : 'bare'] || 0) + 1;
-    if (spec.reflect) this.dirtyReflection(b);
     this.hooks.onBrush?.(spec.kind, el.dur);
-    this.kick();
     return el;
+  }
+
+  // A tree, a bush or the cabin standing where the lake comes right up to its foot (at the water's edge, or on an
+  // island) gets a reflection: its own layer just behind it, a darker, rippled, slightly squashed copy of it upside down
+  // under its foot, only where there's water. Paint goes straight through it (SEE_THROUGH). Returns the reflection, or
+  // null if the thing stands back from the water.
+  mirrorFor(src) {
+    const m = src.meta;
+    if (!m?.baseY || !SHORE_MIRRORED.has(src.kind)) return null;
+    const foot = m.baseY;
+    const xs = src.kind === 'cabin' ? [m.x0, (m.x0 + m.x1) / 2, m.x1] : [m.x - m.size * 0.12, m.x, m.x + m.size * 0.12];
+    const gap = clamp(m.size * 0.12, 8, 28);
+    const wet = xs.some((x) => {
+      for (let d = 4; d <= gap && foot + d < H - 2; d += 4) if (!this.isLand(x, foot + d)) return true;
+      return false;
+    });
+    if (!wet) return null;
+    const tall = foot - src.bbox.y;
+    const h = Math.min(H - foot, tall * 0.8 + 6);
+    if (h < 6) return null;
+    let el = null;
+    const spec = { kind: 'mirror', silent: true, depth: src.depth - 0.01, reflect: false, bbox: { x: src.bbox.x - 12, y: foot, w: src.bbox.w + 24, h }, ops: [() => this.drawMirror(el)], dur: 500 };
+    el = this.addElement(spec);
+    Object.assign(el, { source: src, foot, phase: rand(TAU) });
+    src.mirror = el;
+    return el;
+  }
+
+  // Paints a reflection from its thing as it is now: strips two pixels high, each from a little more of the thing (so
+  // it comes out squashed), nudged sideways by the ripples and fading with distance, then darkened toward the water,
+  // broken by thin gaps, and taken off wherever there's land.
+  drawMirror(el) {
+    const { ctx, bbox, source: src, foot, k } = { ...el, k: this.k };
+    const sq = 0.8;
+    const tall = foot - src.bbox.y;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, el.canvas.width, el.canvas.height);
+    ctx.restore();
+    ctx.save();
+    for (let yy = 0; yy < bbox.h; yy += 2) {
+      const sy = foot - (yy + 2) / sq;
+      if (sy + 2 / sq <= src.bbox.y) break;
+      const d = yy + 2;
+      const amp = 0.6 + d * 0.025;
+      const off = Math.sin(d * 0.35 + el.phase) * amp + Math.sin(d * 0.11 + 1.3) * amp * 0.6;
+      ctx.globalAlpha = 0.85 * (1 - (yy / (tall * sq)) * 0.5);
+      const y0 = Math.max(0, (sy - src.bbox.y) * k);
+      const y1 = Math.min(src.canvas.height, (sy + 2 / sq - src.bbox.y) * k);
+      if (y1 - y0 < 0.5) continue;
+      ctx.drawImage(src.canvas, 0, y0, src.canvas.width, y1 - y0, src.bbox.x + off, foot + yy, src.bbox.w, 2.3);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillStyle = rgba(darken(this.scheme.water, 0.3), 0.4);
+    ctx.fillRect(bbox.x, bbox.y, bbox.w, bbox.h);
+    ctx.globalCompositeOperation = 'destination-out';
+    for (let y = foot + 2; y < bbox.y + bbox.h; y += rand(2, 5)) {
+      ctx.fillStyle = `rgba(0,0,0,${rand(0.25, 0.6)})`;
+      ctx.fillRect(bbox.x, y, bbox.w, rand(0.6, 1.4));
+    }
+    ctx.drawImage(this.mask, 0, 0, W, H);
+    ctx.restore();
+  }
+
+  // Paints a reflection again (its thing was painted on, or land came across it), as a quick step of its own.
+  repaintMirror(el) {
+    if (!this.elements.includes(el)) return;
+    this.active.push({ kind: 'mirror', ops: [() => this.drawMirror(el)], ctx: el.ctx, canvas: el.canvas, bbox: el.bbox, depth: el.depth, i: 0, t0: performance.now(), dur: 1, done: false });
+    this.kick();
   }
 
   // Paint more into an element that's already on the canvas (snow on a tree, a sunset in the sky).
@@ -657,6 +740,7 @@ export class Studio {
       bbox: target.bbox,
       depth: target.depth,
       reflect: target.reflect,
+      target,
       i: 0,
       t0: performance.now(),
       dur: spec.dur ?? 1200,
@@ -1124,6 +1208,9 @@ export class Studio {
       el.ops = null;
       const done = el.onDone;
       el.onDone = el.onProgress = null;
+      // Something at the water's edge, painted in or painted on, shows in the water as it is now.
+      if (el.target?.mirror) this.repaintMirror(el.target.mirror);
+      else if (SHORE_MIRRORED.has(el.kind) && !el.target && !el.mirror) this.mirrorFor(el);
       done?.(el);
     }
 

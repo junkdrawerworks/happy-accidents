@@ -81,6 +81,75 @@ await page.evaluate(() => document.fonts.ready);
 assert.equal(await S(() => document.fonts.check('24px Caprasimo')), true, 'the display font loaded from fonts/');
 await S(() => window.happyAccidents.skipIntro());
 
+// A tree on an island, at the water's edge, gets a reflection: a layer just behind it, under its foot, painted only over
+// water, which paint goes straight through, and which follows the tree when the tree is painted on. A tree standing
+// back from the water gets none.
+{
+  await S(async () => {
+    const st = window.happyAccidents;
+    const { PIGMENTS } = await import('./src/schemes.js');
+    st.newCanvas('golden-hour');
+    st.addSplat({ x: 600, y: st.hy + 120, R: 44, pigment: PIGMENTS.find((p) => p.id === 'sap-green'), hint: 'island', auto: true, delay: 10 });
+  });
+  await settle();
+  const mirror = await S(async () => {
+    const st = window.happyAccidents;
+    const P = await import('./src/paint/index.js');
+    const isl = st.elements.find((e) => e.kind === 'island');
+    const [x, y] = isl.meta.spots[Math.floor(isl.meta.spots.length / 2)];
+    window.isleTree = st.addElement(P.evergreen(st, { x, baseY: y, h: 150, tint: [63, 92, 35], tintAmt: 0.15 }));
+    // And a tree well back on a bank that runs to the bottom of the canvas: no water at its foot.
+    st.addLand([[0, 600], [300, 600], [300, 900], [0, 900]]);
+    window.backTree = st.addElement(P.evergreen(st, { x: 150, baseY: 700, h: 150, tint: [63, 92, 35], tintAmt: 0.15 }));
+    return null;
+  });
+  await settle();
+  const seen = await S(() => {
+    const st = window.happyAccidents;
+    const t = window.isleTree;
+    const m = t.mirror;
+    if (!m) return { none: true };
+    const { x, baseY } = t.meta;
+    // The first water below the foot, and the land just under it.
+    let wy = baseY + 2;
+    while (st.isLand(x, wy) && wy < baseY + 60) wy += 2;
+    return {
+      kind: m.kind,
+      behind: m.depth < t.depth && st.elements.indexOf(m) < st.elements.indexOf(t),
+      top: m.bbox.y === Math.floor(baseY),
+      onWater: st.alphaAt(m, x, wy + 6) > 20,
+      onLand: st.alphaAt(m, x, baseY + 3) > 20 && st.isLand(x, baseY + 3),
+      throughIt: st.elementAt(x, wy + 6, 4)?.kind ?? null,
+      counted: 'mirror' in st.counts,
+      back: !!window.backTree.mirror,
+    };
+  });
+  assert.equal(seen.none, undefined, 'a tree at the water’s edge got no reflection');
+  assert.deepEqual(seen, { kind: 'mirror', behind: true, top: true, onWater: true, onLand: false, throughIt: null, counted: false, back: false });
+  // Paint on the tree: its reflection is painted again once the light is on it.
+  const again = await S(async () => {
+    const st = window.happyAccidents;
+    const R = await import('./src/paint/react.js');
+    let n = 0;
+    const draw = st.drawMirror;
+    st.drawMirror = function (el) {
+      n++;
+      return draw.call(this, el);
+    };
+    window.mirrorDraws = () => n;
+    st.paintOnto(window.isleTree, R.treeGlow(st, window.isleTree, { tint: [242, 194, 26] }));
+    return null;
+  });
+  await settle();
+  assert.ok((await S(() => window.mirrorDraws())) >= 1, 'the reflection wasn’t painted again after the tree was');
+  await S(() => {
+    const st = window.happyAccidents;
+    delete st.drawMirror;
+    st.newCanvas('golden-hour');
+  });
+  await settle();
+}
+
 // On a phone the header line wraps, but the mood's name stays in one piece (not WINTER / HUSH), and the dot between
 // the canvas number and the mood is never left at the end of a line (nor at the start of the next): when the mood
 // goes to a line of its own, its dot is clipped off, left of the line.

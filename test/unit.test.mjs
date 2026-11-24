@@ -113,7 +113,7 @@ test('titles say plurals only for things there are two or more of', () => {
 });
 
 test('titles name the time of day the mood paints', () => {
-  const wrong = { 'golden-hour': /Morning|Night/, 'violet-dusk': /Morning|Afternoon/, 'northern-night': /Morning|Afternoon|Evening/, 'autumn-blaze': /Morning|Evening Night/, 'misty-morning': /Evening|Night\b/, 'winter-hush': /Evening|Night\b/ };
+  const wrong = { 'golden-hour': /Morning|Night/, 'violet-dusk': /Morning|Afternoon/, 'northern-night': /Morning|Afternoon|Evening/, 'autumn-blaze': /Morning|Evening Night/, 'misty-morning': /Evening|Night\b/, 'winter-hush': /Evening|Night\b/, 'spring-thaw': /Morning|Evening|Night\b/ };
   for (const s of SCHEMES) {
     for (let i = 0; i < 600; i++) {
       const t = makeTitle({ mountain: 2 }, s.id);
@@ -254,7 +254,7 @@ test('the painter’s lines fit the mood: no evening in the morning, no sun at n
     night: /\bsun\b|sunny|sunset|evening|morning|afternoon/i,
     day: /evening|morning|fall came early|now it’s autumn/i,
   };
-  const time = { 'golden-hour': 'evening', 'violet-dusk': 'evening', 'misty-morning': 'morning', 'winter-hush': 'morning', 'northern-night': 'night', 'autumn-blaze': 'day' };
+  const time = { 'golden-hour': 'evening', 'violet-dusk': 'evening', 'misty-morning': 'morning', 'winter-hush': 'morning', 'northern-night': 'night', 'autumn-blaze': 'day', 'spring-thaw': 'day' };
   for (const s of SCHEMES) {
     for (const key of Object.keys(LINES)) {
       if ((never[s.id] || []).includes(key) || (s.id !== 'northern-night' && byDay.includes(key))) continue;
@@ -1254,30 +1254,76 @@ test('snow on a leafy tree rests on the tops of its clumps, and the leaves show 
     assert.ok(snow / leaves < 0.15, `the snow is ${Math.round((100 * snow) / leaves)}% of the leaves`);
   }, 131));
 
-test('the moods come round like a shuffled deck: all six in every six canvases, and never the same twice running', () =>
+test('the moods come round like a shuffled deck: all seven in every seven canvases, and never the same twice running', () =>
   sameDice(() => {
+    const N = SCHEMES.length;
+    assert.equal(N, 7, 'seven moods, as the README says');
     // Picked at random, avoiding only the last, a given mood was missing from the first five canvases a third of the time.
     for (let run = 0; run < 200; run++) {
       let used = [];
       let last;
       const seen = [];
-      for (let i = 0; i < 18; i++) {
+      for (let i = 0; i < N * 3; i++) {
         const s = pickScheme(last, used);
         assert.notEqual(s.id, last, `${s.name} twice running`);
         used = moodsAfter(used, s.id);
         last = s.id;
         seen.push(s.id);
       }
-      for (let at = 0; at < 18; at += 6) assert.equal(new Set(seen.slice(at, at + 6)).size, 6, `canvases ${at + 1} to ${at + 6} were ${seen.slice(at, at + 6).join(', ')}`);
+      for (let at = 0; at < N * 3; at += N) assert.equal(new Set(seen.slice(at, at + N)).size, N, `canvases ${at + 1} to ${at + N} were ${seen.slice(at, at + N).join(', ')}`);
     }
     // A round already started on an earlier visit carries on; a mood asked for by name left one mood out of the bag.
     assert.deepEqual(moodsAfter(['golden-hour'], 'violet-dusk'), ['golden-hour', 'violet-dusk']);
-    const five = SCHEMES.slice(0, 5).map((s) => s.id);
-    assert.equal(pickScheme(five[4], five).id, SCHEMES[5].id, 'the last mood left in the round');
-    const next = pickScheme(SCHEMES[5].id, five);
-    assert.notEqual(next.id, SCHEMES[5].id, 'a new round still avoids the mood just painted');
-    assert.deepEqual(moodsAfter(five, next.id), [next.id], 'a new round starts with the mood it picked');
+    const most = SCHEMES.slice(0, N - 1).map((s) => s.id);
+    assert.equal(pickScheme(most.at(-1), most).id, SCHEMES[N - 1].id, 'the last mood left in the round');
+    const next = pickScheme(SCHEMES[N - 1].id, most);
+    assert.notEqual(next.id, SCHEMES[N - 1].id, 'a new round still avoids the mood just painted');
+    assert.deepEqual(moodsAfter(most, next.id), [next.id], 'a new round starts with the mood it picked');
   }, 141));
+
+test('Spring Thaw: blossom in the leafy trees, snow on the peaks and nowhere else', () =>
+  sameDice(() => {
+    const spring = SCHEMES.find((s) => s.id === 'spring-thaw');
+    assert.ok(spring, 'there is a Spring Thaw mood');
+    assert.equal(spring.snow, false, 'no snow on the trees, the cabin or the ground');
+    // Every color a list of ops paints with, as the canvas would read it back (rgba(r,g,b,a) with the spaces taken out).
+    const colors = (ops) => {
+      const seen = new Set();
+      const ctx = new Proxy({}, {
+        get: (t, k) => (k in t ? t[k] : () => ({ addColorStop() {} })),
+        set: (t, k, v) => {
+          if (k === 'fillStyle' || k === 'strokeStyle') seen.add(String(v).replace(/\s/g, '').replace(/,[\d.]+\)$/, ')').replace('rgba', 'rgb'));
+          t[k] = v;
+          return true;
+        },
+      });
+      for (const op of ops) op(ctx);
+      return [...seen];
+    };
+    const near = (list, rgb, d = 18) => list.some((c) => {
+      const m = c.match(/rgb\(([\d.]+),([\d.]+),([\d.]+)\)/);
+      return m && Math.hypot(m[1] - rgb[0], m[2] - rgb[1], m[3] - rgb[2]) < d;
+    });
+    const pink = spring.blossom[0];
+    for (const id of SCHEMES.map((s) => s.id)) {
+      const S = bareStudio(id);
+      const tree = P.deciduous(S, { x: 300, baseY: 800, h: 220, tint: paintOf('sap-green').rgb, leaf: [[36, 58, 28], [70, 105, 42], [143, 174, 69], [216, 224, 122]] });
+      assert.equal(near(colors(tree.ops), pink), id === 'spring-thaw', `${id}: blossom ${id === 'spring-thaw' ? 'missing from' : 'in'} a leafy green tree`);
+      const bare = P.deciduous(S, { x: 300, baseY: 800, h: 220, tint: paintOf('van-dyke-brown').rgb, bare: true });
+      assert.ok(!near(colors(bare.ops), pink), `${id}: blossom on a bare tree`);
+    }
+    // A brown mountain gets its snowy tops in Spring Thaw, as in Winter Hush, and not in Golden Hour.
+    const snowy = (id) => {
+      let n = 0;
+      for (let i = 0; i < 10; i++) {
+        const S = bareStudio(id);
+        if (near(colors(P.mountain(S, { x: 600, y: 200, R: 40, index: 0, tint: paintOf('van-dyke-brown').rgb }).ops), S.scheme.mtn.snow, 6)) n++;
+      }
+      return n;
+    };
+    assert.ok(snowy('spring-thaw') >= 8, `snow on ${snowy('spring-thaw')} of 10 Spring Thaw mountains`);
+    assert.equal(snowy('golden-hour'), 0, 'snow on a Golden Hour mountain');
+  }, 151));
 
 test('a storm cloud, a cool cloud and a sunset cloud each get their own brush line', () => {
   // Every cloud got the white cloud's: a storm cloud from an Oops was "Titanium White, a whisper of Alizarin Crimson".

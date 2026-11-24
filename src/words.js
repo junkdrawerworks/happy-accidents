@@ -145,6 +145,11 @@ export const LINES = {
       you: ['You hit him with some color, and he turned.'],
       auto: ['Some color found him, and he turned.'],
     },
+    'spring-thaw': {
+      lines: ['Red and gold in the springtime. He got his seasons mixed up.', 'Everybody else is just getting their leaves, and he turned.', 'A little fall color in the middle of spring. He does his own thing.'],
+      you: ['You hit him with some color, and he turned early.'],
+      auto: ['Some color found him, and he turned early.'],
+    },
   },
   company: {
     lines: [
@@ -531,7 +536,7 @@ const TOOLS = {
 };
 
 // The time of day each mood paints, for lines that only fit some of them.
-const TIME = { 'golden-hour': 'evening', 'violet-dusk': 'evening', 'misty-morning': 'morning', 'winter-hush': 'morning', 'northern-night': 'night', 'autumn-blaze': 'day' };
+const TIME = { 'golden-hour': 'evening', 'violet-dusk': 'evening', 'misty-morning': 'morning', 'winter-hush': 'morning', 'northern-night': 'night', 'autumn-blaze': 'day', 'spring-thaw': 'day' };
 
 // Everything the painter might say for a key, in a mood (scheme, a mood's id) and for paint thrown by someone or by the
 // toy itself (auto: Oops, Let it happen and the intro). A key's lines are a list, or { lines, you, auto, and lines for
@@ -624,6 +629,7 @@ const MOOD = {
   'autumn-blaze': { adj: ['October', 'Copper', 'Blazing', 'Russet'], time: ['Early October', 'Harvest Time', 'The Turning'], hour: 'Afternoon' },
   'misty-morning': { adj: ['Misty', 'Soft', 'Early', 'Gentle'], time: ['Early Morning', 'First Light', 'Morning Fog'], hour: 'Morning' },
   'violet-dusk': { adj: ['Violet', 'Evening', 'Dusky', 'Lavender'], time: ['Dusk', 'Last Light', 'Nightfall'], hour: 'Evening' },
+  'spring-thaw': { adj: ['April', 'Blossom', 'Greening', 'Fresh'], time: ['The Thaw', 'Early April', 'Blossom Time'], hour: 'Afternoon' },
 };
 
 // What a painting could be named for: [one, many, weight], with many only when there are two or more of it (a canvas has
@@ -652,9 +658,9 @@ function subjects(counts) {
   return s;
 }
 
-// Adjectives that read as a color: "The Golden Mountain" over a grey-blue one looks like a mistake, so a peak, a ridge or
-// a mountain doesn't get them.
-const COLOR_WORDS = new Set(['Golden', 'Amber', 'Copper', 'Violet', 'Silver', 'Lavender', 'Russet']);
+// Adjectives that read as a color, or as blossom: "The Golden Mountain" over a grey-blue one looks like a mistake, and so
+// does a Blossom Ridge, so a peak, a ridge or a mountain doesn't get them.
+const COLOR_WORDS = new Set(['Golden', 'Amber', 'Copper', 'Violet', 'Silver', 'Lavender', 'Russet', 'Blossom', 'Greening']);
 const PEAKS = new Set(['Peak', 'Peaks', 'Ridge', 'Ridges', 'Mountain', 'Mountains']);
 const wordsOf = (text) => text.split(/[\s,]+/).filter(Boolean);
 

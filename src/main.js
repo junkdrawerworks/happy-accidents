@@ -1189,7 +1189,7 @@ updateCount();
 // Canvas numbers carry on from the last canvas painted on, so no two paintings on the wall share one.
 const lastCanvas = store.get(KEY.canvases, 0);
 studio.number = Number.isInteger(lastCanvas) && lastCanvas > 0 ? lastCanvas : 0;
-// And so does the round of moods, so every mood comes round in your first six canvases, visits or not.
+// And so does the round of moods, so every mood comes round in your first seven canvases, visits or not.
 const moodsUsed = store.get(KEY.moods, []);
 studio.moodsUsed = Array.isArray(moodsUsed) ? moodsUsed.filter((id) => SCHEMES.some((s) => s.id === id)) : [];
 studio.newCanvas();

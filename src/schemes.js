@@ -135,6 +135,30 @@ const RAW = [
     bird: '#140f1e',
     window: '#ffc070',
   },
+  {
+    // A clear spring day: blossom in the leafy trees (blossom, painted over their leaves), young grass, the last snow on
+    // the peaks (peakSnow) though nowhere else, and clear water.
+    id: 'spring-thaw',
+    name: 'Spring Thaw',
+    sunType: 'sun',
+    leafy: true,
+    sky: [[0, '#5a8fc7'], [0.55, '#a7c9e6'], [1, '#eaf3f5']],
+    glow: '#fffbe6',
+    sun: '#fffdf0',
+    sunGlow: '#fff2c8',
+    cloud: { light: '#ffffff', shadow: '#94a8c0' },
+    mtn: { far: '#9cafc6', mid: '#6f839f', near: '#4b5c78', light: '#e8eef5', shadow: '#384660', snow: '#ffffff' },
+    snow: false,
+    peakSnow: true,
+    tree: { dark: '#16301c', mid: '#2f5a2c', light: '#a9d16f' },
+    leaf: ['#2e5a28', '#6aa83c', '#f2b6c9', '#fdeef3'],
+    blossom: ['#f4b2c6', '#fbe0e9', '#ffffff'],
+    ground: { dark: '#22331a', mid: '#5f9b3a', light: '#c9e57c' },
+    water: '#3b6d99',
+    waterLine: '#f3fbff',
+    bird: '#28323e',
+    window: '#ffe2a0',
+  },
 ];
 
 function prep(value) {
@@ -155,7 +179,7 @@ export const SCHEMES = RAW.map((raw) => {
 });
 
 // The moods come round like a shuffled deck: each canvas gets one not yet used this round (used, a list of mood ids), and
-// once all six have been, a new round starts. Never the one just painted (avoidId), even across the start of a round.
+// once all seven have been, a new round starts. Never the one just painted (avoidId), even across the start of a round.
 export function pickScheme(avoidId, used = []) {
   const fresh = SCHEMES.filter((s) => s.id !== avoidId && !used.includes(s.id));
   const pool = fresh.length ? fresh : SCHEMES.filter((s) => s.id !== avoidId);

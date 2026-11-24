@@ -217,6 +217,14 @@ export function deciduous(S, p) {
     for (const cl of clusters) ops.push((ctx) => leafPass(ctx, cl, leaf[1], Math.round(((cl.r * cl.r) / (lw * lw)) * (p.sparse ?? 0.04)), lw, 0.85));
   } else {
     ops.push(...foliage(S, clusters, leaf, lw));
+    // In a mood with blossom (Spring Thaw), pink and white flowers among the leaves.
+    if (scheme.blossom) {
+      const bloom = scheme.blossom.map((c) => mix(c, S.haze, hz));
+      for (const cl of clusters) {
+        const n = clamp(Math.round(((cl.r * cl.r) / (lw * lw)) * 0.14), 4, 260);
+        ops.push((ctx) => bloom.forEach((c, i) => leafPass(ctx, cl, c, Math.round(n / (i + 1)), lw * 0.85, 0.9)));
+      }
+    }
   }
   if (p.birch) ops.push(...birchMarks(segs[0], h));
   ops.push((ctx) => {

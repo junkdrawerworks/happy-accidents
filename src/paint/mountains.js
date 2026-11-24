@@ -82,7 +82,8 @@ export function mountain(S, p) {
   const hazeAmt = [0.3, 0.14, 0.04][idx];
   const tintAmt = p.tintAmt ?? 0.1;
   const c0 = mix(mix(layer, p.tint, tintAmt), S.haze, hazeAmt);
-  const snowOn = p.snowy ?? scheme.snow;
+  // Snow up top in a mood with snow, and in one where only the peaks still have it (Spring Thaw).
+  const snowOn = p.snowy ?? (scheme.snow || !!scheme.peakSnow);
   const hi = snowOn ? scheme.mtn.snow : scheme.mtn.light;
   const rockLight = mix(scheme.mtn.light, lighten(p.tint, 0.45), tintAmt * 0.6);
   const shadowC = mix(scheme.mtn.shadow, c0, 0.45);

@@ -479,7 +479,7 @@ assert.ok(!aimed.cadmium.includes('bank'), `Let it happen aimed Cadmium Yellow a
 
 // Accidents that pick their own paint (Oops and Let it happen on Surprise me) suit the mood, and now and then aim for a
 // rock or an island, stars or an aurora at night, or the cabin, so everything in the rules can turn up. Thirty accidents
-// on a canvas of each of the six moods, four times over, each played straight through to the end.
+// on a canvas of each of the seven moods, four times over, each played straight through to the end.
 {
   const moods = await S(() => {
     const st = window.happyAccidents;
@@ -509,7 +509,7 @@ assert.ok(!aimed.cadmium.includes('bank'), `Let it happen aimed Cadmium Yellow a
       return runPlan.call(this, sp, plan, i);
     };
     try {
-      for (const mood of ['golden-hour', 'winter-hush', 'northern-night', 'autumn-blaze', 'misty-morning', 'violet-dusk']) {
+      for (const mood of ['golden-hour', 'winter-hush', 'northern-night', 'autumn-blaze', 'misty-morning', 'violet-dusk', 'spring-thaw']) {
         const o = (out[mood] = { fams: {}, whiteTrees: 0, made: {} });
         for (let c = 0; c < 4; c++) {
           st.newCanvas(mood);
@@ -534,12 +534,12 @@ assert.ok(!aimed.cadmium.includes('bank'), `Let it happen aimed Cadmium Yellow a
     return out;
   });
   const share = (o, fams) => fams.reduce((n, f) => n + (o.fams[f] || 0), 0) / Object.values(o.fams).reduce((a, b) => a + b, 0);
-  for (const mood of ['golden-hour', 'misty-morning', 'violet-dusk']) assert.equal(moods[mood].whiteTrees, 0, `${mood} has no snow, but accidents picked white for ${moods[mood].whiteTrees} trees`);
+  for (const mood of ['golden-hour', 'misty-morning', 'violet-dusk', 'spring-thaw']) assert.equal(moods[mood].whiteTrees, 0, `${mood} has no snow, but accidents picked white for ${moods[mood].whiteTrees} trees`);
   assert.ok(share(moods['winter-hush'], ['white', 'green', 'blue']) > 0.6, `Winter Hush's accidents were only ${Math.round(100 * share(moods['winter-hush'], ['white', 'green', 'blue']))}% whites, greens and blues`);
   const warmest = Object.keys(moods).sort((a, b) => share(moods[b], ['red', 'yellow']) - share(moods[a], ['red', 'yellow']))[0];
   assert.equal(warmest, 'autumn-blaze', 'Autumn Blaze’s accidents weren’t the reddest and yellowest');
   const made = (k) => Object.values(moods).reduce((n, o) => n + (o.made[k] || 0), 0);
-  for (const k of ['rock', 'island', 'cabin', 'roofSnow', 'lights', 'garden']) assert.ok(made(k) > 0, `in 720 accidents, none made ${k}`);
+  for (const k of ['rock', 'island', 'cabin', 'roofSnow', 'lights', 'garden']) assert.ok(made(k) > 0, `in 840 accidents, none made ${k}`);
   for (const k of ['stars', 'aurora']) assert.ok(moods['northern-night'].made[k] > 0, `in 120 accidents at night, none made ${k}`);
 }
 

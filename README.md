@@ -26,7 +26,7 @@
 - **The palette** loads the brush. **Surprise me** picks a new paint every time.
 - **Oops** (<kbd>Space</kbd>) makes an accident you didn't. **Let it happen** (<kbd>A</kbd>) keeps accidents coming on their own until the painting feels done. They use the paint you've loaded and aim it somewhere it makes sense; on Surprise me, they pick a paint that suits where they're aiming and the mood (no snowy pines in a mood without snow, more reds and yellows in Autumn Blaze). Now and then they aim for a rock or an island, stars or an aurora at night, or the cabin.
 - **New canvas** (<kbd>N</kbd>) starts over, and asks first if there's paint that isn't up on your wall yet. **Sound** (<kbd>M</kbd>) is off until you turn it on: the damp pat of a splat and the swish of a brush.
-- **Every canvas gets a mood:** Golden Hour, Winter Hush, Northern Night, Autumn Blaze, Misty Morning or Violet Dusk. The lake reflects everything above the horizon.
+- **Every canvas gets a mood:** Golden Hour, Winter Hush, Northern Night, Autumn Blaze, Misty Morning, Violet Dusk or Spring Thaw. The lake reflects everything above the horizon.
 - **Sign it** (<kbd>S</kbd>) to put your name on it in red. You get a museum label with a made-up title, and the painting goes up on your gallery wall (<kbd>G</kbd>). From the label you can save the picture, or on a phone share it (to Photos, or to a friend).
 - No account and no server. The gallery wall keeps your 12 newest signed paintings, in your browser. It works offline and installs to a phone's home screen.
 
@@ -84,7 +84,7 @@ It's Canvas 2D with no framework and no image files: everything on the canvas is
 - `src/splat.js`: the accident itself: a glossy blob with wobble, spikes and flung droplets, and its outline in canvas coordinates (a union, when wet splats run together).
 - `src/shape.js`: turns that outline into silhouettes: top edges, side profiles, clumps.
 - `src/color.js`: color helpers, including how paints mix (yellow and blue make green) and which family a mixed color belongs to.
-- `src/schemes.js`: the ten paints on the palette, and the six moods a canvas can have, each with its own sky, water, mountain and tree colors.
+- `src/schemes.js`: the ten paints on the palette, and the seven moods a canvas can have, each with its own sky, water, mountain and tree colors.
 - `src/decide.js`: reads a splat and returns a plan, such as land and then a tree on it. It checks what's already painted under the splat first, pixel by pixel, and reacts to that; otherwise the paint's color and where it landed pick what it becomes.
 - `src/paint/`: one painter per thing, plus `react.js` for changes to things already there. Each returns a bounding box, a depth and a list of small drawing steps played back over a second or two, so you watch it being painted.
 - `src/studio.js`: the scene. Every element paints into its own layer, composited back to front by depth. The finished layers are kept put together as a few ready-made pictures, and each frame draws again only the part of the canvas that changed, so a long painting draws about as fast as a short one. The lake is a mirrored, rippled copy of everything above the horizon.

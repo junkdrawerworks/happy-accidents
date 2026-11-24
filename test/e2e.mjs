@@ -543,6 +543,34 @@ assert.ok(!aimed.cadmium.includes('bank'), `Let it happen aimed Cadmium Yellow a
   for (const k of ['stars', 'aurora']) assert.ok(moods['northern-night'].made[k] > 0, `in 120 accidents at night, none made ${k}`);
 }
 
+// With a paint loaded, Let it happen aims at the cabin only for what that paint can give it. In a snowy mood, a cabin with
+// its lights on and its garden but no snow on the roof was aimed at again and again with green, which can't bring snow,
+// so the paint kept landing beside it as more trees and flowers.
+{
+  const cabinAims = await S(async () => {
+    const { PIGMENTS } = await import('./src/schemes.js');
+    const st = window.happyAccidents;
+    st.newCanvas('winter-hush');
+    const cabin = { kind: 'cabin', meta: { glow: true }, touched: new Set(['garden']) };
+    st.elements.push(cabin);
+    const aims = (id) => {
+      const pigment = PIGMENTS.find((p) => p.id === id);
+      let n = 0;
+      for (let i = 0; i < 300; i++) if (st.pickHint(['onCabin', 'cloud'], pigment) === 'onCabin') n++;
+      return n;
+    };
+    try {
+      return { green: aims('sap-green'), white: aims('titanium-white') };
+    } finally {
+      st.elements.splice(st.elements.indexOf(cabin), 1);
+      st.newCanvas('golden-hour');
+      st.redrawAll();
+    }
+  });
+  assert.equal(cabinAims.green, 0, `with green loaded, Let it happen aimed ${cabinAims.green} times in 300 at a cabin that only had snow left`);
+  assert.ok(cabinAims.white > 0, 'with white loaded, Let it happen never aimed at a cabin waiting for snow on its roof');
+}
+
 // A thin strip of far shore is still ground a tree can be aimed at: a tree that Oops, Let it happen or the intro aims
 // at the land finds it, instead of turning into a cloud because random tries all missed it.
 const farTrees = await S(() => {

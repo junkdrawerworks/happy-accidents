@@ -880,7 +880,7 @@ export class Studio {
     }
 
     const fits = opts.pigment ? fitsFor(opts.pigment) : null;
-    let hint = opts.hint ?? this.pickHint(fits);
+    let hint = opts.hint ?? this.pickHint(fits, opts.pigment);
     // The cabin, if there is one, with paint for something it hasn't had yet: snow on the roof, its lights, a garden.
     if (hint === 'onCabin') {
       const cabin = this.elements.find((e) => e.kind === 'cabin');
@@ -934,10 +934,11 @@ export class Studio {
   }
 
   // What the cabin hasn't had yet, and a paint that gives it: snow on the roof (white, in a mood with snow), its lights
-  // (warm paint), or once they're on, a garden (in a paint that makes bright flowers).
-  cabinLeft(t) {
+  // (warm paint), or once they're on, a garden (in a paint that makes bright flowers). With a paint loaded, only what
+  // that paint can give: snow on the roof needs white, so the cabin isn't aimed at for it again and again in vain.
+  cabinLeft(t, pigment = null) {
     const left = [];
-    if (this.scheme.snow && !t.touched?.has('snow')) left.push(['titanium-white']);
+    if (this.scheme.snow && !t.touched?.has('snow') && (!pigment || pigment.family === 'white')) left.push(['titanium-white']);
     if (!t.meta.glow) left.push(['cadmium-yellow', 'indian-yellow', 'bright-red']);
     else if (!t.touched?.has('garden')) left.push(['bright-red', 'cadmium-yellow', 'phthalo-blue']);
     return left;
@@ -948,7 +949,7 @@ export class Studio {
     return moodPaint(left.length ? pick(left) : PIGMENTS.map((p) => p.id), this.scheme);
   }
 
-  pickHint(fits) {
+  pickHint(fits, pigment = null) {
     const c = (k) => this.count(k);
     const land = this.findLand() !== null;
     const { night } = this.scheme;
@@ -963,7 +964,7 @@ export class Studio {
       ['bank', c('bank') < 2 ? 2.8 : c('bank') < 4 ? 1 : 0.25],
       ['tree', land ? 3.2 + c('bank') * 0.3 : 0],
       ['cabin', land && !this.has('cabin') ? 0.5 : 0],
-      ['onCabin', cabin?.meta && this.cabinLeft(cabin).length ? 0.8 : 0],
+      ['onCabin', cabin?.meta && this.cabinLeft(cabin, pigment).length ? 0.8 : 0],
       ['water', 0.6],
       ['rock', c('rock') < 3 ? 0.35 : 0],
       ['island', c('island') < 2 ? 0.3 : 0],

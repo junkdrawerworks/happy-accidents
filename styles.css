@@ -595,6 +595,39 @@ kbd {
     conic-gradient(from 20deg, #f2c21a, #c9321f, #7e1b2e, #15418a, #3f5c23, #c48a33, #f2c21a);
 }
 
+/* A paint's name, for a second above its dab when it's pressed on a touch screen. */
+.dab-tag {
+  position: absolute;
+  z-index: 2;
+  transform: translateY(calc(-100% - 9px));
+  padding: 4px 9px 5px;
+  border-radius: 8px;
+  background: #1b1410;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.dab-tag.show {
+  opacity: 1;
+}
+
+.dab-tag::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: var(--point, 50%);
+  margin-left: -5px;
+  border: 5px solid transparent;
+  border-top-color: #1b1410;
+}
+
 /* In forced colours (Windows High Contrast and the like) backgrounds and shadows go, and with them every paint on the
    palette and the ring round the one on the brush. The paints are what you choose between, so they keep their own
    colours (and the palette, clamp and ledge theirs), and the paint on the brush gets an outline in the text colour. */

@@ -1017,6 +1017,33 @@ assert.deepEqual(await S(() => {
 }), ['none', 'solid', true], 'in forced colours the palette lost its paints or the ring round the one on the brush');
 await page.emulateMedia({ forcedColors: 'none' });
 
+// Pressing a paint on a touch screen shows its name above its dab for about a second, inside the palette and pointing
+// at the dab (so Bright Red and Sap Green can be told apart without the colour); a mouse has the tooltip instead, and
+// at rest the palette shows no names.
+{
+  const tag = (id) => S((id) => {
+    const t = document.querySelector('.dab-tag');
+    const r = t.getBoundingClientRect();
+    const d = document.querySelector(`.dab[data-id=${id}]`).getBoundingClientRect();
+    const p = document.getElementById('palette').getBoundingClientRect();
+    const point = r.left + parseFloat(t.style.getPropertyValue('--point'));
+    return { text: t.textContent, showing: !t.hidden && getComputedStyle(t).opacity > 0.5, above: r.bottom <= d.top, inPalette: r.left >= p.left - 0.5 && r.right <= p.right + 0.5, onDab: Math.abs(point - (d.left + d.width / 2)) < 1.5 };
+  }, id);
+  assert.equal(await S(() => document.querySelector('.dab-tag').hidden), true, 'a paint’s name shows on the palette at rest');
+  const ids = await S(() => [...document.querySelectorAll('.dab')].map((d) => d.dataset.id));
+  for (const id of ['bright-red', 'sap-green', ids[0], ids.at(-1)]) {
+    await page.tap(`.dab[data-id=${id}]`);
+    await page.waitForTimeout(250);
+    const name = await page.getAttribute(`.dab[data-id=${id}]`, 'aria-label');
+    assert.deepEqual(await tag(id), { text: name, showing: true, above: true, inPalette: true, onDab: true }, `pressing ${name} on a touch screen`);
+  }
+  await page.waitForTimeout(1300);
+  assert.equal(await S(() => document.querySelector('.dab-tag').hidden), true, 'a paint’s name stayed up after a second');
+  await page.click('.dab[data-id=surprise]');
+  await page.waitForTimeout(250);
+  assert.equal(await S(() => document.querySelector('.dab-tag').hidden), true, 'a mouse click on a paint showed its name tag (it has the tooltip)');
+}
+
 // Space is Oops, M turns the sound on and off (and remembers it), and Ctrl+Z gets a word about there being no undo.
 await S(() => document.activeElement?.blur());
 before = await S(() => window.happyAccidents.accidents);

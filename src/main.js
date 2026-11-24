@@ -234,6 +234,9 @@ const dabs = OPTIONS.map((o) => {
     load(o.id, true);
     studio.keepWet();
   });
+  b.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch') showTag(b, o.name);
+  });
   b.addEventListener('keydown', (e) => {
     const i = OPTIONS.indexOf(o);
     let next = null;
@@ -250,6 +253,31 @@ const dabs = OPTIONS.map((o) => {
   paletteEl.appendChild(b);
   return b;
 });
+
+// Pressing a paint on a touch screen shows its name above its dab for about a second (a mouse has the dab's tooltip),
+// so paints that can look alike, such as Bright Red and Sap Green to someone colour-blind, can be told apart by name.
+// It stays inside the palette, its point on the dab; a screen reader has each dab's name already.
+const tagEl = document.createElement('span');
+tagEl.className = 'dab-tag';
+tagEl.setAttribute('aria-hidden', 'true');
+tagEl.hidden = true;
+paletteEl.appendChild(tagEl);
+let tagTimer = 0;
+function showTag(dab, name) {
+  clearTimeout(tagTimer);
+  tagEl.textContent = name;
+  tagEl.hidden = false;
+  const mid = dab.offsetLeft + dab.offsetWidth / 2;
+  const x = Math.max(0, Math.min(paletteEl.clientWidth - tagEl.offsetWidth, mid - tagEl.offsetWidth / 2));
+  tagEl.style.left = `${x}px`;
+  tagEl.style.top = `${dab.offsetTop}px`;
+  tagEl.style.setProperty('--point', `${mid - x}px`);
+  tagEl.classList.add('show');
+  tagTimer = setTimeout(() => {
+    tagEl.classList.remove('show');
+    tagTimer = setTimeout(() => (tagEl.hidden = true), 200);
+  }, 1100);
+}
 
 function load(id, focus = false) {
   loaded = id;

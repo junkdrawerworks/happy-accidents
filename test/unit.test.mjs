@@ -609,12 +609,18 @@ for (const [i, r] of REACTIONS.entries()) {
 // orange, which acts like yellow (a little red into more yellow: half and half, Alizarin and Yellow Ochre make a brick
 // red). White into red makes pink, which acts like red, however much white. Red into green makes brown.
 const mixOf = (a, b, wa = 1, wb = 1) => mixPaint([[paintOf(a).rgb, wa], [paintOf(b).rgb, wb]]);
-for (const y of PAINTS.yellow) {
-  for (const b of PAINTS.blue) {
-    const todo = familyOf(mixOf(y, b)) === 'green' ? undefined : 'a dull olive reads as brown';
-    test(`the rules: ${paintOf(y).name} into ${paintOf(b).name} makes green`, { todo }, () => assert.equal(familyOf(mixOf(y, b)), 'green', colorName(mixOf(y, b))));
+test('the rules: yellow into blue makes green, for every yellow and every blue', () => {
+  for (const y of PAINTS.yellow) {
+    for (const b of PAINTS.blue) {
+      assert.equal(familyOf(mixOf(y, b)), 'green', `${y} into ${b} is ${colorName(mixOf(y, b))}`);
+      assert.match(colorName(mixOf(y, b)), /green/, `the painter calls ${y} and ${b} ${colorName(mixOf(y, b))}`);
+    }
   }
-}
+  // Green reaches into the dull olives, but not into the browns: Van Dyke Brown, and yellows mixed into it.
+  for (const [a, b] of [['van-dyke-brown', 'van-dyke-brown'], ['yellow-ochre', 'van-dyke-brown'], ['cadmium-yellow', 'van-dyke-brown'], ['indian-yellow', 'van-dyke-brown']]) {
+    assert.equal(familyOf(mixOf(a, b)), 'brown', `${a} into ${b}`);
+  }
+});
 test('the rules: red into yellow makes orange, white into red makes pink, red into green makes brown', () => {
   for (const r of PAINTS.red) {
     for (const y of PAINTS.yellow) {

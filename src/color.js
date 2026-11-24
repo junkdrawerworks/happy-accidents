@@ -68,8 +68,12 @@ export function hsl(rgb) {
 
 // Which of the palette's families a color belongs to: white, yellow, red, green, blue or brown.
 // Every paint on the palette reads as its own family; mixes land wherever they look like they should.
+// Yellow into blue makes a dull olive more often than a bright green, so the greens reach further into the dull colors
+// than the others: any hue from yellow-green to blue-green that isn't nearly grey, and dark olives just short of yellow.
 export function familyOf(rgb) {
   const { h, s, l, c } = hsl(rgb);
+  const olive = l <= 0.72 && ((h >= 62 && h < 185 && c >= 0.05) || (h >= 50 && h < 62 && l < 0.34 && c >= 0.1));
+  if (olive) return 'green';
   if (c < 0.1) return l > 0.72 ? 'white' : 'brown';
   if (h < 62 && (l < 0.34 || s < 0.35)) return 'brown';
   if (h >= 345 || h < 18) return 'red';
@@ -84,11 +88,11 @@ export function colorName(rgb) {
   const { h, l, c } = hsl(rgb);
   const fam = familyOf(rgb);
   if (fam === 'white') return 'white';
-  if (c < 0.1) return l < 0.25 ? 'nearly black' : 'grey';
+  if (c < 0.1 && fam !== 'green') return l < 0.25 ? 'nearly black' : 'grey';
   if (fam === 'brown') return l > 0.42 ? 'tan' : 'brown';
   if (h >= 260 && h < 345) return l > 0.62 ? 'lilac' : 'purple';
   if (fam === 'red') return l > 0.6 ? 'pink' : l < 0.3 ? 'deep red' : 'red';
   if (fam === 'yellow') return h < 40 ? 'orange' : l > 0.72 ? 'pale yellow' : 'yellow';
-  if (fam === 'green') return l > 0.6 ? 'pale green' : l < 0.25 ? 'dark green' : 'green';
+  if (fam === 'green') return l > 0.6 ? 'pale green' : l < 0.25 ? 'dark green' : c < 0.15 && h < 100 ? 'olive green' : 'green';
   return l > 0.6 ? 'pale blue' : l < 0.22 ? 'deep blue' : 'blue';
 }

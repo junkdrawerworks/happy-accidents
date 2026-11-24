@@ -8,6 +8,7 @@ import { decide, earthy, MAX_FLOCKS } from './decide.js';
 import { sky, signature, SIGNATURE_FONT } from './paint/index.js';
 import { bristle, linePts } from './brush.js';
 import { line, toolInfo, mixLine, LINES } from './words.js';
+import { Film, FRAME_WIDTH, FRAME_QUALITY } from './film.js';
 
 export const W = 1200;
 export const H = 900;
@@ -326,6 +327,9 @@ export class Studio {
     this.pool = null;
     this.drops = [];
     this.running = false;
+    // How the painting on the easel came about, for Watch it again (see film.js).
+    this.film = new Film();
+    this.filmAt = 0;
     this.frame = this.frame.bind(this);
     // The painting time on the label counts only while the page is showing: time spent hidden (another tab, the phone
     // locked, the canvas left overnight) moves the start along by as much.
@@ -385,6 +389,7 @@ export class Studio {
     this.signed = null;
     this.startedAt = Date.now();
     this.seq = 0;
+    this.film.clear();
     this.mctx.clearRect(0, 0, this.mask.width, this.mask.height);
     this.refl = this.layer(W, this.hy + 2);
     this.rctx = this.refl.getContext('2d');
@@ -1159,6 +1164,22 @@ export class Studio {
     };
   }
 
+  // A picture for the film of what's changed since the last one (see film.js), unless this chance is one it skips, or
+  // force and nothing has changed. The painting as it is now, without any wet paint, made into a JPEG off to the side.
+  shoot(force = false) {
+    const frame = this.film.next(force);
+    if (!frame) return;
+    // (With no wet paint about, the canvas is the painting as it is already.)
+    const wet = this.splats.length || this.pool || this.drops.length;
+    if (wet) this.render(performance.now(), { splats: false });
+    const c = document.createElement('canvas');
+    c.width = FRAME_WIDTH;
+    c.height = Math.round((FRAME_WIDTH * H) / W);
+    c.getContext('2d').drawImage(this.canvas, 0, 0, c.width, c.height);
+    if (wet) this.render(performance.now());
+    c.toBlob((blob) => (frame.pic = blob), 'image/jpeg', FRAME_QUALITY);
+  }
+
   snapshot(width = W * this.k, type = 'image/jpeg', quality = 0.9) {
     this.render(performance.now(), { splats: false });
     const c = document.createElement('canvas');
@@ -1211,6 +1232,9 @@ export class Studio {
       // Something at the water's edge, painted in or painted on, shows in the water as it is now.
       if (el.target?.mirror) this.repaintMirror(el.target.mirror);
       else if (SHORE_MIRRORED.has(el.kind) && !el.target && !el.mirror) this.mirrorFor(el);
+      if (!this.film.armed) this.filmAt = now;
+      const b = el.bbox;
+      this.film.changed([b.x, b.y, b.x + b.w, b.y + b.h]);
       done?.(el);
     }
 
@@ -1237,6 +1261,9 @@ export class Studio {
     }
 
     this.render(now);
+    // Something finished: a picture for the film, once its reflection is in the lake too (or after a moment, while the
+    // lake is kept busy).
+    if (this.film.armed && (!this.lakeDue.size || now - this.filmAt > 600)) this.shoot();
 
     const animating = this.active.length || this.pool || this.lakeDue.size || this.splats.some((s) => now - s.born < 240 || s.tintT0 || s.state === 'fading' || s.state === 'absorbing');
     if (animating) requestAnimationFrame(this.frame);

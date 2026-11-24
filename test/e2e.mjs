@@ -1184,6 +1184,8 @@ await S(() => {
   navigator.storage.persisted = async () => false;
   navigator.storage.persist = async () => ++window.askedToKeep > 0 && false;
 });
+// (The pictures in the film for Watch it again so far, to tell them from the ones taken as it's signed.)
+await S(() => window.happyAccidents.film.frames.forEach((f) => (f.before = true)));
 await page.click('#signBtn');
 await page.fill('#artistName', 'Robin');
 await page.fill('#artTitle', 'Test Pattern at Otter Cove');
@@ -1239,7 +1241,44 @@ assert.equal(await S(() => window.happyAccidents.accidents), accidentsSigned, 'p
 assert.equal(await S(() => window.happyAccidents.signed.accidents), accidentsSigned, 'the label and the easel disagree on how many accidents were signed');
 assert.equal(await S(() => window.askedToKeep), 1, 'hanging the first painting didn’t ask the browser to keep the wall');
 assert.equal(await S(() => document.getElementById('app').inert), true, 'the page behind the label is out of reach');
+// Watch it again: the label of the painting just signed plays how it came about on its frame, from the pictures kept
+// each time something finished painting, the signature's last. Pressed again it stops, and so does closing the label.
+const film = await S(() => {
+  const st = window.happyAccidents;
+  const f = st.film;
+  const sig = st.elements.find((e) => e.kind === 'signature').bbox;
+  const covers = (b) => b[0] <= sig.x + 1 && b[1] <= sig.y + 1 && b[2] >= sig.x + sig.w - 1 && b[3] >= sig.y + sig.h - 1;
+  return { n: f.frames.length, ready: f.ready.length, signed: f.frames.some((fr) => !fr.before && covers(fr.box)), waiting: f.box };
+});
+assert.equal(await page.isVisible('#replayBtn'), true, 'the label of a painting just signed has no Watch it again');
+assert.ok(film.n >= 3 && film.n <= 60 && film.ready === film.n, `the film for Watch it again has ${film.n} pictures, ${film.ready} of them ready`);
+assert.ok(film.signed, 'the film for Watch it again has no picture of the signature going on');
+assert.equal(film.waiting, null, 'the film for Watch it again doesn’t end on the painting as it was framed');
+await page.click('#replayBtn');
+assert.equal(await page.isVisible('#film'), true, 'Watch it again didn’t play on the frame');
+assert.equal(await page.textContent('#replayBtn'), 'Stop');
+const filmAt = await S(() => {
+  const f = document.getElementById('film').getBoundingClientRect();
+  const i = document.getElementById('placardImg').getBoundingClientRect();
+  return [f.left - i.left, f.top - i.top, f.width - i.width, f.height - i.height].map((v) => Math.round(Math.abs(v)));
+});
+assert.deepEqual(filmAt, [0, 0, 0, 0], 'Watch it again plays somewhere other than right over the painting');
+await page.waitForTimeout(1500);
+const playing = await S(() => {
+  const c = document.getElementById('film');
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  let painted = 0;
+  for (let i = 0; i < d.length; i += 4 * 97) if (d[i + 3] && Math.abs(d[i] - 0xf2) + Math.abs(d[i + 1] - 0xef) + Math.abs(d[i + 2] - 0xe6) > 40) painted++;
+  return painted / (d.length / (4 * 97));
+});
+assert.ok(playing > 0.5, `a second and a half into Watch it again, only ${Math.round(playing * 100)}% of the frame is painted`);
+await page.click('#replayBtn');
+assert.equal(await page.isHidden('#film'), true, 'Stop didn’t stop Watch it again');
+assert.equal(await page.textContent('#replayBtn'), 'Watch it again');
+await page.click('#replayBtn');
 await page.click('#keepBtn');
+assert.equal(await page.isHidden('#film'), true, 'closing the label left Watch it again playing');
+assert.equal(await S(() => window.happyAccidents.film.frames.length), film.n, 'going back to the easel lost the film');
 assert.equal(await page.textContent('#galleryCount'), '1');
 assert.equal(await S(() => document.getElementById('app').inert), false);
 assert.equal(await S(() => document.activeElement.id), 'signBtn', 'after the label, focus goes back to Sign it');
@@ -1252,6 +1291,7 @@ await page.click('#signBtn');
 await page.waitForSelector('#placard:not([hidden])', { timeout: 5000 }).catch(() => assert.fail('Sign it again with nothing new didn’t bring the label back'));
 assert.equal(await page.isHidden('#signSheet'), true, 'Sign it again with nothing new opened the sign form');
 assert.equal(await page.textContent('#plTitle'), 'Test Pattern at Otter Cove');
+assert.equal(await page.isVisible('#replayBtn'), true, 'the label brought back by Sign it has no Watch it again');
 assert.equal(await S(() => JSON.parse(localStorage.getItem('happy-accidents:gallery')).length), 1, 'signing again with nothing new hung a second copy');
 await page.click('#keepBtn');
 assert.equal(await page.textContent('#galleryCount'), '1');
@@ -1316,6 +1356,8 @@ assert.equal(await page.textContent('#canvasNo'), canvasNo, 'the first tap of Ne
 // So does Paint another on a painting opened from the wall: the first tap asks, and only a second one starts over.
 await page.click('#galleryBtn');
 await page.click('.wall-open');
+// (Watch it again is for the painting just signed, not one opened from the wall.)
+assert.equal(await page.isHidden('#replayBtn'), true, 'a painting opened from the wall has Watch it again');
 await page.click('#anotherBtn');
 assert.equal(await page.textContent('#anotherBtn'), 'Start over?', 'Paint another on a painting from the wall asks first when the easel has paint that isn’t hung');
 assert.match(await page.textContent('#placard .sr-status'), /^Press again to start over\./, 'a screen reader in the label isn’t told Paint another is asking first');
@@ -1324,6 +1366,7 @@ await page.waitForTimeout(450); // a second tap, not a double-click
 await page.click('#anotherBtn');
 assert.notEqual(await page.textContent('#canvasNo'), canvasNo, 'a second tap of Paint another starts over');
 assert.equal(await page.isHidden('#placard'), true);
+assert.ok(await S(() => window.happyAccidents.film.frames.length) <= 1, 'a new canvas kept the last one’s film for Watch it again');
 
 // The gallery survives a reload, and the canvas numbers carry on from where they were (the fresh canvas Paint another
 // put up hasn't been painted on, so it keeps its number).

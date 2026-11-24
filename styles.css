@@ -970,6 +970,7 @@ kbd {
 }
 
 .frame {
+  position: relative;
   flex: 1 1 auto;
   min-width: 0;
   margin: 0;
@@ -1035,6 +1036,45 @@ kbd {
 .label-note {
   margin-bottom: 8px !important;
   text-wrap: pretty;
+}
+
+/* Watch it again plays on the frame, over the picture, exactly where it is (main.js places it). */
+.film {
+  position: absolute;
+  display: block;
+}
+
+/* Watch it again, on the label itself, under what the painting was made from, with a little red play mark. */
+.label .replay {
+  display: flex;
+  min-height: 44px;
+  margin: 8px 0 2px -2px;
+  padding: 0 12px 0 10px;
+  font-size: 13px;
+  color: var(--label-ink);
+  border-color: rgba(31, 27, 23, 0.22);
+  border-radius: 999px;
+}
+
+.label .replay:hover {
+  background: rgba(31, 27, 23, 0.06);
+  border-color: rgba(31, 27, 23, 0.4);
+}
+
+.label .replay::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 5px 0 5px 8px;
+  border-color: transparent transparent transparent var(--red);
+}
+
+.label .replay.playing::before {
+  width: 8px;
+  height: 8px;
+  border: 0;
+  background: var(--red);
 }
 
 .label-credit {
@@ -1139,6 +1179,30 @@ kbd {
     margin-top: 8px !important;
     padding-top: 6px;
     font-size: 11px;
+  }
+
+  /* Here Watch it again runs on after what it was made from, like a link, with no line of its own; it's still as tall
+     as a finger, without pushing the lines apart. */
+  .label .replay {
+    display: inline-block;
+    min-height: 0;
+    margin: -12px 0;
+    padding: 12px 0;
+    border: 0;
+    border-radius: 0;
+    font: inherit;
+    font-weight: 600;
+    vertical-align: baseline;
+  }
+
+  .label .replay:hover {
+    background: none;
+    text-decoration: underline;
+  }
+
+  .label .replay::before {
+    display: inline-block;
+    margin-right: 5px;
   }
 
   .placard-actions {

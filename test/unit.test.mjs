@@ -17,6 +17,7 @@ import { flowers, canoe, glints } from '../src/paint/index.js';
 import { autumn, treeGlow, sunlitCloud, treeSnow as treeSnowOf } from '../src/paint/react.js';
 import { ridgeAt } from '../src/paint/mountains.js';
 import { signSpot, poorGround } from '../src/paint/signature.js';
+import { Film, MAX_FRAMES, stepMs } from '../src/film.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -1761,4 +1762,41 @@ test('the brush is loud enough to hear, the signature scratches like a pen, and 
   assert.ok(oscs.includes('triangle') && Math.max(...peaks()) <= 0.2, `the label's knock (${oscs}) is missing or loud`);
   // It swells in, rather than starting at full volume with a click.
   for (const [k, g] of made) if (k === 'gain') assert.ok(g.gain.to[0] <= 0.001, 'a knock starts with a click');
+});
+
+// Watch it again: the film keeps a picture each time something finishes, between half the cap and the cap however long
+// a canvas runs, spread evenly over all of it (the first and the newest always kept), and nothing that changed is lost
+// from the boxes the replay wipes in.
+test('the film for Watch it again stays capped and evenly spread over a long canvas', () => {
+  const film = new Film();
+  assert.equal(film.next(), null, 'a picture with nothing changed');
+  const all = [];
+  for (let i = 0; i < 2000; i++) {
+    const box = [i % 1100, (i * 7) % 800, (i % 1100) + 50, ((i * 7) % 800) + 40];
+    film.changed(box);
+    all.push(box);
+    const f = film.next();
+    if (f) f.pic = { size: 20000, i };
+    assert.equal(film.next(), null, 'a second picture taken with nothing new');
+    if (i >= MAX_FRAMES) assert.ok(film.frames.length > MAX_FRAMES / 2 && film.frames.length <= MAX_FRAMES, `${film.frames.length} pictures after ${i + 1} things painted`);
+  }
+  assert.equal(film.frames[0].pic.i, 0, 'the first picture (the sky) went');
+  // Taken at even steps: the gaps between the pictures kept are all the same, give or take the stride the film is at.
+  const at = film.frames.map((f) => f.pic.i);
+  const gaps = at.slice(1, -1).map((v, i) => v - at[i]);
+  assert.ok(Math.max(...gaps) - Math.min(...gaps) <= film.stride, `uneven gaps: ${gaps}`);
+  // force takes what's waiting, even on a chance the film would skip.
+  film.changed([0, 0, 10, 10]);
+  film.next();
+  film.changed([20, 20, 30, 30]);
+  const last = film.next(true) ?? film.frames.at(-1);
+  assert.ok(last.box[0] <= 20 && last.box[2] >= 30, 'the forced picture lost what changed');
+  // Every box ever painted is inside the box of some picture kept (or the one waiting).
+  const boxes = film.frames.map((f) => f.box);
+  for (const b of all) assert.ok(boxes.some((k) => k[0] <= b[0] && k[1] <= b[1] && k[2] >= b[2] && k[3] >= b[3]), `what changed at ${b} isn't in any picture's box`);
+  assert.ok(film.bytes <= MAX_FRAMES * 20000);
+  film.clear();
+  assert.equal(film.frames.length, 0);
+  // About ten seconds whatever the number of pictures, with no step too quick to see or too slow.
+  assert.ok(stepMs(40) * 40 <= 11000 && stepMs(60) >= 150 && stepMs(3) <= 1000);
 });

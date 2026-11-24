@@ -5,6 +5,7 @@ import { pick, rand, gauss, slug } from './util.js';
 import * as sound from './sound.js';
 import { guardEdges } from './edge-guard.js';
 import { labelledPicture } from './label.js';
+import { play, FRAME_WIDTH } from './film.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -43,6 +44,11 @@ const easel = $('easel');
 const lineEl = $('line');
 const toolEl = $('tool');
 const hintEl = $('hint');
+const replayBtn = $('replayBtn');
+const filmCanvas = $('film');
+const calm = window.matchMedia('(prefers-reduced-motion: reduce)');
+// The replay playing on the label, if there is one (see Watch it again).
+let replay = null;
 const inFrame = (() => {
   try {
     return window.self !== window.top;
@@ -665,6 +671,7 @@ const app = $('app');
 const overlays = [$('signSheet'), $('placard'), $('gallery')];
 let returnFocus = null;
 function openOverlay(el, focusEl) {
+  stopReplay();
   returnFocus ??= document.activeElement;
   for (const o of overlays) o.hidden = o !== el;
   app.inert = true;
@@ -674,6 +681,7 @@ function openOverlay(el, focusEl) {
   (focusEl || el.querySelector('button, input'))?.focus({ preventScroll: true });
 }
 function closeOverlay(el, focusEl = returnFocus) {
+  stopReplay();
   el.hidden = true;
   app.inert = false;
   returnFocus = null;
@@ -818,6 +826,8 @@ $('signForm').addEventListener('submit', async (e) => {
     // Let anything still being painted finish before we frame it. The longest plans (a family of snowy pines in the
     // foreground) take about 12 seconds, so this waits up to 15.
     for (let i = 0; i < 150 && studio.busy; i++) await new Promise((r) => setTimeout(r, 100));
+    // The film for Watch it again ends on the painting as it's framed.
+    studio.shoot(true);
     const s = studio.summary();
     const full = studio.snapshot(studio.W * studio.k, 'image/jpeg', 0.92);
     const record = {
@@ -858,10 +868,14 @@ let wallAt = { scroll: 0, id: null };
 // hung is what hang() said, right after a signing.
 let onShow = null;
 function showPlacard(record, src, from = null, hung = null) {
+  stopReplay();
   if (!from && !$('gallery').hidden) {
     from = 'wall';
     wallAt = { scroll: $('gallery').scrollTop, id: record.id };
   }
+  // Watch it again is on the label of the painting on the easel, signed just now (or opened again from Sign it with
+  // nothing added), not on one opened from the wall.
+  replayBtn.hidden = !(from !== 'wall' && studio.signed?.id === record.id && studio.film.frames.length > 1);
   placardFrom = from === 'signing' && hung && !hung.kept ? 'unkept' : from;
   $('keepBtn').textContent = from === 'wall' ? 'Back to the wall' : 'Back to the easel';
   const img = $('placardImg');
@@ -937,6 +951,42 @@ function showPlacard(record, src, from = null, hung = null) {
   takeDownBtn.hidden = from !== 'wall';
   openOverlay($('placard'), anotherBtn);
 }
+
+// Watch it again plays how the painting came about on the label's frame, over the picture, in about ten seconds (see
+// film.js); pressed again it stops. Closing the label stops it too.
+function placeFilm() {
+  const i = $('placardImg').getBoundingClientRect();
+  const f = filmCanvas.offsetParent.getBoundingClientRect();
+  Object.assign(filmCanvas.style, { left: `${i.left - f.left}px`, top: `${i.top - f.top}px`, width: `${i.width}px`, height: `${i.height}px` });
+}
+function stopReplay() {
+  replay?.stop();
+  replay = null;
+  filmCanvas.hidden = true;
+  replayBtn.textContent = 'Watch it again';
+  replayBtn.classList.remove('playing');
+}
+replayBtn.addEventListener('click', async () => {
+  if (replay) {
+    stopReplay();
+    return;
+  }
+  const frames = studio.film.ready;
+  if (!frames.length) return;
+  filmCanvas.width = FRAME_WIDTH;
+  filmCanvas.height = Math.round((FRAME_WIDTH * studio.H) / studio.W);
+  filmCanvas.hidden = false;
+  placeFilm();
+  replayBtn.textContent = 'Stop';
+  replayBtn.classList.add('playing');
+  const run = play(filmCanvas, frames, { start: studio.paper, W: studio.W, H: studio.H, reduced: calm.matches });
+  replay = run;
+  await run.done;
+  if (replay === run) stopReplay();
+});
+window.addEventListener('resize', () => {
+  if (replay) placeFilm();
+});
 
 // Take it down asks first: the first tap turns it into "Take it down?" for three seconds, and only a tap on that takes
 // the painting off the wall (a double-click is one tap, as for Start over?). Then it's back to the wall, where it was.

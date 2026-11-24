@@ -552,7 +552,7 @@ const REACTIONS = [
   { row: ['the sun or moon', 'warm or white', 'the whole sky warms into a sunset, or lights up around the moon'], targets: ['sun'], paints: [...PAINTS.white, ...YELLOW_RED], first: () => ['sunset'] },
   { row: ['the sun or moon', 'anything else', 'a cloud drifts across it'], targets: ['sun'], paints: [...PAINTS.green, ...PAINTS.blue, ...PAINTS.brown], first: () => ['cloudOverSun'] },
   { row: ['a cloud', 'something dark', 'it turns stormy and rains'], targets: ['cloud'], paints: [...PAINTS.blue, ...PAINTS.brown], first: () => ['storm'] },
-  { row: ['a cloud', 'yellow or red', 'its edges catch the light'], targets: ['cloud'], paints: YELLOW_RED, first: () => ['sunlitCloud'], todo: 'Alizarin Crimson counts as dark and makes a storm' },
+  { row: ['a cloud', 'yellow or red', 'its edges catch the light'], targets: ['cloud'], paints: YELLOW_RED, first: () => ['sunlitCloud'] },
   {
     row: ['the cabin', 'white / warm / anything', 'snow on the roof / the lights come on (if they aren\'t on already) / a garden'],
     targets: ['cabin', 'lit cabin'],

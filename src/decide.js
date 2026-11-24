@@ -118,8 +118,9 @@ function react(S, t, b, fam) {
     }
 
     case 'cloud':
+      // Any red or yellow lights its edges, the deep Alizarin Crimson too; the dark blues and browns make weather.
+      if (warm) return first(t, 'lit') ? [step('sunlitCloud', () => R.sunlitCloud(S, t, b))] : null;
       if (lum(b.tint) < 0.3 && first(t, 'storm')) return [step('storm', () => R.storm(S, t, b)), step('rain', () => R.rain(S, t, b), { quiet: true })];
-      if (warm && first(t, 'lit')) return [step('sunlitCloud', () => R.sunlitCloud(S, t, b))];
       return null;
 
     case 'cabin': {

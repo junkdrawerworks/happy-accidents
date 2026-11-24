@@ -730,7 +730,18 @@ const CELLS = {
     red: { text: 'a canoe, or glints once there are three', allows: [may('canoe'), may('glints', { counts: { canoe: 3 } })] },
     green: { text: 'land, an island or a mossy rock', allows: [may('land'), may('island'), may('mossy rock')] },
     blue: { text: 'ripples, or a pair of loons from a small fleck out in the open', allows: [may('ripples'), may('loons'), may('ripples', { counts: { loons: 3 } })] },
-    brown: { text: 'land or a rock, or a pair of loons from a small fleck out in the open', allows: [may(['land', 'island']), may('rock'), may('loons'), may(['land', 'island'], { counts: { loons: 3 } }), may('rock', { counts: { loons: 3 } })] },
+    brown: {
+      text: 'land or a rock, a dock right at the shore, or a pair of loons from a small fleck out in the open',
+      allows: [
+        may(['land', 'island']),
+        may('rock'),
+        // Only paint within a splat's width of the shore makes a dock, which the rules canvas seldom throws: its own test does.
+        may('dock', { rare: true }),
+        may('loons'),
+        may(['land', 'island'], { counts: { loons: 3, dock: 1 } }),
+        may('rock', { counts: { loons: 3, dock: 1 } }),
+      ],
+    },
   },
   'on land': {
     white: { text: 'a snowy pine, a birch or a white cabin, or flowers from a small splat', allows: [may('snowy pine'), may('birch'), may('cabin'), may('flowers')] },
@@ -817,6 +828,7 @@ for (const [place, cells] of Object.entries(CELLS)) {
             const { made, wrong } = throwMany(place, PAINTS[fam], time, 250, allowed, state ? JSON.parse(state) : {});
             assert.equal(wrong.size, 0, `${state ? `with ${state} on the canvas: ` : ''}${reportWrong(wrong)}`);
             for (const a of cell.allows) {
+              if (a.rare) continue;
               const ids = PAINTS[fam].filter((id) => fits(a, id));
               if (!ids.length) continue;
               assert.ok(
@@ -1602,6 +1614,43 @@ test('a small dark fleck out on open water is a pair of loons, three pairs at mo
     assert.equal(featureLine({ loons: 2 }), 'Features two pairs of loons.');
     assert.ok(Array.from({ length: 300 }, () => makeTitle({ loons: 1, mountain: 1 }, 'golden-hour')).some((t) => /\bLoons\b/.test(t)), 'no title named for the loons');
   }, 77));
+
+test('brown landing right at the shore is a little dock reaching out from it, one to a canvas', () =>
+  sameDice(() => {
+    const brown = paintOf('van-dyke-brown');
+    let docks = 0;
+    for (let i = 0; i < 300; i++) {
+      const mood = pick(SCHEMES).id;
+      const S = bareStudio(mood, { land: leftBank });
+      const y = rand(S.hy + 60, S.hy + (S.H - S.hy) * 0.82);
+      const R = rand(11, 40);
+      // Within a splat's width of the bank's edge (x 300), on the water.
+      const x = rand(304, 300 + Math.max(30, R) - 4);
+      const plan = decide(S, makeSplat({ x, y, R, pigment: brown }));
+      assert.deepEqual(plan.map((s) => s.kind), ['dock'], `brown ${Math.round(x - 300)}px off the shore in ${mood} made ${outcomeOf(plan)}`);
+      const dock = plan[0].make();
+      // It starts on the bank and reaches out over the water, past where the paint landed.
+      assert.ok(dock.bbox.x < 300 && dock.bbox.x + dock.bbox.w > x, `a dock from ${Math.round(dock.bbox.x)} to ${Math.round(dock.bbox.x + dock.bbox.w)} for paint at ${Math.round(x)}`);
+      docks++;
+      // A second one on the same canvas is what the paint would have been instead.
+      assert.notEqual(decide(S, makeSplat({ x, y: y + 10, R, pigment: brown }))[0].kind, 'dock', 'a second dock');
+      const counted = bareStudio(mood, { land: leftBank, counts: { dock: 1 } });
+      assert.notEqual(decide(counted, makeSplat({ x, y, R, pigment: brown }))[0].kind, 'dock', 'a second dock');
+      // Away from the shore, or in another paint that makes land, or aimed at a bank, no dock.
+      assert.notEqual(decide(bareStudio(mood, { land: leftBank }), makeSplat({ x: rand(420, 1150), y, R, pigment: brown }))[0].kind, 'dock', 'a dock out in the lake');
+      for (const id of ['sap-green', 'yellow-ochre']) assert.notEqual(decide(bareStudio(mood, { land: leftBank }), makeSplat({ x, y, R, pigment: paintOf(id) }))[0].kind, 'dock', `${id} made a dock`);
+      assert.notEqual(decide(bareStudio(mood, { land: leftBank }), makeSplat({ x, y, R, pigment: brown, hint: 'bank' }))[0].kind, 'dock', 'an accident aimed at a bank made a dock');
+    }
+    assert.equal(docks, 300);
+    // The far shore on the right works the same way, reaching left.
+    const right = (x, y) => y > 480 && x > 900;
+    const S = bareStudio('golden-hour', { land: right });
+    const plan = decide(S, makeSplat({ x: 880, y: 700, R: 20, pigment: brown }));
+    assert.equal(plan[0].kind, 'dock');
+    const dock = plan[0].make();
+    assert.ok(dock.bbox.x + dock.bbox.w > 900 && dock.bbox.x < 880, 'a dock off the right-hand shore');
+    assert.equal(featureLine({ dock: 1, cloud: 1 }), 'Features a dock and a cloud.');
+  }, 78));
 
 test('birds and rain thin out once there are plenty: past eight flocks dark flecks are wisps, past four rain clouds storms stay dry', () =>
   sameDice(() => {

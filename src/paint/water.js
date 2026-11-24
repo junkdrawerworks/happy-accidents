@@ -354,3 +354,45 @@ export function loons(S, p) {
   const w = s * 4.6;
   return { kind: 'loons', depth: y, reflect: false, bbox: { x: x - w, y: y - s * 1.2, w: w * 2, h: s * 2 }, ops, dur: 700 + dT * 300, meta: { x, y, size: s } };
 }
+
+// Brown landing on the lake right at the shore: a little wooden dock, planks on posts, reaching out from the bank (from
+// p.shoreX, toward p.x and a little past it) at the waterline p.y, mirrored in the water.
+export function dock(S, p) {
+  const { scheme, hy } = S;
+  const s = clamp((p.y - hy) * 0.1 + 8, 10, 44);
+  const { y } = p;
+  const out = p.out;
+  const x0 = p.shoreX - out * s * 0.8;
+  // Out past where the paint landed, and at least a few posts long.
+  const reachTo = out > 0 ? Math.max(p.x + p.R * 0.6, p.shoreX + s * 3) : Math.min(p.x - p.R * 0.6, p.shoreX - s * 3);
+  const x1 = clamp(reachTo, s, S.W - s);
+  const len = Math.abs(x1 - x0);
+  const wood = dim(S, mix(p.tint, [118, 86, 56], 0.55));
+  const lit = mix(wood, scheme.mtn.light, 0.45);
+  const shade = darken(wood, 0.45);
+  const top = y - s * 0.55;
+  const deck = s * 0.16;
+  const posts = [];
+  for (let d = s * 0.9; d < len - s * 0.2; d += s * rand(0.9, 1.3)) posts.push(x0 + out * d);
+  posts.push(x1 - out * s * 0.12);
+  const lo = Math.min(x0, x1);
+  const draw = (ctx) => {
+    ctx.fillStyle = rgba(shade);
+    for (const px of posts) ctx.fillRect(px - s * 0.06, top, s * 0.12, y - top + s * 0.08);
+    // the last post stands a little proud of the deck, for tying up to
+    ctx.fillRect(x1 - out * s * 0.12 - s * 0.06, top - s * 0.2, s * 0.12, s * 0.2);
+    ctx.fillStyle = rgba(wood);
+    ctx.fillRect(lo, top, len, deck);
+    ctx.fillStyle = rgba(lit, 0.9);
+    ctx.fillRect(lo, top, len, Math.max(0.8, deck * 0.3));
+    ctx.fillStyle = rgba(shade, 0.7);
+    for (let d = s * 0.35; d < len; d += s * 0.35) ctx.fillRect(lo + d, top + deck * 0.3, Math.max(0.6, s * 0.03), deck * 0.7);
+  };
+  const ops = [
+    (ctx) => withReflection(ctx, y, s * 0.9, draw),
+    (ctx) => {
+      for (const px of posts) tap(ctx, px, y + 1, s * rand(0.25, 0.45), 0, scheme.waterLine, 0.6, 1);
+    },
+  ];
+  return { kind: 'dock', depth: y, reflect: false, bbox: { x: lo - s, y: top - s * 0.4, w: len + s * 2, h: y - top + s * 1.6 }, ops, dur: 1100, meta: { x: (x0 + x1) / 2, y, size: s, len } };
+}

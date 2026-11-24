@@ -190,6 +190,7 @@ const AFLOAT = {
   sailboat: { reach: (m) => m.size * 0.5, tall: (m) => m.size * 1.2 },
   canoe: { reach: (m) => m.size * 0.5, tall: (m) => m.size * 0.12 },
   loons: { reach: (m) => m.size * 1.5, tall: (m) => m.size * 0.6 },
+  dock: { reach: (m) => m.len / 2, tall: (m) => m.size * 0.8 },
 };
 // And on land: how far a cabin or a tree reaches either side of its middle.
 const STANDING = {
@@ -533,6 +534,44 @@ function water(S, b, c, hint, vertical, dT) {
   if (dark && openWater && b.R < LOON_R && (!hint || hint === 'water') && S.count('loons') < MAX_LOONS) {
     const color = birdColor(S.scheme, c.rgb, S.scheme.water);
     return [step('loons', () => afloat(S, b, c, (p) => P.loons(S, { ...p, color })))];
+  }
+  // Brown landing right at the shore (the water's edge just beside it, at the same height) is a little dock reaching out
+  // from the bank: one to a canvas, so it stays a rare thing. Ochre and green there still make land.
+  if (c.fam === 'brown' && !hint && !S.has('dock') && !S.count('dock') && dT > 0.08 && dT < 0.85) {
+    const reach = Math.max(30, b.R);
+    for (const out of b.x < W / 2 ? [1, -1] : [-1, 1]) {
+      // out is the way the dock reaches, from the shore toward the paint: the shore is on the other side.
+      let shoreX = null;
+      for (let d = 4; d <= reach; d += 4) {
+        if (S.isLand(b.x - out * d, b.y)) {
+          shoreX = b.x - out * (d - 4);
+          break;
+        }
+      }
+      if (shoreX === null) continue;
+      // It stands at the water's level: where the land under the shore meets the lake, if that's just below (the
+      // flat foot of a far bank or an island), and the shore at that height.
+      let y = b.y;
+      for (let wy = b.y; wy < b.y + 40 && wy < S.H - 4; wy += 2) {
+        if (!S.isLand(shoreX - out * 4, wy)) {
+          y = wy;
+          break;
+        }
+      }
+      if (y !== b.y) {
+        let ground = false;
+        for (let d = -reach; d <= reach * 2; d += 2) {
+          const land = S.isLand(shoreX + out * d, y - 3);
+          if (ground && !land) {
+            shoreX += out * d;
+            break;
+          }
+          ground ||= land;
+        }
+      }
+      S.reserve('dock');
+      return [step('dock', () => P.dock(S, { ...b, y, shoreX, out }))];
+    }
   }
   // Aimed at being a rock (by an accident), in a paint that makes ground.
   if (hint === 'rock' && makesLand(c)) return rockSteps();

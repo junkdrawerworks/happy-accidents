@@ -452,6 +452,15 @@ export const LINES = {
     'A canoe. Red so you can find it.',
     'A little red boat, sitting still on the water.',
   ],
+  dock: {
+    lines: [
+      'A little dock, right off the shore. Somebody fishes from there.',
+      'Brown at the water’s edge makes a dock. A few boards and some posts.',
+      'A dock. Somewhere to sit with your feet over the water.',
+    ],
+    you: ['That brown landed right at the shore, so now there’s a dock.'],
+    auto: ['Brown right at the shore. That’s a dock now.'],
+  },
   loons: {
     lines: [
       'A pair of loons out on the water. They mind their own business.',
@@ -547,6 +556,7 @@ const TOOLS = {
   sailboat: ['Liner brush', ['Titanium White', 'Van Dyke Brown']],
   canoe: ['Palette knife', ['Bright Red', 'Van Dyke Brown']],
   loons: ['Liner brush', ['Midnight Black', 'Titanium White']],
+  dock: ['Palette knife', ['Van Dyke Brown', 'Titanium White']],
   glints: ['Liner brush', ['Cadmium Yellow', 'Titanium White']],
   island: ['2-inch brush', ['Van Dyke Brown', 'Sap Green', 'Yellow Ochre']],
   treeSnow: ['Fan brush', ['Titanium White']],
@@ -684,6 +694,7 @@ function subjects(counts) {
   add('sailboat', STANDS_OUT, ['Sail', 'Sails']);
   add('canoe', STANDS_OUT, ['Canoe', 'Canoes']);
   add('loons', STANDS_OUT, ['Loons', 'Loons']);
+  add('dock', STANDS_OUT, ['Dock', 'Docks']);
   add('moon', STANDS_OUT, ['Moon', 'Moons']);
   if (counts.stars) s.push(['Stars', 'Stars', STANDS_OUT]);
   if (!s.length) s.push(['Water', 'Waters', 1], ['Sky', 'Skies', 1], ['Shore', 'Shores', 1]);
@@ -753,6 +764,7 @@ const FEATURE_NAMES = [
   ['sailboat', 'a sailboat', 'sailboats'],
   ['canoe', 'a canoe', 'canoes'],
   ['loons', 'a pair of loons', 'pairs of loons'],
+  ['dock', 'a dock', 'docks'],
   ['moon', 'the moon'],
   ['sun', 'the sun'],
   ['aurora', 'an aurora'],

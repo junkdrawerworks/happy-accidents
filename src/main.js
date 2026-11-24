@@ -574,7 +574,8 @@ $('signForm').addEventListener('submit', async (e) => {
   try {
     const name = artistName.value.trim() || 'Anonymous';
     const title = artTitle.value.trim() || makeTitle(studio.counts, studio.scheme.id, wallTitles());
-    store.set(KEY.name, name);
+    // What was typed, so a blank name stays blank next time (with its placeholder) rather than filled in as Anonymous.
+    store.set(KEY.name, artistName.value.trim());
     // The sheet steps aside so you can watch the signature go on; the label takes over from it after.
     $('signSheet').hidden = true;
     app.inert = false;

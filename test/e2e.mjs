@@ -1068,6 +1068,15 @@ await page.click('#signForm button[type=submit]');
 await page.waitForSelector('#placard:not([hidden])', { timeout: 30000 });
 assert.equal(await page.textContent('#plArtist'), 'Anonymous', 'a blank name didn’t sign as Anonymous');
 await page.click('#keepBtn');
+// The blank name is remembered as blank, not as Anonymous, so the next Sign it starts in the empty name field.
+assert.equal(await S(() => localStorage.getItem('happy-accidents:artist')), '""', 'a blank name was saved as a name');
+await S(() => window.happyAccidents.randomAccident());
+await page.waitForTimeout(200);
+await settle();
+await page.keyboard.press('s');
+assert.equal(await page.inputValue('#artistName'), '', 'after signing with a blank name, the name field came back filled in');
+assert.equal(await S(() => document.activeElement.id), 'artistName', 'after signing with a blank name, Sign it didn’t start in the name field');
+await page.keyboard.press('Escape');
 
 // The wall keeps the 12 newest: the 13th signing takes the oldest down, and the badge stays at 12. (The 12 already up
 // are copies of the one there, hung by hand, rather than signed one by one.) Then, when the browser won't keep that

@@ -557,25 +557,38 @@ if (notched) {
 }
 await page.setViewportSize({ width: 390, height: 844 });
 
-// On a phone the palette and buttons stay put while the painter talks: every line the painter says fits the two lines
-// kept for it, and the brush line under it keeps room for two whether it says nothing, a little or a lot.
-const oopsAt = await S(async () => {
-  const { LINES } = await import('./src/words.js');
+// On a phone, upright or sideways, the palette and buttons stay put while the painter talks: every line the painter can
+// say (paints running together too) fits the room kept for it, and so does every brush line, whatever paint it names.
+const stillPalette = () => S(async () => {
+  const { LINES, mixLine, toolInfo } = await import('./src/words.js');
+  const { PIGMENTS } = await import('./src/schemes.js');
+  const flat = (v) => (typeof v === 'string' ? [v] : Array.isArray(v) ? v.flatMap(flat) : v && typeof v === 'object' ? Object.values(v).flatMap(flat) : []);
+  const names = PIGMENTS.map((p) => p.name).sort((a, b) => b.length - a.length);
+  const lines = flat(LINES);
+  for (let i = 0; i < 6; i++) for (const n of [2, 3, 4]) lines.push(mixLine(names.slice(0, n), 'nearly black'));
+  const tools = ['', toolInfo('wash')];
+  for (const kind of [...Object.keys(LINES), 'rain']) for (const p of [undefined, ...PIGMENTS]) tools.push(toolInfo(kind, p));
   const lineEl = document.getElementById('line');
   const toolEl = document.getElementById('tool');
   const was = [lineEl.textContent, toolEl.textContent];
+  const say = (line, tool) => { lineEl.textContent = line; toolEl.textContent = tool; };
+  const tallest = (list, el, other) => list.reduce((best, t) => { other === 'line' ? say(t, '') : say('', t); const h = el.getBoundingClientRect().height; return h > best[0] ? [h, t] : best; }, [0, ''])[1];
+  const longLine = tallest(lines, lineEl, 'line');
+  const longTool = tallest(tools, toolEl, 'tool');
   const ys = new Set();
-  for (const text of Object.values(LINES).flat()) {
-    for (const info of ['', '1-inch brush · Titanium White', 'Round brush · Sap Green, Yellow Ochre, Van Dyke Brown · a touch of Alizarin Crimson']) {
-      lineEl.textContent = text;
-      toolEl.textContent = info;
-      ys.add(Math.round(document.getElementById('oopsBtn').getBoundingClientRect().y));
-    }
-  }
-  [lineEl.textContent, toolEl.textContent] = was;
+  const at = () => ['palette', 'oopsBtn'].map((id) => Math.round(document.getElementById(id).getBoundingClientRect().y)).join('/');
+  for (const t of lines) for (const u of ['', longTool]) { say(t, u); ys.add(at()); }
+  for (const u of tools) for (const t of ['', longLine]) { say(t, u); ys.add(at()); }
+  say(...was);
   return [...ys];
 });
-assert.equal(oopsAt.length, 1, `the buttons moved as the painter talked, to ${oopsAt.join(', ')} px`);
+for (const [width, height] of [[390, 844], [844, 390], [667, 375]]) {
+  await page.setViewportSize({ width, height });
+  await page.waitForTimeout(300);
+  const ys = await stillPalette();
+  assert.equal(ys.length, 1, `at ${width} × ${height} the palette and buttons moved as the painter talked, to ${ys.join(', ')} px`);
+}
+await page.setViewportSize({ width: 390, height: 844 });
 
 // Space is Oops, M turns the sound on and off (and remembers it), and Ctrl+Z gets a word about there being no undo.
 await S(() => document.activeElement?.blur());

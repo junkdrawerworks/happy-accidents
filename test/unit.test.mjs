@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { featureLine, madeFrom, durationText, makeTitle, toolInfo, keptNote, LINES } from '../src/words.js';
+import { featureLine, madeFrom, durationText, makeTitle, toolInfo, keptNote, mixLine, LINES } from '../src/words.js';
 import { topEdge, heights, at, span, sideProfile } from '../src/shape.js';
 import { ramp, mix, hex, mixPaint, familyOf, colorName } from '../src/color.js';
 import { weighted, pickFresh, clamp, rand, chance, pick, TAU } from '../src/util.js';
@@ -88,6 +88,18 @@ test('the painter names the brush and a touch of the paint you used', () => {
   assert.equal(toolInfo('mountain', blue), 'Palette knife · Van Dyke Brown, Prussian Blue, Titanium White · a touch of Phthalo Blue');
   assert.equal(toolInfo('no-such-thing', blue), '');
   for (const [key, lines] of Object.entries(LINES)) assert.ok(lines.length > 0, `no lines for ${key}`);
+});
+
+test('paints running together are named when there are two and counted when there are more', () => {
+  const four = ['Cadmium Yellow', 'Phthalo Blue', 'Sap Green', 'Alizarin Crimson'];
+  for (let i = 0; i < 6; i++) {
+    const many = mixLine(four, 'brown');
+    assert.match(many, /^(Four paints ran together|Four paints make brown|Wet into wet: four paints)\./, many);
+    assert.ok(!four.some((n) => many.includes(n)), many);
+    const two = mixLine(['Cadmium Yellow', 'Phthalo Blue'], 'green');
+    assert.match(two, /Cadmium Yellow and Phthalo Blue/, two);
+  }
+  assert.match(mixLine(['A', 'B', 'C'], 'grey'), /three paints/i);
 });
 
 test('the painter’s lines use curly apostrophes, like the rest of the page', () => {

@@ -408,6 +408,13 @@ kbd {
   }
 }
 
+/* On a phone the painter's line keeps room for three lines, the longest any of them takes there. */
+@media (max-width: 559px) {
+  .line {
+    min-height: 4.05em;
+  }
+}
+
 .palette-block {
   display: flex;
   flex-direction: column;
@@ -635,16 +642,20 @@ kbd {
     margin-bottom: auto;
   }
 
+  /* Room for the longest line (three lines) and the longest brush line (three), so the palette and the buttons stay
+     put as the painter talks; a shorter one sits at the bottom of that room, next to the palette. */
   .voice {
-    min-height: 0;
+    min-height: calc(3 * 1.35 * 16px + 8px + 3 * 1.45 * 11px);
+    justify-content: flex-end;
   }
 
   .line {
-    font-size: 17px;
+    font-size: 16px;
+    min-height: 0;
   }
 
   .tool {
-    min-height: 2.9em;
+    min-height: 0;
   }
 
   .palette {

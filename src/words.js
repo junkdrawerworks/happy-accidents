@@ -164,12 +164,14 @@ export function line(key) {
   return pickFresh(key, LINES[key] || []);
 }
 
-// Two paints ran together into a new color.
+// Paints ran together into a new color. Two are named; three or more are counted, so the line stays short.
 export function mixLine(names, color) {
-  const list = names.length > 2 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names.join(' and ');
+  const many = names.length > 2;
+  const list = many ? `${num(names.length)} paints` : names.join(' and ');
+  const List = list[0].toUpperCase() + list.slice(1);
   return pickFresh('mix', [
-    `${list} ran together. That’s ${color} now.`,
-    `${list} make ${color}. Let’s see what ${color} wants to be.`,
+    `${List} ran together. That’s ${color} now.`,
+    `${List} make ${color}. Let’s see what it wants to be.`,
     `Wet into wet: ${list}. Now it’s ${color}.`,
   ]);
 }

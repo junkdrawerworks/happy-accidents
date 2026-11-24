@@ -30,14 +30,17 @@ export function treeSnow(S, t, p) {
   const shaded = mix(snow, S.scheme.mtn.shadow, 0.3);
   const ops = [];
   if (m.tiers) {
-    for (let i = 0; i < m.tiers.length; i += 3) {
-      const chunk = m.tiers.slice(i, i + 3);
+    // Snow sits along the tops of the branches, further out on the lit side, and leaves about a third of the tiers
+    // bare, so it's still a dark pine with snow on it rather than a white one.
+    const tiers = m.tiers.filter((tr) => tr.t >= 0.04 && !chance(0.33));
+    for (let i = 0; i < tiers.length; i += 3) {
+      const chunk = tiers.slice(i, i + 3);
       ops.push((ctx) => {
         for (const tr of chunk) {
-          if (tr.t < 0.04) continue;
           for (const side of [-1, 1]) {
             const w = side < 0 ? tr.wL : tr.wR;
-            fanTap(ctx, tr.cx, tr.y - 1.5, side, w * 0.95, tr.droop * 0.3, side === L ? snow : shaded, m.lw * 1.3, clamp(Math.round(w / 2.2), 2, 16), 0.9, 0.1);
+            const lit = side === L;
+            fanTap(ctx, tr.cx, tr.y - 1.5, side, w * (lit ? 0.8 : 0.55), tr.droop * 0.15, lit ? snow : shaded, m.lw * 1.15, clamp(Math.round(w / 4), 2, 10), 0.8, 0.25);
           }
         }
       });

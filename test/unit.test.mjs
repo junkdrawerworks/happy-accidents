@@ -14,7 +14,7 @@ import { makeSplat } from '../src/splat.js';
 import { lineKey } from '../src/studio.js';
 import * as P from '../src/paint/index.js';
 import { flowers, canoe, glints } from '../src/paint/index.js';
-import { autumn, treeGlow, sunlitCloud } from '../src/paint/react.js';
+import { autumn, treeGlow, sunlitCloud, treeSnow as treeSnowOf } from '../src/paint/react.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -719,3 +719,31 @@ test('a friend grown by paint on a tree is the tree that paint grows', () =>
       }
     }
   }, 61));
+
+test('snow on a pine sits on its branches and leaves it dark underneath', () =>
+  sameDice(() => {
+    // Snow used to cover every branch of every tier nearly to its tip, which painted a pine solid white. Measured as the
+    // ink the strokes lay down (length times width), the snow now comes to well under half of the dark needles'.
+    const S = bareStudio();
+    const ink = (ops) => {
+      let total = 0;
+      let at = [0, 0];
+      const ctx = new Proxy(
+        {},
+        {
+          get: (t, k) => (k === 'moveTo' ? (x, y) => (at = [x, y]) : k === 'quadraticCurveTo' ? (cx, cy, x, y) => (total += Math.hypot(x - at[0], y - at[1]) * t.lineWidth) : k in t ? t[k] : () => {}),
+          set: (t, k, v) => ((t[k] = v), true),
+        },
+      );
+      for (const op of ops) op(ctx);
+      return total;
+    };
+    let snow = 0;
+    let needles = 0;
+    for (let i = 0; i < 20; i++) {
+      const pine = P.evergreen(S, { x: 300, baseY: 800, h: 220, tint: [60, 90, 40] });
+      snow += ink(treeSnowOf(S, { ...pine }, { tint: [244, 242, 234] }).ops);
+      needles += ink(pine.ops.slice(1, 1 + Math.ceil(pine.meta.tiers.length / 2)));
+    }
+    assert.ok(snow / needles < 0.35, `the snow is ${Math.round((100 * snow) / needles)}% of the needles`);
+  }, 71));

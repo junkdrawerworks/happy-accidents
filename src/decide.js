@@ -554,7 +554,8 @@ function treeLook(S, b, c, vertical, hint) {
   const leaf = (name) => pal(S, LEAF[name]);
   switch (c.fam) {
     case 'white':
-      if (chance(0.65)) return { kind: 'evergreen', p: { tintAmt: 0.12 }, snow: true, say: 'snowyTree' };
+      // Only a hint of the white in the needles, so the pine under its snow stays dark.
+      if (chance(0.65)) return { kind: 'evergreen', p: { tintAmt: 0.08 }, snow: true, say: 'snowyTree' };
       // White bark and white branches, with only a few pale leaves so the white shows.
       return { kind: 'deciduous', p: { birch: true, bare: true, sparse: 0.14, leaf: leaf('birch') }, say: 'birch' };
     case 'blue':

@@ -28,7 +28,7 @@ export const LINES = {
     'A few little trees climbing up the hill.',
     'Some trees wandered up the mountain. That’s allowed.',
     'Trees on the slope. They like it up there.',
-    'A little green on the mountainside. Somebody’s been planting.',
+    'A few trees on the mountainside. Somebody’s been planting.',
     'Just tap a few trees up the side. They’ll find their footing.',
   ],
   mist: [
@@ -532,10 +532,12 @@ export function toolInfo(kind, pigment, key) {
   const [tool, all] = t;
   const clashes = (name) => pigment && HUES.has(pigment.family) && HUES.has(familyIn(name)) && familyIn(name) !== pigment.family;
   const paints = all.filter((name) => !clashes(name));
-  if (!paints.length) return `${tool} · ${pigment.name}`;
-  let text = `${tool} · ${paints.join(', ')}`;
-  if (pigment && !paints.some((name) => name.includes(pigment.name))) text += ` · a touch of ${pigment.name}`;
-  return text;
+  // A mixed splat's paint is its paints' names joined with "and": each is named once, and only if it isn't already.
+  const own = pigment ? pigment.name.split(' and ') : [];
+  const list = (names) => (names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]);
+  if (!paints.length) return `${tool} · ${list(own)}`;
+  const missing = own.filter((one) => !paints.some((name) => name.includes(one)));
+  return `${tool} · ${paints.join(', ')}${missing.length ? ` · a touch of ${list(missing)}` : ''}`;
 }
 
 // ——— Titles ———

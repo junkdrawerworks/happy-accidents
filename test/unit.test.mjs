@@ -323,6 +323,21 @@ test('the brush line names each paint once, and no paint of another hue than the
   assert.equal(crimson, '1-inch brush · Titanium White, a whisper of Alizarin Crimson');
   assert.equal(toolInfo('cloud', paint('prussian-blue')), '1-inch brush · Titanium White · a touch of Prussian Blue', 'a blue cloud is painted without crimson');
   assert.equal(toolInfo('flowers', paint('phthalo-blue')), 'Liner brush · Phthalo Blue', 'blue flowers are painted in blue, not red');
+  // A mixed splat's paint is called “Titanium White and Indian Yellow”: the white was named twice.
+  const mixed = (name, family) => ({ id: 'mix', name, family });
+  assert.equal(toolInfo('cloud', mixed('Titanium White and Indian Yellow', 'yellow')), '1-inch brush · Titanium White · a touch of Indian Yellow');
+  assert.equal(toolInfo('deciduous', mixed('Van Dyke Brown and Cadmium Yellow', 'brown')), 'Round brush · Sap Green, Yellow Ochre, Van Dyke Brown · a touch of Cadmium Yellow');
+  assert.equal(toolInfo('deciduous', mixed('Indian Yellow and Phthalo Blue and Bright Red', 'brown')), 'Round brush · Sap Green, Yellow Ochre, Van Dyke Brown · a touch of Indian Yellow, Phthalo Blue and Bright Red');
+  assert.equal(toolInfo('cloud', mixed('Titanium White and Alizarin Crimson', 'red')), '1-inch brush · Titanium White, a whisper of Alizarin Crimson', 'nothing to add');
+  for (const a of PIGMENTS) {
+    for (const b of PIGMENTS) {
+      if (a === b) continue;
+      for (const kind of Object.keys(LINES)) {
+        const text = toolInfo(kind, mixed(`${a.name} and ${b.name}`, a.family));
+        for (const name of [a.name, b.name]) assert.ok(text.split(name).length <= 2, `${name} twice: ${text}`);
+      }
+    }
+  }
   const hue = { 'Cadmium Yellow': 'yellow', 'Yellow Ochre': 'yellow', 'Indian Yellow': 'yellow', 'Bright Red': 'red', 'Alizarin Crimson': 'red', 'Sap Green': 'green', 'Phthalo Green': 'green', 'Phthalo Blue': 'blue', 'Prussian Blue': 'blue' };
   for (const kind of [...Object.keys(LINES), 'rain']) {
     for (const p of PIGMENTS) {

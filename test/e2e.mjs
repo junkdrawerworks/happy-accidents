@@ -1197,6 +1197,45 @@ assert.deepEqual(await S(() => [document.querySelector('.wall-meta cite').dir, d
 await page.locator('.wall-open').first().click();
 const [saved] = await Promise.all([page.waitForEvent('download'), page.click('#downloadBtn')]);
 assert.equal(saved.suggestedFilename(), `${(await wall())[0].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.jpg`, 'the download is named for the painting');
+// Where the browser can hand a picture to the share sheet (phones; pretended here), the button says Save or share and
+// shares the full-size painting as one JPEG named for it. Closing the sheet does nothing, and if sharing goes wrong
+// any other way, the picture downloads instead. Where it can't share, the button says Download image.
+await page.keyboard.press('Escape');
+await S(() => {
+  window.shared = [];
+  window.shareFails = null;
+  navigator.canShare = (data) => data?.files?.length === 1 && data.files[0] instanceof File;
+  navigator.share = async (data) => {
+    window.shared.push({ title: data.title, files: await Promise.all(data.files.map(async (f) => ({ name: f.name, type: f.type, width: (await createImageBitmap(f)).width }))) });
+    if (window.shareFails) throw new DOMException('Not this time.', window.shareFails);
+  };
+});
+await page.locator('.wall-open').first().click();
+assert.equal(await page.textContent('#downloadBtn'), 'Save or share', 'where pictures can be shared, the button doesn’t say so');
+await page.waitForFunction(() => document.getElementById('placardImg').naturalWidth === 1200, null, { timeout: 5000 });
+await page.click('#downloadBtn');
+await page.waitForFunction(() => window.shared.length === 1, null, { timeout: 5000 });
+assert.deepEqual(await S(() => window.shared[0]), { title: (await wall())[0], files: [{ name: saved.suggestedFilename(), type: 'image/jpeg', width: 1200 }] }, 'Save or share didn’t share the full-size painting as one JPEG');
+{
+  let downloaded = 0;
+  const count = () => downloaded++;
+  page.on('download', count);
+  await S(() => (window.shareFails = 'AbortError'));
+  await page.click('#downloadBtn');
+  await page.waitForFunction(() => window.shared.length === 2, null, { timeout: 5000 });
+  await page.waitForTimeout(500);
+  assert.equal(downloaded, 0, 'closing the share sheet downloaded the picture anyway');
+  page.off('download', count);
+}
+await S(() => (window.shareFails = 'NotAllowedError'));
+await Promise.all([page.waitForEvent('download', { timeout: 5000 }), page.click('#downloadBtn')]).catch(() => assert.fail('when sharing went wrong, the picture didn’t download instead'));
+await S(() => {
+  delete navigator.canShare;
+  delete navigator.share;
+});
+await page.keyboard.press('Escape');
+await page.locator('.wall-open').first().click();
+assert.equal(await page.textContent('#downloadBtn'), 'Download image');
 await page.keyboard.press('Escape');
 await page.keyboard.press('Escape');
 assert.equal(await page.isHidden('#gallery'), true);

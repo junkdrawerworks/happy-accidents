@@ -655,19 +655,37 @@ function showPlacard(record, src, from = null, hung = null) {
   $('plFeatures').textContent = record.features;
   $('plCredit').textContent = `Collection of the artist · Canvas No. ${record.number} · ${record.scheme}`;
   const canSave = !inFrame || !!downloads;
+  const share = !downloads && canShareImages();
   const saveBtn = $('downloadBtn');
   saveBtn.hidden = !canSave;
-  saveBtn.textContent = 'Download image';
-  saveBtn.onclick = () => saveImage(best, `${slug(record.title)}.jpg`);
+  saveBtn.textContent = share ? 'Save or share' : 'Download image';
+  saveBtn.onclick = () => saveImage(best, `${slug(record.title)}.jpg`, record.title);
   $('saveHint').hidden = canSave;
-  const note = hung ? keptNote(hung, canSave) : '';
+  const note = hung ? keptNote(hung, canSave && !share) : '';
   $('keptNote').textContent = note;
   $('keptNote').hidden = !note;
   disarm(anotherBtn, 'Paint another');
   openOverlay($('placard'), anotherBtn);
 }
 
-async function saveImage(src, filename) {
+// A browser that can hand a picture to the share sheet (on a phone: Save Image, Photos, Messages and the rest) gets the
+// painting there; elsewhere it downloads.
+function shareable(file) {
+  try {
+    return !!navigator.canShare?.({ files: [file] });
+  } catch {
+    return false;
+  }
+}
+function canShareImages() {
+  try {
+    return shareable(new File([new Uint8Array(0)], 'painting.jpg', { type: 'image/jpeg' }));
+  } catch {
+    return false;
+  }
+}
+
+async function saveImage(src, filename, title) {
   const btn = $('downloadBtn');
   if (downloads) {
     try {
@@ -680,6 +698,26 @@ async function saveImage(src, filename) {
     }
     return;
   }
+  // The file is made right away, in the tap itself: the browser only opens the share sheet for a tap it has just seen.
+  // Closing the sheet is the person's choice and does nothing; any other trouble downloads the picture instead.
+  let file = null;
+  try {
+    file = new File([dataUrlBytes(src)], filename, { type: 'image/jpeg' });
+  } catch {
+    /* no File: download it */
+  }
+  if (file && shareable(file)) {
+    try {
+      await navigator.share({ files: [file], title });
+      return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+    }
+  }
+  download(src, filename);
+}
+
+function download(src, filename) {
   const a = document.createElement('a');
   a.href = src;
   a.download = filename;

@@ -27,7 +27,7 @@
 - **Oops** (<kbd>Space</kbd>) makes an accident you didn't. **Let it happen** (<kbd>A</kbd>) keeps accidents coming on their own until the painting feels done. They use the paint you've loaded and aim it somewhere it makes sense; on Surprise me, they pick a paint that suits where they're aiming.
 - **New canvas** (<kbd>N</kbd>) starts over, and asks first if there's paint that isn't up on your wall yet. **Sound** (<kbd>M</kbd>) is off until you turn it on: the damp pat of a splat and the swish of a brush.
 - **Every canvas gets a mood:** Golden Hour, Winter Hush, Northern Night, Autumn Blaze, Misty Morning or Violet Dusk. The lake reflects everything above the horizon.
-- **Sign it** (<kbd>S</kbd>) to put your name on it in red. You get a museum label with a made-up title, and the painting goes up on your gallery wall (<kbd>G</kbd>).
+- **Sign it** (<kbd>S</kbd>) to put your name on it in red. You get a museum label with a made-up title, and the painting goes up on your gallery wall (<kbd>G</kbd>). From the label you can save the picture, or on a phone share it (to Photos, or to a friend).
 - No account and no server. The gallery wall keeps your 12 newest signed paintings, in your browser. It works offline and installs to a phone's home screen.
 
 | Paint | High in the sky | Low in the sky | On the lake | On land |

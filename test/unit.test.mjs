@@ -15,6 +15,7 @@ import { lineKey } from '../src/studio.js';
 import * as P from '../src/paint/index.js';
 import { flowers, canoe, glints } from '../src/paint/index.js';
 import { autumn, treeGlow, sunlitCloud, treeSnow as treeSnowOf } from '../src/paint/react.js';
+import { ridgeAt } from '../src/paint/mountains.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -1103,3 +1104,23 @@ test('the moods come round like a shuffled deck: all six in every six canvases, 
     assert.notEqual(next.id, SCHEMES[5].id, 'a new round still avoids the mood just painted');
     assert.deepEqual(moodsAfter(five, next.id), [next.id], 'a new round starts with the mood it picked');
   }, 141));
+
+test('blue too near a mountain’s foot paints mist, and the mountain can still get its waterfall', () =>
+  sameDice(() => {
+    for (let i = 0; i < 20; i++) {
+      const el = { ...TARGETS.mountain(bareStudio()) };
+      const m = el.meta;
+      // Out along the ridge, where the slope is too low for water to fall.
+      let x = m.ridge[0][0] + 2;
+      while (x < m.peak[0] && m.base - 4 - ridgeAt(m, x) < 18) x += 2;
+      x -= 6;
+      const S = bareStudio('golden-hour', { land: leftBank, target: el });
+      const blue = (at) => decide(S, makeSplat({ ...at, R: 16, pigment: paintOf('phthalo-blue') }));
+      const low = blue({ x, y: m.base - 3 });
+      assert.equal(low[0].make().kind, 'mist', 'blue right at the foot paints mist');
+      const high = blue({ x: m.peak[0], y: m.peak[1] + m.hgt * 0.3 });
+      assert.equal(high[0].kind, 'waterfall', 'after mist, blue on the mountain tries for a waterfall again');
+      assert.equal(high[0].make().kind, 'waterfall');
+      assert.notEqual(blue({ x: m.peak[0], y: m.peak[1] + m.hgt * 0.3 })[0].kind, 'waterfall', 'only one waterfall');
+    }
+  }, 151));

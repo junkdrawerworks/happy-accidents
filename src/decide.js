@@ -94,7 +94,14 @@ function react(S, t, b, c) {
 
     case 'mountain':
       if (white && first(t, 'snow')) return [step('snowfall', () => R.snowfall(S, t, b))];
-      if (fam === 'blue' && first(t, 'falls')) return [step('waterfall', () => R.waterfall(S, t, b) || P.mist(S, { ...b, depth: t.depth + 0.3 }))];
+      // A waterfall, once; blue too near the foot for one paints mist, and the mountain can still get its fall later.
+      if (fam === 'blue' && !t.touched?.has('falls')) {
+        return [step('waterfall', () => {
+          const fall = R.waterfall(S, t, b);
+          if (fall) first(t, 'falls');
+          return fall || P.mist(S, { ...b, depth: t.depth + 0.3 });
+        })];
+      }
       if (warm && first(t, 'glow')) return [step('alpenglow', () => R.alpenglow(S, t, b))];
       if (fam === 'green' || chance(0.5)) {
         return [

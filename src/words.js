@@ -387,6 +387,8 @@ export const LINES = {
     'That one’s hanging now. There’s always more paint.',
     'Up on the wall it goes. The easel’s still here if you want it.',
   ],
+  // After a signing the browser wouldn't keep (the label has said so).
+  unkept: ['It’s signed, but this browser wouldn’t keep it, so it isn’t on the wall.'],
   invite: ['Your turn. Tap, flick, or press and hold. Try hitting what’s already there, too.'],
   done: [
     'That might be done. Sign it whenever you’re ready.',

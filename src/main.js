@@ -565,9 +565,9 @@ function slug(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'happy-accident';
 }
 
-// Where the label on show was opened from: 'signing' right after the signature went on, 'wall' for a painting opened
-// on the gallery wall, or null (the painting on the easel, signed earlier). A painting from the wall goes back to the
-// wall, where it was scrolled to.
+// Where the label on show was opened from: 'signing' right after the signature went on ('unkept' when the browser
+// wouldn't keep the painting), 'wall' for a painting opened on the gallery wall, or null (the painting on the easel,
+// signed earlier). A painting from the wall goes back to the wall, where it was scrolled to.
 let placardFrom = null;
 let wallAt = { scroll: 0, id: null };
 // hung is what hang() said, right after a signing.
@@ -576,7 +576,7 @@ function showPlacard(record, src, from = null, hung = null) {
     from = 'wall';
     wallAt = { scroll: $('gallery').scrollTop, id: record.id };
   }
-  placardFrom = from;
+  placardFrom = from === 'signing' && hung && !hung.kept ? 'unkept' : from;
   $('keepBtn').textContent = from === 'wall' ? 'Back to the wall' : 'Back to the easel';
   const img = $('placardImg');
   img.src = src || record.img;
@@ -644,6 +644,7 @@ function leavePlacard() {
   }
   closeOverlay($('placard'));
   if (from === 'signing') narrate({ line: line('hung'), info: '' });
+  else if (from === 'unkept') narrate({ line: line('unkept'), info: '' });
 }
 
 // ——— the gallery wall ———

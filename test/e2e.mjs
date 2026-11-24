@@ -1073,6 +1073,8 @@ assert.deepEqual(await wall(), hungNow, 'the wall changed when the browser would
 assert.equal(await page.textContent('#galleryCount'), '5');
 await S(() => (Storage.prototype.setItem = window.realSetItem));
 await page.click('#keepBtn');
+await page.waitForTimeout(300);
+assert.deepEqual(await S(async () => (await import('./src/words.js')).LINES.unkept), [await page.textContent('#line')], 'after a signing the browser wouldn’t keep, the painter didn’t say it isn’t on the wall');
 
 // On the wall, Remove asks first: the first tap turns it into "Remove it?", and only a second one takes the painting
 // down. A painting opened there downloads as a JPEG named for its title.

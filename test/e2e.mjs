@@ -1758,6 +1758,125 @@ await ctx.setOffline(false);
   await ictx.close();
 }
 
+// Drawing speed: on a busy canvas, a frame draws the finished part of the painting from a few ready-made pictures and
+// only what's still being painted layer by layer (not every layer and the whole lake again), and what it draws is the
+// same as drawing every layer again. On a phone (the canvas at 1200 px) and at 1.5 times that (a laptop or tablet with
+// a sharp screen, where layers sit at part-pixel places).
+for (const [viewport, scale] of [[{ width: 390, height: 844 }, 1], [{ width: 1280, height: 800 }, 1.5]]) {
+  const sctx = await browser.newContext({ viewport, deviceScaleFactor: 2, hasTouch: true, serviceWorkers: 'block' });
+  const p = await sctx.newPage();
+  const errors = [];
+  p.on('pageerror', (e) => errors.push(e.message));
+  await p.goto(base);
+  await p.evaluate(() => window.happyAccidents.skipIntro());
+  assert.equal(await p.evaluate(() => window.happyAccidents.k), scale);
+  const look = () => p.evaluate(() => {
+    const st = window.happyAccidents;
+    const { ctx, k } = st;
+    const px = (c) => c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    // The worst difference between two pictures, and how much of them differs by more than 2.
+    const compare = (a, b) => {
+      let worst = 0;
+      let off = 0;
+      for (let i = 0; i < a.length; i += 4) {
+        const d = Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]), Math.abs(a[i + 3] - b[i + 3]));
+        worst = Math.max(worst, d);
+        if (d > 2) off++;
+      }
+      return { worst, off: off / (a.length / 4) };
+    };
+    const counted = (fn) => {
+      const draw = ctx.drawImage;
+      let n = 0;
+      ctx.drawImage = function (...a) {
+        n++;
+        return draw.apply(this, a);
+      };
+      try {
+        fn();
+      } finally {
+        ctx.drawImage = draw;
+      }
+      return n;
+    };
+    // A frame as it comes, with the reflection and the lake painted again only where they changed (and the lake's
+    // strips that are still due painted in the frames after).
+    const drawn = counted(() => st.render(performance.now(), { splats: false }));
+    while (st.lakeDue.size) st.render(performance.now(), { splats: false });
+    const got = px(st.canvas);
+    const refl = px(st.refl);
+    const lake = px(st.water.canvas);
+    // The reflection and the lake painted again in full.
+    st.reflDirty = true;
+    const drawnAfresh = counted(() => st.render(performance.now(), { splats: false }));
+    // A third of the lake or so a frame.
+    for (let i = 0; st.lakeDue.size; i++) {
+      if (i > 4) throw new Error('the lake is still not painted in full after 5 more frames');
+      st.render(performance.now(), { splats: false });
+    }
+    // Every layer drawn again, back to front: the paper, what's above the horizon, the lake, what's on it, the weave.
+    const w = st.canvas.width;
+    const h = st.canvas.height;
+    const c = Object.assign(document.createElement('canvas'), { width: w, height: h }).getContext('2d');
+    c.setTransform(k, 0, 0, k, 0, 0);
+    c.drawImage(st.paper, 0, 0, st.W, st.H);
+    const front = st.elements.findIndex((e) => e.depth >= 0);
+    const layers = [...st.elements];
+    layers.splice(front < 0 ? layers.length : front, 0, st.water);
+    for (const l of layers) c.drawImage(l.canvas, l.bbox.x, l.bbox.y, l.canvas.width / k, l.canvas.height / k);
+    c.globalCompositeOperation = 'multiply';
+    c.globalAlpha = 0.1;
+    c.fillStyle = st.weave;
+    c.fillRect(0, 0, st.W, st.H);
+    return {
+      drawn,
+      drawnAfresh,
+      layers: st.elements.length,
+      painting: st.active.length,
+      frame: compare(got, c.getImageData(0, 0, w, h).data),
+      refl: compare(refl, px(st.refl)),
+      lake: compare(lake, px(st.water.canvas)),
+    };
+  });
+  const same = (frame, what) => {
+    for (const part of ['frame', 'refl', 'lake']) {
+      const { worst, off } = frame[part];
+      assert.ok(worst <= 8 && off < 0.001, `the ${part} (${what}, at ${scale}x) differs from painting it all again: worst ${worst}, ${(off * 100).toFixed(3)}% of pixels by more than 2`);
+    }
+  };
+  // Halfway through the sky's wash on a new canvas, drawn a band at a time.
+  await p.evaluate(() => window.happyAccidents.newCanvas('golden-hour'));
+  await p.waitForTimeout(700);
+  const wash = await look();
+  assert.equal(wash.painting, 1, 'the sky was not being painted');
+  same(wash, 'the sky wash');
+  await p.waitForFunction(() => !window.happyAccidents.busy && !window.happyAccidents.active.length, null, { timeout: 20000 });
+  await p.evaluate(async () => {
+    const st = window.happyAccidents;
+    for (let i = 0; i < 30; i++) {
+      st.randomAccident();
+      await new Promise((r) => setTimeout(r, 150));
+    }
+  });
+  await p.waitForFunction(() => !window.happyAccidents.busy && !window.happyAccidents.active.length && !window.happyAccidents.splats.length, null, { timeout: 60000 });
+  // Each kind of thing in turn: a cloud and a mountain change the lake's reflection as they're painted, a tree and a
+  // canoe don't.
+  for (const hint of ['cloud', 'tree', 'mountain', 'water']) {
+    await p.evaluate((hint) => window.happyAccidents.randomAccident({ hint, delay: 50 }), hint);
+    await p.waitForFunction(() => window.happyAccidents.active.length > 0, null, { timeout: 5000 });
+    await p.waitForTimeout(200);
+    const frame = await look();
+    assert.ok(frame.layers >= 20, `only ${frame.layers} layers on the busy canvas`);
+    assert.ok(frame.painting > 0, `nothing was being painted when the ${hint} was drawn`);
+    // At most a picture either side of each layer being painted, plus those layers and the lake and a picture over it.
+    for (const n of [frame.drawn, frame.drawnAfresh]) assert.ok(n <= 2 * frame.painting + 3, `a frame with ${frame.painting} layer(s) being painted (${hint}) drew ${n} times on a canvas of ${frame.layers} layers`);
+    same(frame, hint);
+    await p.waitForFunction(() => !window.happyAccidents.busy && !window.happyAccidents.active.length, null, { timeout: 20000 });
+  }
+  assert.deepEqual(errors, [], 'problems while drawing from ready-made pictures');
+  await sctx.close();
+}
+
 // On a laptop (1280 × 800) the studio is side by side and fits one screen: the canvas, the palette, the four buttons
 // and the strip of key hints are all on screen, and nothing scrolls.
 {

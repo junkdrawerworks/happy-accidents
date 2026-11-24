@@ -85,7 +85,7 @@ It's Canvas 2D with no framework and no image files: everything on the canvas is
 - `src/schemes.js`: the ten paints on the palette, and the six moods a canvas can have, each with its own sky, water, mountain and tree colors.
 - `src/decide.js`: reads a splat and returns a plan, such as land and then a tree on it. It checks what's already painted under the splat first, pixel by pixel, and reacts to that; otherwise the paint's color and where it landed pick what it becomes.
 - `src/paint/`: one painter per thing, plus `react.js` for changes to things already there. Each returns a bounding box, a depth and a list of small drawing steps played back over a second or two, so you watch it being painted.
-- `src/studio.js`: the scene. Every element paints into its own layer, composited back to front by depth. The lake is a mirrored, rippled copy of everything above the horizon.
+- `src/studio.js`: the scene. Every element paints into its own layer, composited back to front by depth. The finished layers are kept put together as a few ready-made pictures, and each frame draws again only the part of the canvas that changed, so a long painting draws about as fast as a short one. The lake is a mirrored, rippled copy of everything above the horizon.
 - `src/words.js`: what the painter says, the brushes and paints they name, and titles like *Cabin at Otter Cove*.
 - `src/sound.js`: optional sounds, made with Web Audio from soft pink noise: the damp pat of a splat on canvas and the swish of a brush (off by default).
 - `src/util.js`: small helpers for the randomness: picks, weighted choices, and lines that don't come round again too soon.

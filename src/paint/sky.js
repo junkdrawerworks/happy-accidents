@@ -19,14 +19,17 @@ export function sky(S) {
   // Criss-cross the whole sky, top to bottom, the way you'd work a 2-inch brush.
   const rows = 12;
   const rowH = bottom / rows;
+  // (Each row's steps say which band of the sky they paint, with room for the strokes' reach, so only that band of
+  // the canvas and of the lake under it has to be drawn again as they go on.)
+  const band = (y0, op) => Object.assign(op, { box: { x: 0, y: y0 - rowH * 0.4 - 100, w: W, h: rowH * 1.8 + 200 } });
   for (let r = 0; r < rows; r++) {
     const y0 = r * rowH;
-    ops.push((ctx) => {
+    ops.push(band(y0, (ctx) => {
       ctx.fillStyle = gradient(ctx);
       ctx.fillRect(0, y0 - 1, W, rowH + 2);
-    });
+    }));
     for (let pass = 0; pass < 3; pass++) {
-      ops.push((ctx) => {
+      ops.push(band(y0, (ctx) => {
         for (let j = 0; j < 8; j++) {
           const cy = rand(y0 - rowH * 0.4, y0 + rowH * 1.4);
           const cx = rand(-60, W + 60);
@@ -43,7 +46,7 @@ export function sky(S) {
             taper: 0.35,
           });
         }
-      });
+      }));
     }
   }
 

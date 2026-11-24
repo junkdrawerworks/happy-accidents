@@ -63,6 +63,199 @@ export function landInside(sp) {
   return sp;
 }
 
+// A pile of layers drawn back to front onto a base, with the finished part kept as ready-made pictures, so a frame
+// redraws only what's still being painted. Each unbroken run of finished layers is one picture (the first one with
+// the base under it), and a frame draws those pictures and the layers still being painted between them. A layer
+// being painted only has to stay under the layers above it that it overlaps, so it's drawn as high up the pile as
+// that allows: a cloud that touches nothing above it goes over the top, and doesn't break the pile in two. When a
+// layer finishes, the pictures on either side of it and the layer itself are put together into one; a picture is
+// only drawn again layer by layer when the pile changes under it (a layer slips in among its layers or moves, or one
+// of them is painted on again), and then about a canvas's worth of layers a frame, the rest drawn straight on until
+// their turn comes. A layer is anything with a canvas and a bbox, drawn at its bbox at the studio's scale.
+class Stack {
+  constructor(k, width, height, base) {
+    this.k = k;
+    this.width = width;
+    this.height = height;
+    this.base = base;
+    this.runs = [];
+    this.spare = [];
+  }
+
+  // A blank picture, with the base on it if it's the first; box is where it has paint, in the canvas's own pixels.
+  fresh(based) {
+    const canvas = this.spare.pop() ?? Object.assign(document.createElement('canvas'), { width: this.width, height: this.height });
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, this.width, this.height);
+    ctx.setTransform(this.k, 0, 0, this.k, 0, 0);
+    const run = { canvas, ctx, based, kept: [], box: based ? [0, 0, this.width, this.height] : null };
+    if (based) this.base(ctx);
+    return run;
+  }
+
+  put(ctx, layer) {
+    const { k } = this;
+    ctx.drawImage(layer.canvas, layer.bbox.x, layer.bbox.y, layer.canvas.width / k, layer.canvas.height / k);
+  }
+
+  // Where a layer has paint, in the canvas's own pixels (a layer at a part-pixel place spreads into the pixel round it).
+  boxOf(layer) {
+    const { k } = this;
+    const b = layer.bbox;
+    return [Math.floor(b.x * k) - 1, Math.floor(b.y * k) - 1, Math.ceil(b.x * k + layer.canvas.width) + 1, Math.ceil(b.y * k + layer.canvas.height) + 1];
+  }
+
+  // Adds a layer to a picture.
+  add(run, layer) {
+    this.put(run.ctx, layer);
+    run.kept.push({ layer, canvas: layer.canvas, bbox: layer.bbox });
+    this.grow(run, this.boxOf(layer));
+  }
+
+  grow(run, [x0, y0, x1, y1]) {
+    const box = [Math.max(0, x0), Math.max(0, y0), Math.min(this.width, x1), Math.min(this.height, y1)];
+    run.box = run.box ? [Math.min(run.box[0], box[0]), Math.min(run.box[1], box[1]), Math.max(run.box[2], box[2]), Math.max(run.box[3], box[3])] : box;
+  }
+
+  // Draws a picture onto ctx pixel for pixel, only where it has paint (and inside clip, if there is one).
+  show(ctx, run, clip) {
+    let [x0, y0, x1, y1] = run.box ?? [0, 0, 0, 0];
+    if (clip) [x0, y0, x1, y1] = [Math.max(x0, clip[0]), Math.max(y0, clip[1]), Math.min(x1, clip[2]), Math.min(y1, clip[3])];
+    if (x1 <= x0 || y1 <= y0) return;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(run.canvas, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+    ctx.restore();
+  }
+
+  // Whether a picture's layers are the layers from index at: the same ones, at the same places, in the same order.
+  holds(run, layers, at) {
+    if (at + run.kept.length > layers.length) return false;
+    return run.kept.every((r, i) => {
+      const l = layers[at + i];
+      return r.layer === l && r.canvas === l.canvas && r.bbox === l.bbox;
+    });
+  }
+
+  // The order to draw in: the finished layers as they are, and each layer being painted as high as it can go, just
+  // under the first layer above it that it overlaps (or the place that one went to, if it's being painted too). Layers
+  // that don't overlap can be drawn in either order and come out the same.
+  order(layers, live) {
+    const n = layers.length;
+    const busy = layers.map(live);
+    const boxes = layers.map((l) => this.boxOf(l));
+    const meets = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+    const at = new Array(n);
+    for (let i = n - 1; i >= 0; i--) {
+      if (!busy[i]) continue;
+      let a = n;
+      for (let j = i + 1; j < a; j++) if (meets(boxes[i], boxes[j])) a = Math.min(a, busy[j] ? at[j] : j);
+      at[i] = a;
+    }
+    const out = [];
+    const before = Array.from({ length: n + 1 }, () => []);
+    for (let i = 0; i < n; i++) if (busy[i]) before[at[i]].push(layers[i]);
+    for (let s = 0; s <= n; s++) {
+      for (const l of before[s]) out.push({ layer: l, live: true });
+      if (s < n && !busy[s]) out.push({ layer: layers[s], live: false });
+    }
+    return out;
+  }
+
+  // How layers s to e (not including e) are drawn: from last frame's pictures where they still fit, put together
+  // where they meet; a layer no picture has is added to one, while there's budget left (so no one frame puts a whole
+  // pile of layers into pictures), and drawn straight onto the canvas after that, to be added in a later frame.
+  segment(layers, s, e, based, old, taken, budget) {
+    const fits = (r, at) => !taken.has(r) && r.kept.length <= e - at && this.holds(r, layers, at);
+    const out = [];
+    // The picture being added to, while it's the last thing drawn.
+    let run = null;
+    let i = s;
+    if (based) {
+      for (const r of old) if (r.based && fits(r, s) && (!run || r.kept.length > run.kept.length)) run = r;
+      if (run) taken.add(run);
+      else {
+        run = this.fresh(true);
+        budget.left -= this.width * this.height;
+      }
+      out.push(run);
+      i += run.kept.length;
+    }
+    while (i < e) {
+      const piece = old.find((r) => !r.based && r.kept.length && r.kept[0].layer === layers[i] && fits(r, i));
+      if (piece) {
+        taken.add(piece);
+        i += piece.kept.length;
+        if (!run) {
+          run = piece;
+          out.push(piece);
+          continue;
+        }
+        this.show(run.ctx, piece);
+        run.kept.push(...piece.kept);
+        if (piece.box) this.grow(run, piece.box);
+        this.spare.push(piece.canvas);
+      } else if (budget.left > 0) {
+        if (!run) {
+          run = this.fresh(false);
+          out.push(run);
+        }
+        budget.left -= layers[i].canvas.width * layers[i].canvas.height;
+        this.add(run, layers[i++]);
+      } else {
+        out.push(layers[i++]);
+        run = null;
+      }
+    }
+    return out;
+  }
+
+  // Draws the pile onto ctx; with clip ([x0, y0, x1, y1] in ctx's own pixels), only inside it.
+  draw(ctx, layers, live, clip = null) {
+    const items = this.order(layers, live);
+    const flat = items.map((it) => it.layer);
+    const old = this.runs;
+    const taken = new Set();
+    // About a canvas's worth of layers can go into pictures each frame.
+    const budget = { left: this.width * this.height };
+    const plan = [];
+    const n = items.length;
+    let i = 0;
+    while (i < n || !plan.length) {
+      if (i < n && plan.length && items[i].live) {
+        plan.push(items[i++].layer);
+        continue;
+      }
+      let j = i;
+      while (j < n && !items[j].live) j++;
+      plan.push(...this.segment(flat, i, j, !plan.length, old, taken, budget));
+      i = j;
+    }
+    const runs = plan.filter((p) => p.kept);
+    // Pictures nobody needs any more are kept blank for next time (a couple of them).
+    for (const r of old) if (!runs.includes(r) && !taken.has(r)) this.spare.push(r.canvas);
+    this.spare.length = Math.min(this.spare.length, 2);
+    this.runs = runs;
+    if (clip) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.beginPath();
+      ctx.rect(clip[0], clip[1], clip[2] - clip[0], clip[3] - clip[1]);
+      ctx.clip();
+      ctx.setTransform(this.k, 0, 0, this.k, 0, 0);
+    }
+    for (const p of plan) {
+      if (p.kept) this.show(ctx, p, clip);
+      else this.put(ctx, p);
+    }
+    if (clip) ctx.restore();
+  }
+}
+
+// How many strips of the lake (two pixels high each) one frame paints again, at most: about a third of the lake.
+const LAKE_STRIPS = 64;
+
 const paintFor = (hint) => {
   const id = pick(PAINT_FOR[hint] || PAINT_FOR.cloud);
   return PIGMENTS.find((p) => p.id === id);
@@ -87,8 +280,12 @@ export class Studio {
     pix.height = 1;
     this.pix = pix.getContext('2d', { willReadFrequently: true });
     this.paper = this.makePaper();
+    this.stack = new Stack(this.k, canvas.width, canvas.height, (c) => c.drawImage(this.paper, 0, 0, W, H));
     this.weave = this.ctx.createPattern(this.makeWeave(), 'repeat');
     this.number = 0;
+    // Where strokes have gone on the layers since the canvas was last drawn, as [x0, y0, x1, y1].
+    this.painted = [];
+    this.lakeDue = new Map();
     // The moods used so far this round (see pickScheme).
     this.moodsUsed = [];
     this.gen = 0;
@@ -108,7 +305,20 @@ export class Studio {
         this.startedAt += Date.now() - Math.max(this.hiddenAt, this.startedAt);
         this.hiddenAt = null;
       }
+      // A phone short of memory can throw away a hidden page's canvases: back on screen, it all comes from the layers.
+      if (!document.hidden) this.redrawAll();
     });
+    canvas.addEventListener('contextrestored', () => this.redrawAll());
+    this.redrawAll();
+  }
+
+  // The next frame draws the whole canvas again, and the lake and the ready-made pictures with it.
+  redrawAll() {
+    this.whole = true;
+    this.stack.runs = [];
+    if (this.reflStack) this.reflStack.runs = [];
+    if (this.water) this.reflDirty = true;
+    if (this.elements.length) this.kick();
   }
 
   layer(w, h) {
@@ -147,9 +357,28 @@ export class Studio {
     this.mctx.clearRect(0, 0, this.mask.width, this.mask.height);
     this.refl = this.layer(W, this.hy + 2);
     this.rctx = this.refl.getContext('2d');
+    this.reflStack = new Stack(this.k, this.refl.width, this.refl.height, (c) => c.drawImage(this.paper, 0, 0, W, H));
     this.reflDirty = true;
+    // The lake, painted from the reflection whenever that changes, into a layer of its own that starts on a whole pixel
+    // of the canvas, so it lands on the canvas exactly as if it had been painted there.
+    const top = Math.floor(this.hy * this.k);
+    const water = document.createElement('canvas');
+    water.width = this.canvas.width;
+    water.height = Math.max(1, this.canvas.height - top);
+    this.water = { kind: 'water', canvas: water, ctx: water.getContext('2d'), top, bbox: { x: 0, y: top / this.k, w: W, h: water.height / this.k } };
     this.waterTex = this.makeWaterTexture();
+    // The lake is the reflection in strips two pixels high, each one nudged sideways by the ripples (and stretched a
+    // little, so the nudge never shows an edge); sy is the row of the reflection it shows.
+    this.strips = [];
+    for (let y = this.hy; y < H; y += 2) {
+      const d = y - this.hy;
+      const amp = 0.4 + d * 0.012;
+      this.strips.push({ y, sy: clamp(this.hy - d - 2, 0, this.refl.height / this.k - 2), off: Math.sin(d * 0.23) * amp + Math.sin(d * 0.071 + 1.3) * amp * 0.7 });
+    }
+    // The strips due to be painted again, and from where to where across.
+    this.lakeDue = new Map();
     this.number += 1;
+    this.whole = true;
     this.addElement(sky(this));
     this.say('wash', 'wash');
     this.hooks.onCanvas?.(this);
@@ -380,7 +609,7 @@ export class Studio {
     this.counts[spec.kind] = (this.counts[spec.kind] || 0) + 1;
     // A bare tree or a birch is still a deciduous tree to the titles and to decide(); only the label tells them apart.
     if (spec.meta?.bare) this.counts[spec.meta.birch ? 'birch' : 'bare'] = (this.counts[spec.meta.birch ? 'birch' : 'bare'] || 0) + 1;
-    if (spec.reflect) this.reflDirty = true;
+    if (spec.reflect) this.dirtyReflection(b);
     this.hooks.onBrush?.(spec.kind, el.dur);
     this.kick();
     return el;
@@ -403,7 +632,7 @@ export class Studio {
     };
     this.active.push(el);
     this.counts[spec.kind] = (this.counts[spec.kind] || 0) + 1;
-    if (target.reflect) this.reflDirty = true;
+    if (target.reflect) this.dirtyReflection(target.bbox);
     this.hooks.onBrush?.(spec.kind, el.dur);
     this.kick();
     return el;
@@ -715,7 +944,7 @@ export class Studio {
   }
 
   get busy() {
-    return this.active.length > 0 || this.splats.some((s) => s.state === 'wet' || s.state === 'absorbing');
+    return this.active.length > 0 || this.lakeDue.size > 0 || this.splats.some((s) => s.state === 'wet' || s.state === 'absorbing');
   }
 
   summary() {
@@ -751,8 +980,21 @@ export class Studio {
     for (const el of this.active) {
       const t = Math.min(1, (now - el.t0) / el.dur);
       const target = Math.min(el.ops.length, Math.ceil(t * el.ops.length));
-      while (el.i < target) el.ops[el.i++](el.ctx);
-      if (el.reflect) this.reflDirty = true;
+      // Where this frame's strokes went: a step can say (the sky's wash goes on a row at a time); otherwise anywhere on
+      // the layer.
+      let box = null;
+      while (el.i < target) {
+        const op = el.ops[el.i++];
+        op(el.ctx);
+        const b = op.box ?? el.bbox;
+        box = box ? [Math.min(box[0], b.x), Math.min(box[1], b.y), Math.max(box[2], b.x + b.w), Math.max(box[3], b.y + b.h)] : [b.x, b.y, b.x + b.w, b.y + b.h];
+      }
+      if (box) {
+        const b = el.bbox;
+        box = [Math.max(box[0], b.x), Math.max(box[1], b.y), Math.min(box[2], b.x + b.w), Math.min(box[3], b.y + b.h)];
+        this.painted.push(box);
+        if (el.reflect && el.depth <= 0.5) this.dirtyReflection({ x: box[0], y: box[1], w: box[2] - box[0], h: box[3] - box[1] });
+      }
       el.onProgress?.(t);
       if (el.i >= el.ops.length) el.done = true;
     }
@@ -791,7 +1033,7 @@ export class Studio {
 
     this.render(now);
 
-    const animating = this.active.length || this.pool || this.splats.some((s) => now - s.born < 240 || s.tintT0 || s.state === 'fading' || s.state === 'absorbing');
+    const animating = this.active.length || this.pool || this.lakeDue.size || this.splats.some((s) => now - s.born < 240 || s.tintT0 || s.state === 'fading' || s.state === 'absorbing');
     if (animating) requestAnimationFrame(this.frame);
     else {
       this.running = false;
@@ -799,52 +1041,154 @@ export class Studio {
     }
   }
 
-  buildReflection() {
-    const r = this.rctx;
-    r.setTransform(this.k, 0, 0, this.k, 0, 0);
-    r.drawImage(this.paper, 0, 0, W, H);
-    for (const el of this.elements) {
-      if (!el.reflect || el.depth > 0.5) continue;
-      r.drawImage(el.canvas, el.bbox.x, el.bbox.y, el.canvas.width / this.k, el.canvas.height / this.k);
-    }
-    this.reflDirty = false;
+  // Part of the reflection needs painting again (the whole of it, once reflDirty is true).
+  dirtyReflection(b) {
+    if (this.reflDirty === true) return;
+    const r = this.reflDirty || [Infinity, Infinity, -Infinity, -Infinity];
+    this.reflDirty = [Math.min(r[0], b.x), Math.min(r[1], b.y), Math.max(r[2], b.x + b.w), Math.max(r[3], b.y + b.h)];
   }
 
-  drawWater(ctx) {
+  // The reflection is everything above the horizon that reflects; live is the layers still being painted. Only the
+  // part that changed is painted again, and the strips of the lake that mirror it are due to be painted again too.
+  buildReflection(live) {
+    const { k } = this;
+    const part = this.reflDirty === true ? [0, 0, W, H] : this.reflDirty;
+    this.reflDirty = false;
+    const r = this.rctx;
+    r.setTransform(k, 0, 0, k, 0, 0);
+    const clip = [Math.floor(part[0] * k) - 1, Math.floor(part[1] * k) - 1, Math.ceil(part[2] * k) + 1, Math.ceil(part[3] * k) + 1];
+    this.reflStack.draw(r, this.elements.filter((el) => el.reflect && el.depth <= 0.5), (el) => live.has(el.canvas), clip);
+    // A strip can be moved and stretched up to about 30 px sideways.
+    this.strips.forEach((st, i) => {
+      if (st.sy >= part[3] + 1 || st.sy + 2 <= part[1] - 1) return;
+      const due = this.lakeDue.get(i);
+      this.lakeDue.set(i, due ? [Math.min(due[0], part[0] - 30), Math.max(due[1], part[2] + 30)] : [part[0] - 30, part[2] + 30]);
+    });
+  }
+
+  // Paints the next strips of the lake that are due: up to LAKE_STRIPS of them in a row, nearest the horizon first, so
+  // a change across the whole sky reaches the lake over a few frames instead of holding one up. Returns the part of the
+  // canvas painted again, or null.
+  paintLake() {
     const { hy, k } = this;
-    if (this.reflDirty) this.buildReflection();
+    const first = Math.min(...this.lakeDue.keys());
+    let last = first;
+    let [left, right] = this.lakeDue.get(first);
+    while (last - first + 1 < LAKE_STRIPS && this.lakeDue.has(last + 1)) {
+      last += 1;
+      const [l, r] = this.lakeDue.get(last);
+      left = Math.min(left, l);
+      right = Math.max(right, r);
+    }
+    for (let i = first; i <= last; i++) this.lakeDue.delete(i);
+    const top = this.water.top;
+    const cw = this.water.canvas.width;
+    const ch = this.water.canvas.height;
+    const x0 = clamp(Math.floor(left * k), 0, cw);
+    const x1 = clamp(Math.ceil(right * k), 0, cw);
+    const y0 = clamp(Math.floor((this.strips[first].y - 1) * k) - top, 0, ch);
+    const y1 = clamp(Math.ceil((this.strips[last].y + 4) * k) - top, 0, ch);
+    if (x1 <= x0 || y1 <= y0) return null;
+    const ctx = this.water.ctx;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.beginPath();
+    ctx.rect(x0, y0, x1 - x0, y1 - y0);
+    ctx.clip();
+    ctx.setTransform(k, 0, 0, k, 0, -top);
+    // Every strip that reaches into that part, not only the due ones, so the part is whole.
+    const lo = (y0 + top) / k;
+    const hi = (y1 + top) / k;
     const src = this.refl;
-    const maxSy = src.height / k - 2;
-    for (let y = hy; y < H; y += 2) {
-      const d = y - hy;
-      const sy = clamp(hy - d - 2, 0, maxSy);
-      const amp = 0.4 + d * 0.012;
-      const off = Math.sin(d * 0.23) * amp + Math.sin(d * 0.071 + 1.3) * amp * 0.7;
+    for (const { y, sy, off } of this.strips) {
+      if (y + 2.3 < lo - 1 || y > hi + 1) continue;
       ctx.drawImage(src, 0, sy * k, W * k, 2 * k, off - 8, y, W + 16, 2.3);
     }
+    // Then the water's own color and lines over it.
     const g = ctx.createLinearGradient(0, hy, 0, H);
     g.addColorStop(0, rgba(this.scheme.water, 0.12));
     g.addColorStop(1, rgba(this.scheme.water, 0.5));
     ctx.fillStyle = g;
     ctx.fillRect(0, hy, W, H - hy);
     ctx.drawImage(this.waterTex, 0, hy, W, H - hy);
+    ctx.restore();
+    return [x0 / k, (y0 + top) / k, x1 / k, (y1 + top) / k];
   }
 
+  // Where each splat, droplet and trail is drawn, as [x0, y0, x1, y1] (with room for a splat's pop as it lands).
+  splatBoxes() {
+    const out = [];
+    const add = (x, y, r) => out.push([x - r, y - r, x + r, y + r]);
+    for (const s of this.pool ? [...this.splats, this.pool] : this.splats) {
+      add(s.x, s.y, s.ext * 1.25 + 2);
+      for (const d of s.trail || []) add(d.x, d.y, d.r + 2);
+    }
+    for (const d of this.drops) add(d.x, d.y, d.r + 2);
+    return out;
+  }
+
+  // What needs drawing again since the last frame: where strokes went on the layers, the part of the lake painted
+  // again, and the splats where they are now and where they were. All of it (null) when the pile of layers has
+  // changed other than by new layers coming in (new ones are blank): one taken away or moved, or a new canvas.
+  changed(layers, lake, shown) {
+    const before = this.drawn ?? [];
+    let j = 0;
+    let moved = false;
+    for (const l of layers) {
+      if (j < before.length && before[j].layer === l) moved ||= before[j++].bbox !== l.bbox;
+    }
+    this.drawn = layers.map((layer) => ({ layer, bbox: layer.bbox }));
+    if (this.whole || moved || j < before.length) return null;
+    const boxes = [...shown, ...(this.shown ?? [])];
+    if (lake) boxes.push(lake);
+    boxes.push(...this.painted);
+    if (!boxes.length) return [];
+    return boxes.reduce((a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])]);
+  }
+
+  // Draws the canvas: only the part that changed since the last frame, from the stack's ready-made pictures and the
+  // layers still being painted; the rest of the canvas is already right.
   render(now, opts = {}) {
     const { ctx, k } = this;
-    ctx.setTransform(k, 0, 0, k, 0, 0);
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(this.paper, 0, 0, W, H);
+    const live = new Set(this.active.map((a) => a.canvas));
+    if (this.reflDirty) this.buildReflection(live);
+    const lake = this.lakeDue.size ? this.paintLake() : null;
+    // The lake goes in between what's above the horizon and what's on it or in front of it.
+    const layers = [];
     let water = false;
     for (const el of this.elements) {
       if (!water && el.depth >= 0) {
-        this.drawWater(ctx);
+        layers.push(this.water);
         water = true;
       }
-      ctx.drawImage(el.canvas, el.bbox.x, el.bbox.y, el.canvas.width / k, el.canvas.height / k);
+      layers.push(el);
     }
-    if (!water) this.drawWater(ctx);
+    if (!water) layers.push(this.water);
+    const shown = opts.splats === false ? [] : this.splatBoxes();
+    const area = this.changed(layers, lake, shown);
+    this.whole = false;
+    this.shown = shown;
+    this.painted = [];
+    let clip = null;
+    if (area) {
+      if (!area.length) return;
+      clip = [Math.floor(area[0] * k) - 2, Math.floor(area[1] * k) - 2, Math.ceil(area[2] * k) + 2, Math.ceil(area[3] * k) + 2];
+      clip = [Math.max(0, clip[0]), Math.max(0, clip[1]), Math.min(this.canvas.width, clip[2]), Math.min(this.canvas.height, clip[3])];
+      if (clip[2] <= clip[0] || clip[3] <= clip[1]) return;
+    }
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (clip) {
+      ctx.beginPath();
+      ctx.rect(clip[0], clip[1], clip[2] - clip[0], clip[3] - clip[1]);
+      ctx.clip();
+    }
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    // The lake is drawn from its own layer every frame, so painting it again never breaks up the pictures around it.
+    this.stack.draw(ctx, layers, (l) => l === this.water || live.has(l.canvas), clip);
 
     ctx.save();
     ctx.globalCompositeOperation = 'multiply';
@@ -853,15 +1197,17 @@ export class Studio {
     ctx.fillRect(0, 0, W, H);
     ctx.restore();
 
-    if (opts.splats === false) return;
-    for (const s of this.splats) this.drawSplat(ctx, s, now);
-    if (this.pool) this.drawSplat(ctx, this.pool, now);
-    for (const d of this.drops) {
-      ctx.fillStyle = rgba(d.color);
-      ctx.beginPath();
-      ctx.arc(d.x, d.y, d.r, 0, TAU);
-      ctx.fill();
+    if (opts.splats !== false) {
+      for (const s of this.splats) this.drawSplat(ctx, s, now);
+      if (this.pool) this.drawSplat(ctx, this.pool, now);
+      for (const d of this.drops) {
+        ctx.fillStyle = rgba(d.color);
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.r, 0, TAU);
+        ctx.fill();
+      }
     }
+    ctx.restore();
   }
 
   drawSplat(ctx, s, now) {

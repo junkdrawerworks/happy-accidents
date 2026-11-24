@@ -32,6 +32,10 @@ page.on('pageerror', (e) => problems.push(e.message));
 page.on('console', (m) => { if (m.type() === 'error') problems.push(m.text()); });
 page.on('requestfailed', (r) => problems.push('failed: ' + r.url()));
 page.on('request', (r) => { if (!r.url().startsWith(base) && !r.url().startsWith('data:')) problems.push('left the site: ' + r.url()); });
+// Every file the page asks for while it paints, signs, hangs paintings and opens the wall (checked against the offline
+// copy's list at the end).
+const asked = new Set();
+page.on('request', (r) => { if (r.url().startsWith(base)) asked.add(new URL(r.url()).pathname.slice(1) || './'); });
 
 const S = (fn, arg) => page.evaluate(fn, arg);
 // The width of a JPEG, from its frame header.
@@ -1490,6 +1494,18 @@ assert.equal(await page.locator('.wall-item').count(), hungOnline + 1, 'the pain
 await page.keyboard.press('Escape');
 await ctx.setOffline(false);
 
+// The offline copy keeps every file the page asked for above, whatever kind of file it is (a script, a font, a
+// picture), so it opens after one visit and not only after enough of them to have fetched everything once. Only the
+// worker itself and the manifest's PNG icons (for installing, not for painting) aren't in it.
+{
+  const sw = await readFile(join(root, 'sw.js'), 'utf8');
+  const shell = new Set([...sw.match(/SHELL = \[([^\]]*)\]/)[1].replace(/\/\/.*/g, '').matchAll(/'([^']*)'/g)].map((m) => m[1]));
+  const icons = JSON.parse(await readFile(join(root, 'manifest.webmanifest'), 'utf8')).icons.map((i) => i.src).filter((src) => src.endsWith('.png'));
+  const missing = [...asked].filter((f) => !shell.has(f) && f !== 'sw.js' && !icons.includes(f));
+  assert.ok(asked.has('src/paint/signature.js') && asked.has('fonts/mrs-saint-delafield.woff2'), `the page’s requests weren’t all seen (${[...asked]})`);
+  assert.deepEqual(missing, [], 'the page loads files the offline copy (SHELL in sw.js) doesn’t keep');
+}
+
 // With a mouse (Safari on a Mac, Chrome on Windows), a browser that could share still downloads: those share sheets
 // have no way to save the file.
 {
@@ -1683,6 +1699,71 @@ await ctx.setOffline(false);
   await ictx.close();
 }
 
+// On a laptop (1280 × 800) the studio is side by side and fits one screen: the canvas, the palette, the four buttons
+// and the strip of key hints are all on screen, and nothing scrolls.
+{
+  const dctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
+  const p = await dctx.newPage();
+  await p.goto(base);
+  await p.evaluate(() => document.fonts.ready);
+  const seen = await p.evaluate(() => {
+    const inside = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight; };
+    return {
+      offScreen: ['canvas', 'palette', 'oopsBtn', 'autoBtn', 'newBtn', 'signBtn'].filter((id) => !inside(document.getElementById(id))).concat(inside(document.querySelector('.keys')) ? [] : ['keys']),
+      scrolls: document.documentElement.scrollHeight > innerHeight || document.documentElement.scrollWidth > innerWidth,
+    };
+  });
+  assert.deepEqual(seen, { offScreen: [], scrolls: false }, 'the studio on a 1280 × 800 laptop');
+  await dctx.close();
+}
+
+// Painting after painting without a reload, each one ends clean: paint, sign, Paint another, five times over. After
+// each, nothing is wet or waiting to be painted in, nothing is still being painted, no button is left asking "Start
+// over?", the wall has one more painting, and nothing painted still holds on to its splat.
+{
+  const cctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
+  const p = await cctx.newPage();
+  const errors = [];
+  p.on('pageerror', (e) => errors.push(e.message));
+  await p.goto(base);
+  await p.evaluate(() => document.fonts.ready);
+  await p.evaluate(() => window.happyAccidents.skipIntro());
+  const quiet = () => p.waitForFunction(() => !window.happyAccidents.busy && !window.happyAccidents.active.length && !window.happyAccidents.splats.length, null, { timeout: 20000 });
+  const cb = await p.locator('#canvas').boundingBox();
+  for (let cycle = 1; cycle <= 5; cycle++) {
+    await quiet();
+    for (const [fx, fy] of [[0.3, 0.2], [0.7, 0.3], [0.2, 0.8]]) {
+      await p.touchscreen.tap(cb.x + cb.width * fx, cb.y + cb.height * fy);
+      await p.waitForTimeout(120);
+    }
+    await p.evaluate(() => window.happyAccidents.randomAccident());
+    await quiet();
+    await p.click('#signBtn');
+    await p.fill('#artistName', 'Robin');
+    await p.click('#signForm button[type=submit]');
+    await p.waitForSelector('#placard:not([hidden])', { timeout: 30000 });
+    assert.deepEqual(await p.evaluate(() => window.happyAccidents.elements.filter((e) => e.onProgress || e.onDone).map((e) => e.kind)), [], `painting ${cycle}, signed, still holds on to its splats`);
+    await p.click('#anotherBtn');
+    await quiet();
+    const end = await p.evaluate(() => {
+      const st = window.happyAccidents;
+      return {
+        accidents: st.accidents,
+        splats: st.splats.length,
+        active: st.active.length,
+        pool: !!st.pool,
+        asking: ['newBtn', 'anotherBtn', 'autoBtn', 'signBtn'].filter((id) => document.getElementById(id).textContent === 'Start over?'),
+        auto: document.getElementById('autoBtn').textContent,
+        placard: document.getElementById('placard').hidden,
+        wall: document.getElementById('galleryCount').textContent,
+      };
+    });
+    assert.deepEqual(end, { accidents: 0, splats: 0, active: 0, pool: false, asking: [], auto: 'Let it happen', placard: true, wall: String(cycle) }, `after painting ${cycle}`);
+  }
+  assert.deepEqual(errors, [], 'problems painting five paintings in a row');
+  await cctx.close();
+}
+
 // With JavaScript off, the page says what it needs on the first screen, not below an easel that does nothing.
 const noScript = await browser.newContext({ viewport: { width: 390, height: 844 }, javaScriptEnabled: false });
 const plain = await noScript.newPage();
@@ -1759,6 +1840,31 @@ assert.deepEqual(problems, [], 'problems while painting offline, or since');
       }
     } else console.log('(there’s no full Chromium here, so the install check was skipped)');
   }
+  // Works offline after one plain visit (as the README says): a fresh browser opens the page once, the worker takes
+  // over, the network goes, and on a reload the studio opens from the copy and a tap paints. Every check below comes
+  // after several visits, which fetch every file once anyway, so they can't see a file missing from the copy.
+  {
+    const once = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+    const p = await once.newPage();
+    const errors = [];
+    p.on('pageerror', (e) => errors.push(e.message));
+    await p.goto(base);
+    await p.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 15000 });
+    net = 'down';
+    await once.setOffline(true);
+    await p.reload();
+    await p.waitForFunction(() => window.happyAccidents?.elements.length > 0, null, { timeout: 15000 });
+    await p.evaluate(() => window.happyAccidents.skipIntro());
+    const ob = await p.locator('#canvas').boundingBox();
+    await p.mouse.click(ob.x + ob.width * 0.3, ob.y + ob.height * 0.2);
+    await p.waitForFunction(() => window.happyAccidents.accidents === 1 && !window.happyAccidents.busy && !window.happyAccidents.active.length, null, { timeout: 20000 });
+    assert.ok(await p.evaluate(() => Object.keys(window.happyAccidents.counts).some((k) => k !== 'sky')), 'offline after one visit, a tap turned into nothing');
+    assert.deepEqual(errors, [], 'problems offline after one visit');
+    await once.setOffline(false);
+    net = 'up';
+    await once.close();
+  }
+
   // The page opened from a link with a query string (a shared link's ?fbclid=…), kept in the copy under its plain
   // address: see the release below.
   await page.goto(base + '?x=1');

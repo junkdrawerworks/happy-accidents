@@ -363,14 +363,16 @@ canvas.addEventListener('pointerdown', (e) => {
   cancelDone();
   const p = toCanvas(e);
   const pigment = currentPigment();
-  gesture = { id: e.pointerId, start: p, cx: e.clientX, cy: e.clientY, pts: [p], moved: 0, pigment, drops: [] };
+  // gen is the canvas it started on: if that canvas is gone before it ends (New canvas, N, Paint another, pressed by
+  // another finger or hand meanwhile), it paints nothing on the new one.
+  gesture = { id: e.pointerId, gen: studio.gen, start: p, cx: e.clientX, cy: e.clientY, pts: [p], moved: 0, pigment, drops: [] };
   gesture.poolTimer = setTimeout(() => {
-    if (gesture && gesture.moved < 10) studio.startPool(gesture.start, gesture.pigment);
+    if (gesture && gesture.gen === studio.gen && gesture.moved < 10) studio.startPool(gesture.start, gesture.pigment);
   }, 220);
 });
 
 canvas.addEventListener('pointermove', (e) => {
-  if (!gesture || e.pointerId !== gesture.id) return;
+  if (!gesture || e.pointerId !== gesture.id || gesture.gen !== studio.gen) return;
   const p = toCanvas(e);
   gesture.moved = Math.max(gesture.moved, Math.hypot(e.clientX - gesture.cx, e.clientY - gesture.cy));
   const last = gesture.pts[gesture.pts.length - 1];
@@ -392,8 +394,9 @@ function finishGesture(e, cancelled = false) {
   gesture = null;
   clearTimeout(g.poolTimer);
   studio.takeDrops();
-  // A finger already down when Sign it was pressed lets go without painting: what's signed is what's on the easel.
-  if (cancelled || signing) {
+  // A finger already down when Sign it was pressed lets go without painting: what's signed is what's on the easel. So
+  // does one that started on a canvas that has since been started over.
+  if (cancelled || signing || g.gen !== studio.gen) {
     studio.endPool();
     return;
   }

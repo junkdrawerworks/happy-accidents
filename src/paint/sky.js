@@ -152,13 +152,14 @@ export function cloud(S, p) {
   const shadow = p.shadow ?? mix(scheme.cloud.shadow, p.tint, 0.18);
   const w = clamp(p.R * rand(4.5, 7.5), 110, 560);
   const x = p.x;
-  const y = clamp(p.y, 30, hy - 30);
+  let y = clamp(p.y, 30, hy - 30);
   const ops = [];
   const depth = -800 + (1 - y / hy) * 50;
 
   if (p.elong > 2.3 || (!p.shape && chance(0.18))) {
-    // A long flick leaves a long, thin streak of cloud.
+    // A long flick leaves a long, thin streak of cloud, all of it clear of the horizon.
     const h = w * rand(0.05, 0.1);
+    y = Math.min(y, hy - 12 - h * 1.4);
     ops.push((ctx) => {
       ctx.save();
       ctx.translate(x, y);
@@ -249,6 +250,14 @@ export function cloud(S, p) {
       const q = puffs[randi(1, n - 2)];
       puffs.push({ x: q.x + rand(-q.r * 0.5, q.r * 0.5), y: q.y - q.r * rand(0.35, 0.65), r: q.r * rand(0.5, 0.8) });
     }
+  }
+  // A cloud painted low would dip into the lake and be cut off flat along the horizon, so the whole of it, puffs and
+  // flat base, rises until it's clear.
+  const lift = Math.max(baseY + h * 0.2 + 3, ...puffs.map((pf) => pf.y + pf.r * 0.9)) - (hy - 6);
+  if (lift > 0) {
+    for (const pf of puffs) pf.y -= lift;
+    baseY -= lift;
+    y -= lift;
   }
   const la = -Math.PI / 2 + S.lightDir * (Math.PI / 4);
 

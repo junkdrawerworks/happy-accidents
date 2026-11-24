@@ -10,7 +10,7 @@ import { ramp, mix, hex, mixPaint, familyOf, colorName } from '../src/color.js';
 import { weighted, pickFresh, clamp, rand, chance, pick, TAU } from '../src/util.js';
 import { SCHEMES, PIGMENTS } from '../src/schemes.js';
 import { decide } from '../src/decide.js';
-import { makeSplat } from '../src/splat.js';
+import { makeSplat, splatShape } from '../src/splat.js';
 import { lineKey } from '../src/studio.js';
 import * as P from '../src/paint/index.js';
 import { flowers, canoe, glints } from '../src/paint/index.js';
@@ -771,3 +771,15 @@ test('trees up a mountain’s slope are painted only on the mountain', () =>
       assert.ok(clippedToIt(green[1].make(mountain), mountain.meta.path), 'a green mountain’s trees reach past it');
     }
   }, 81));
+
+test('a cloud painted just above the horizon stays clear of it', () =>
+  sameDice(() => {
+    // Its puffs and flat base used to reach below the horizon, where the lake cut the cloud off flat.
+    const S = bareStudio();
+    for (let i = 0; i < 200; i++) {
+      const sp = makeSplat({ x: 600, y: S.hy * rand(0.85, 0.94), R: rand(15, 45), pigment: paintOf('titanium-white') });
+      const { meta } = P.cloud(S, { x: sp.x, y: sp.y, R: sp.R, tint: sp.pigment.rgb, elong: sp.stretch, shape: splatShape(sp) });
+      const lowest = Math.max(meta.baseY, ...meta.puffs.map((pf) => pf.y + pf.r * 0.9));
+      assert.ok(lowest <= S.hy - 6, `a cloud from a splat ${Math.round(S.hy - sp.y)}px above the horizon reaches ${Math.round(lowest - S.hy)}px below it`);
+    }
+  }, 91));

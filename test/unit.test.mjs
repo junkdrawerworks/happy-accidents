@@ -1048,3 +1048,33 @@ test('a tall pine grown from green at the very top stays on the canvas', () =>
       assert.ok(pine.bbox.y >= 4, `a tall pine${bare ? ' on new land' : ''} reaches ${Math.round(pine.bbox.y)}px from the top`);
     }
   }, 121));
+
+test('snow on a leafy tree rests on the tops of its clumps, and the leaves show through', () =>
+  sameDice(() => {
+    // It used to cover the top half of every clump nearly solid, a white patch in the crown. Now every dab sits on a
+    // clump's top cap, and the snow's dabs come to well under the leaves'.
+    const S = bareStudio();
+    const dabs = (ops) => {
+      const at = [];
+      const ctx = new Proxy({}, { get: (t, k) => (k === 'ellipse' ? (x, y) => at.push([x, y]) : k in t ? t[k] : () => {}), set: (t, k, v) => ((t[k] = v), true) });
+      for (const op of ops) op(ctx);
+      return at;
+    };
+    let snow = 0;
+    let leaves = 0;
+    for (let i = 0; i < 20; i++) {
+      const tree = P.deciduous(S, { x: 300, baseY: 800, h: 220, tint: paintOf('bright-red').rgb });
+      leaves += dabs(tree.ops).length;
+      const { clusters } = tree.meta;
+      const ops = treeSnowOf(S, { ...tree }, { tint: [244, 242, 234] }).ops;
+      ops.forEach((op, j) => {
+        const cl = clusters[j];
+        for (const [x, y] of dabs([op])) {
+          snow++;
+          assert.ok(cl.y - y > cl.r * 0.3 - (x - cl.x) * S.lightDir * 0.3 - 1e-6, `a dab of snow sat ${Math.round(y - cl.y)}px below the top of a clump ${Math.round(cl.r)}px across`);
+        }
+      });
+    }
+    assert.ok(snow > 0, 'no snow at all');
+    assert.ok(snow / leaves < 0.15, `the snow is ${Math.round((100 * snow) / leaves)}% of the leaves`);
+  }, 131));

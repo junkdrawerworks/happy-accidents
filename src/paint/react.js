@@ -47,9 +47,11 @@ export function treeSnow(S, t, p) {
       });
     }
   } else {
-    const upper = (dx, dy, r) => -dy > r * rand(-0.15, 0.25);
+    // On a leafy crown it rests on the tops of the clumps, a little further over on the side the light comes from, thin
+    // enough that the leaves still show through: snow lying on the tree, not a white patch in it.
+    const cap = (dx, dy, r) => -dy + dx * L * 0.3 > r * rand(0.3, 0.5);
     for (const cl of m.clusters) {
-      ops.push((ctx) => atop(ctx, () => leafPass(ctx, cl, snow, density(cl, m.lw, 0.3, 8, 500), m.lw, 0.95, upper)));
+      ops.push((ctx) => atop(ctx, () => leafPass(ctx, cl, snow, density(cl, m.lw, 0.35, 6, 300), m.lw, 0.85, cap)));
     }
   }
   return { kind: 'treeSnow', onto: t, ops, dur: 1300 };

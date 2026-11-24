@@ -969,6 +969,7 @@ await page.waitForTimeout(200);
 await settle();
 await page.click('#newBtn');
 assert.equal(await page.textContent('#newBtn'), 'Start over?', 'New canvas asks first when paint was added after signing');
+assert.equal(await page.textContent('#srStatus'), 'Press again to start over. What you’ve painted since signing isn’t on the wall.', 'a screen reader isn’t told New canvas is asking first');
 assert.equal(await page.textContent('#canvasNo'), canvasNo, 'the first tap of New canvas kept the painting');
 
 // So does Paint another on a painting opened from the wall: the first tap asks, and only a second one starts over.
@@ -976,6 +977,7 @@ await page.click('#galleryBtn');
 await page.click('.wall-open');
 await page.click('#anotherBtn');
 assert.equal(await page.textContent('#anotherBtn'), 'Start over?', 'Paint another on a painting from the wall asks first when the easel has paint that isn’t hung');
+assert.match(await page.textContent('#placard .sr-status'), /^Press again to start over\./, 'a screen reader in the label isn’t told Paint another is asking first');
 assert.equal(await page.textContent('#canvasNo'), canvasNo, 'the first tap of Paint another kept the painting');
 await page.click('#anotherBtn');
 assert.notEqual(await page.textContent('#canvasNo'), canvasNo, 'a second tap of Paint another starts over');
@@ -1333,13 +1335,18 @@ assert.ok(await lineShows(await S(async () => (await import('./src/words.js')).L
 // On the wall, Remove asks first: the first tap turns it into "Remove it?", and only a second one takes the painting
 // down. A painting opened there downloads as a JPEG named for its title.
 await page.keyboard.press('g');
+const firstTitle = await page.locator('.wall-meta cite').first().textContent();
+assert.equal(await page.locator('.wall-item .quiet').first().getAttribute('aria-label'), `Remove ${firstTitle}`, 'Remove doesn’t say which painting it takes down');
+assert.equal(await page.getAttribute('#rerollBtn', 'aria-label'), 'Another title');
 await page.locator('.wall-item .quiet').first().click();
 assert.equal(await page.locator('.wall-item .quiet').first().textContent(), 'Remove it?');
+assert.equal(await page.locator('.wall-item .quiet').first().getAttribute('aria-label'), `Remove it? Press again to take down ${firstTitle}`);
 assert.equal(await page.locator('.wall-item').count(), 5, 'the first tap of Remove took the painting down');
 const removed = await page.locator('.wall-open').first().getAttribute('data-id');
 assert.ok((await pictureIds()).includes(removed), 'the painting about to be removed had no full-size picture kept');
 await page.locator('.wall-item .quiet').first().click();
 assert.equal(await page.locator('.wall-item').count(), 4, 'the second tap of Remove didn’t take the painting down');
+assert.equal(await page.textContent('#gallery .sr-status'), `${firstTitle} came down from the wall.`, 'a screen reader isn’t told the painting came down');
 await page.waitForTimeout(300);
 assert.ok(!(await pictureIds()).includes(removed), 'Remove left the painting’s full-size picture behind');
 assert.equal(await page.textContent('#galleryCount'), '4');

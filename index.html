@@ -69,6 +69,8 @@
   </section>
 </div>
 
+<p class="sr-only sr-status" id="srStatus" role="status"></p>
+
 <div class="overlay" id="signSheet" role="dialog" aria-modal="true" aria-labelledby="signTitle" hidden>
   <form class="sheet" id="signForm" autocomplete="off">
     <h2 class="sheet-title" id="signTitle">Sign your painting</h2>
@@ -80,7 +82,7 @@
       <label for="artTitle">Title</label>
       <span class="with-button">
         <input id="artTitle" name="title" maxlength="60" autocapitalize="words" enterkeyhint="done">
-        <button type="button" class="quiet small" id="rerollBtn">Another</button>
+        <button type="button" class="quiet small" id="rerollBtn" aria-label="Another title">Another</button>
       </span>
     </div>
     <div class="sheet-actions">
@@ -109,6 +111,7 @@
         <button type="button" class="quiet" id="downloadBtn">Download image</button>
       </div>
       <p class="save-hint" id="saveHint" hidden>Long-press or right-click the painting to save it.</p>
+      <p class="sr-only sr-status" role="status"></p>
     </div>
   </div>
 </div>
@@ -122,6 +125,7 @@
     <p class="wall-empty" id="wallEmpty">Nothing hanging yet. Sign a painting and it goes up on this wall.</p>
     <ul class="wall-grid" id="wallGrid"></ul>
     <p class="wall-note">The wall keeps your 12 newest paintings, in this browser only. Save one to keep it for good.</p>
+    <p class="sr-only sr-status" role="status"></p>
   </div>
 </div>
 

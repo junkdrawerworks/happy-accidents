@@ -523,10 +523,23 @@ function askFirst(btn, label) {
   if (unsaved && !armed.has(btn)) {
     btn.textContent = 'Start over?';
     armed.set(btn, setTimeout(() => disarm(btn, label), 3000));
+    srSay(`Press again to start over. ${studio.signed ? 'What you’ve painted since signing isn’t on the wall.' : 'The painting on the easel isn’t on the wall yet.'}`);
     return false;
   }
   disarm(btn, label);
   return true;
+}
+
+// A word for a screen reader about something that changed without moving focus (a button now asking "Start over?", a
+// painting taken down), cleared after three seconds. It goes in the status line of the overlay that's up, if one is,
+// since a screen reader may not hear anything outside a modal dialog.
+let statusTimer = 0;
+function srSay(text) {
+  for (const el of document.querySelectorAll('.sr-status')) el.textContent = '';
+  const el = openOverlayEl()?.querySelector('.sr-status') ?? $('srStatus');
+  el.textContent = text;
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => (el.textContent = ''), 3000);
 }
 
 const newBtn = $('newBtn');
@@ -962,7 +975,14 @@ function renderWall() {
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'quiet';
-    remove.textContent = 'Remove';
+    // Twelve buttons all called "Remove" don't say which painting each one takes down, so each names its painting
+    // (starting with the word it shows, so asking for it by what it says still finds it).
+    const unarmed = () => {
+      delete remove.dataset.armed;
+      remove.textContent = 'Remove';
+      remove.setAttribute('aria-label', `Remove ${rec.title}`);
+    };
+    unarmed();
     remove.addEventListener('click', () => {
       if (remove.dataset.armed) {
         const rest = readGallery().filter((r) => r.id !== rec.id);
@@ -970,14 +990,13 @@ function renderWall() {
         updateCount();
         renderWall();
         $('closeGallery').focus();
+        srSay(`${rec.title} came down from the wall.`);
         return;
       }
       remove.dataset.armed = '1';
       remove.textContent = 'Remove it?';
-      setTimeout(() => {
-        delete remove.dataset.armed;
-        remove.textContent = 'Remove';
-      }, 3000);
+      remove.setAttribute('aria-label', `Remove it? Press again to take down ${rec.title}`);
+      setTimeout(unarmed, 3000);
     });
     meta.append(p, remove);
     li.append(open, meta);

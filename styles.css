@@ -236,9 +236,34 @@ kbd {
   font-variant-numeric: tabular-nums;
 }
 
-/* When the line wraps on a phone, the mood goes to the next line whole, not WINTER / HUSH. */
-#schemeName {
+/* The canvas number and the mood, with a dot between them. When the line wraps on a phone, the mood goes to the next
+   line whole (not WINTER / HUSH), and so does its dot, which then sits just left of the line, where it's clipped off:
+   no line ends (or starts) with a stray dot. The whole line is moved left by the dot's width and clipped back, and the
+   canvas number is moved in by the same. (Moved, not given a negative margin on the left, which a column of
+   baseline-aligned items ignores; the one on the right gives back the width the canvas number was moved in by, so
+   the line takes no more room beside the name than before.) */
+.episode {
+  --sep: 1.2em;
+  position: relative;
+  left: calc(-1 * var(--sep));
+  margin-right: calc(-1 * var(--sep));
+  display: flex;
+  flex-wrap: wrap;
+  clip-path: inset(0 0 0 var(--sep));
+}
+
+#canvasNo {
+  padding-left: var(--sep);
+}
+
+.mood {
   white-space: nowrap;
+}
+
+.sep {
+  display: inline-block;
+  width: var(--sep);
+  text-align: center;
 }
 
 .top-actions {

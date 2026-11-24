@@ -9,7 +9,7 @@
 // fingerprint of every file in SHELL: change any of them and test/e2e.mjs fails until FILES is changed to match (it
 // says what to), which changes this file, so every copy is made whole again at once.
 const CACHE = 'happy-accidents-v4';
-const FILES = '0767d228'; // test/e2e.mjs checks this
+const FILES = '06eb2131'; // test/e2e.mjs checks this
 const SHELL = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest', 'icon.svg',
   'fonts/caprasimo.woff2', 'fonts/figtree.woff2', 'fonts/figtree-italic.woff2', 'fonts/mrs-saint-delafield.woff2',

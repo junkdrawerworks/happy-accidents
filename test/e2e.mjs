@@ -77,11 +77,26 @@ await page.evaluate(() => document.fonts.ready);
 assert.equal(await S(() => document.fonts.check('24px Caprasimo')), true, 'the display font loaded from fonts/');
 await S(() => window.happyAccidents.skipIntro());
 
-// On a phone the header line wraps, but the mood's name stays in one piece (not WINTER / HUSH).
-for (const id of await S(async () => (await import('./src/schemes.js')).SCHEMES.map((s) => s.id))) {
-  await S((id) => window.happyAccidents.newCanvas(id), id);
-  assert.equal(await S(() => document.getElementById('schemeName').getClientRects().length), 1, `the mood's name is split across lines (${id})`);
+// On a phone the header line wraps, but the mood's name stays in one piece (not WINTER / HUSH), and the dot between
+// the canvas number and the mood is never left at the end of a line (nor at the start of the next): when the mood
+// goes to a line of its own, its dot is clipped off, left of the line.
+for (const width of [320, 360, 390]) {
+  await page.setViewportSize({ width, height: 844 });
+  for (const id of await S(async () => (await import('./src/schemes.js')).SCHEMES.map((s) => s.id))) {
+    await S((id) => window.happyAccidents.newCanvas(id), id);
+    assert.equal(await S(() => document.getElementById('schemeName').getClientRects().length), 1, `the mood's name is split across lines (${id})`);
+    const header = await S(() => {
+      const r = (sel) => document.querySelector(sel).getBoundingClientRect();
+      const [ep, no, sep, mood] = [r('.episode'), r('#canvasNo'), r('.sep'), r('#schemeName')];
+      const left = ep.left + sep.width; // where the line can be seen from: under the name, on a phone
+      if (Math.round(left) !== Math.round(r('.mark').left)) return { dot: 'line not under the name' };
+      const wrapped = mood.top > no.top + 2;
+      return { wrapped, dot: wrapped ? (sep.right <= left + 0.5 ? 'clipped' : 'showing') : sep.left >= no.right - 0.5 && sep.right <= mood.left + 0.5 ? 'between' : 'astray', number: Math.round(no.left + sep.width - left), mood: Math.round(wrapped ? mood.left - left : 0) };
+    });
+    assert.deepEqual([header.dot, header.number, header.mood], [header.wrapped ? 'clipped' : 'between', 0, 0], `the header's dot at ${width} px (${id})`);
+  }
 }
+await page.setViewportSize({ width: 390, height: 844 });
 
 await S(() => window.happyAccidents.newCanvas('golden-hour'));
 await settle();

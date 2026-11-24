@@ -1347,19 +1347,14 @@ await page.keyboard.press('Escape');
       closeAtBottom: document.elementFromPoint(close.left + close.width / 2, close.top + close.height / 2)?.id,
       sideways: document.documentElement.scrollWidth > innerWidth,
       short: [...document.querySelectorAll('#gallery button.quiet')].filter((b) => b.getBoundingClientRect().height < 44).length,
-      // The name on one line (cut short with an ellipsis), the date on a line of its own under it, and the Removes in each
-      // row level with each other.
+      // Nothing to press under a painting but the painting itself (Take it down is on its label).
+      buttons: document.querySelectorAll('.wall-item button:not(.wall-open)').length,
+      // The name on one line (cut short with an ellipsis), and the date on a line of its own under it.
       nameLines: Math.max(...[...document.querySelectorAll('.wall-meta bdi')].map((b) => Math.round(b.getBoundingClientRect().height / parseFloat(getComputedStyle(b).lineHeight)))),
       dateBelow: [...document.querySelectorAll('.wall-meta p')].every((p) => p.querySelector('.wall-date').getBoundingClientRect().top >= p.querySelector('bdi').getBoundingClientRect().bottom - 1),
-      ragged: [...document.querySelectorAll('.wall-item')].reduce((rows, li) => {
-        const top = Math.round(li.getBoundingClientRect().top);
-        (rows[top] ||= []).push(li.querySelector('.wall-meta button').getBoundingClientRect().top);
-        return rows;
-      }, {}),
     };
   });
-  wall.ragged = Object.values(wall.ragged).filter((tops) => Math.max(...tops) - Math.min(...tops) > 1).length;
-  assert.deepEqual(wall, { perRow: 2, titleLines: 2, closeAtBottom: 'closeGallery', sideways: false, short: 0, nameLines: 1, dateBelow: true, ragged: 0 }, 'twelve paintings on the wall on a phone (Close and Remove 44 px tall, the Removes in a row level)');
+  assert.deepEqual(wall, { perRow: 2, titleLines: 2, closeAtBottom: 'closeGallery', sideways: false, short: 0, buttons: 0, nameLines: 1, dateBelow: true }, 'twelve paintings on the wall on a phone (Close 44 px tall, no buttons under the paintings)');
   await wctx.close();
 }
 
@@ -1651,27 +1646,49 @@ await S(() => (Storage.prototype.setItem = window.realSetItem));
 await page.click('#keepBtn');
 assert.ok(await lineShows(await S(async () => (await import('./src/words.js')).LINES.unkept)), 'after a signing the browser wouldn’t keep, the painter didn’t say it isn’t on the wall');
 
-// On the wall, Remove asks first: the first tap turns it into "Remove it?", and only a second one takes the painting
-// down. A painting opened there downloads as a JPEG named for its title.
+// On a painting opened from the wall, Take it down asks first: the first tap turns it into "Take it down?", and only a
+// second one takes the painting down, and goes back to the wall. Only a painting opened from the wall has it. A painting
+// opened there downloads as a JPEG named for its title.
 await page.keyboard.press('g');
 const firstTitle = await page.locator('.wall-meta cite').first().textContent();
-assert.equal(await page.locator('.wall-item .quiet').first().getAttribute('aria-label'), `Remove ${firstTitle}`, 'Remove doesn’t say which painting it takes down');
 assert.equal(await page.getAttribute('#rerollBtn', 'aria-label'), 'Another title');
-await page.locator('.wall-item .quiet').first().click();
-assert.equal(await page.locator('.wall-item .quiet').first().textContent(), 'Remove it?');
-assert.equal(await page.locator('.wall-item .quiet').first().getAttribute('aria-label'), `Remove it? Press again to take down ${firstTitle}`);
-assert.equal(await page.locator('.wall-item').count(), 5, 'the first tap of Remove took the painting down');
 const removed = await page.locator('.wall-open').first().getAttribute('data-id');
-assert.ok((await pictureIds()).includes(removed), 'the painting about to be removed had no full-size picture kept');
+assert.ok((await pictureIds()).includes(removed), 'the painting about to be taken down had no full-size picture kept');
+await page.locator('.wall-open').first().click();
+assert.deepEqual([await page.isVisible('#takeDownBtn'), await page.textContent('#takeDownBtn')], [true, 'Take it down'], 'a painting opened from the wall has no Take it down');
+await page.click('#takeDownBtn');
+assert.equal(await page.textContent('#takeDownBtn'), 'Take it down?');
+assert.equal(await page.textContent('#placard .sr-status'), `Press again to take ${firstTitle} down from the wall.`, 'a screen reader isn’t told Take it down is asking first');
+assert.equal((await wall()).length, 5, 'the first tap of Take it down took the painting down');
 await page.waitForTimeout(450); // a second tap, not a double-click
-await page.locator('.wall-item .quiet').first().click();
-assert.equal(await page.locator('.wall-item').count(), 4, 'the second tap of Remove didn’t take the painting down');
+await page.click('#takeDownBtn');
+assert.deepEqual([await page.isHidden('#placard'), await page.isHidden('#gallery')], [true, false], 'after Take it down, it isn’t back on the wall');
+assert.equal(await page.locator('.wall-item').count(), 4, 'the second tap of Take it down didn’t take the painting down');
+assert.ok(!(await wallIds()).includes(removed), 'Take it down took down some other painting');
 assert.equal(await page.textContent('#gallery .sr-status'), `${firstTitle} came down from the wall.`, 'a screen reader isn’t told the painting came down');
 await page.waitForTimeout(300);
-assert.ok(!(await pictureIds()).includes(removed), 'Remove left the painting’s full-size picture behind');
+assert.ok(!(await pictureIds()).includes(removed), 'Take it down left the painting’s full-size picture behind');
 assert.equal(await page.textContent('#galleryCount'), '4');
+// Left asking, it goes back to Take it down after three seconds, and a painting opened next starts unasked.
+await page.locator('.wall-open').first().click();
+await page.click('#takeDownBtn');
+await page.waitForFunction(() => document.getElementById('takeDownBtn').textContent === 'Take it down', null, { timeout: 4500 }).catch(() => assert.fail('Take it down stayed asking'));
+await page.click('#takeDownBtn');
+await page.click('#keepBtn');
+await page.locator('.wall-open').first().click();
+assert.equal(await page.textContent('#takeDownBtn'), 'Take it down', 'a painting opened next started with Take it down asking');
+await page.click('#keepBtn');
 assert.equal((await wall()).length, 4);
 assert.deepEqual(await S(() => [document.querySelector('.wall-meta cite').dir, document.querySelectorAll('.wall-meta bdi').length]), ['auto', 4], 'the titles and names on the wall aren’t set apart from the dates beside them');
+await page.click('#closeGallery');
+await signAgain();
+assert.equal(await page.isHidden('#takeDownBtn'), true, 'the label right after signing offers to take the painting down');
+await page.click('#keepBtn');
+await page.keyboard.press('s');
+await page.waitForSelector('#placard:not([hidden])', { timeout: 5000 });
+assert.equal(await page.isHidden('#takeDownBtn'), true, 'the label of the painting on the easel offers to take it down');
+await page.click('#keepBtn');
+await page.keyboard.press('g');
 await page.locator('.wall-open').first().click();
 const [saved] = await Promise.all([page.waitForEvent('download'), page.click('#downloadBtn')]);
 assert.equal(saved.suggestedFilename(), `${(await wall())[0].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.jpg`, 'the download is named for the painting');
@@ -1807,7 +1824,7 @@ await ctx.setOffline(false);
 
 // With a mouse, Space is still Oops: after clicking a paint, or New canvas (where two Spaces used to start over). A
 // button reached with Tab still presses on Space. A key held down does its job once: Space is one Oops, N asks and
-// doesn't start over, S doesn't type into the name. A double-click can't get past "Start over?" or "Remove it?", but a
+// doesn't start over, S doesn't type into the name. A double-click can't get past "Start over?" or "Take it down?", but a
 // second press half a second later still does. And paint held when the canvas starts over doesn't land on the new one.
 {
   const dctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
@@ -1877,8 +1894,10 @@ await ctx.setOffline(false);
   assert.deepEqual([await p.isVisible('#placard'), (await state())[1]], [true, no3], 'holding Enter in the title signed and then started over');
   await p.click('#keepBtn');
   await p.click('#galleryBtn');
-  await p.dblclick('.wall-item .quiet');
-  assert.equal(await p.locator('.wall-item').count(), 1, 'a double-click on Remove took the painting down');
+  await p.click('.wall-open');
+  await p.dblclick('#takeDownBtn');
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('happy-accidents:gallery')).length), 1, 'a double-click on Take it down took the painting down');
+  assert.equal(await p.textContent('#takeDownBtn'), 'Take it down?');
   await dctx.close();
 }
 

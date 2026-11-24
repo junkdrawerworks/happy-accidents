@@ -858,8 +858,38 @@ function showPlacard(record, src, from = null, hung = null) {
   $('keptNote').textContent = note;
   $('keptNote').hidden = !note;
   disarm(anotherBtn, 'Paint another');
+  // Take it down is on the label of a painting opened from the wall, and nowhere else.
+  unarmTakeDown();
+  takeDownBtn.hidden = from !== 'wall';
   openOverlay($('placard'), anotherBtn);
 }
+
+// Take it down asks first: the first tap turns it into "Take it down?" for three seconds, and only a tap on that takes
+// the painting off the wall (a double-click is one tap, as for Start over?). Then it's back to the wall, where it was.
+const takeDownBtn = $('takeDownBtn');
+let takeDownArmed = { at: 0, timer: 0 };
+function unarmTakeDown() {
+  clearTimeout(takeDownArmed.timer);
+  takeDownArmed = { at: 0, timer: 0 };
+  takeDownBtn.textContent = 'Take it down';
+}
+takeDownBtn.addEventListener('click', () => {
+  const rec = onShow;
+  if (!rec || placardFrom !== 'wall') return;
+  if (takeDownArmed.at && performance.now() - takeDownArmed.at < DOUBLE_MS) return;
+  if (!takeDownArmed.at) {
+    takeDownArmed = { at: performance.now(), timer: setTimeout(unarmTakeDown, 3000) };
+    takeDownBtn.textContent = 'Take it down?';
+    srSay(`Press again to take ${rec.title} down from the wall.`);
+    return;
+  }
+  unarmTakeDown();
+  const rest = readGallery().filter((r) => r.id !== rec.id);
+  if (store.set(KEY.gallery, rest)) pictures.keep(rest.map((r) => r.id));
+  updateCount();
+  leavePlacard();
+  srSay(`${rec.title} came down from the wall.`);
+});
 
 // A phone or tablet that can hand a picture to the share sheet (Save Image, Photos, Messages and the rest) gets the
 // painting there; elsewhere it downloads. Only where touch is the main way in: Safari on a Mac and Chrome on Windows can
@@ -1052,36 +1082,7 @@ function renderWall() {
     date.className = 'wall-date';
     date.textContent = new Date(rec.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     p.append(cite, artist, date);
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.className = 'quiet';
-    // Twelve buttons all called "Remove" don't say which painting each one takes down, so each names its painting
-    // (starting with the word it shows, so asking for it by what it says still finds it).
-    const unarmed = () => {
-      delete remove.dataset.armed;
-      remove.textContent = 'Remove';
-      remove.setAttribute('aria-label', `Remove ${rec.title}`);
-    };
-    unarmed();
-    let armedAt = 0;
-    remove.addEventListener('click', () => {
-      if (remove.dataset.armed && performance.now() - armedAt < DOUBLE_MS) return;
-      if (remove.dataset.armed) {
-        const rest = readGallery().filter((r) => r.id !== rec.id);
-        if (store.set(KEY.gallery, rest)) pictures.keep(rest.map((r) => r.id));
-        updateCount();
-        renderWall();
-        $('closeGallery').focus();
-        srSay(`${rec.title} came down from the wall.`);
-        return;
-      }
-      remove.dataset.armed = '1';
-      armedAt = performance.now();
-      remove.textContent = 'Remove it?';
-      remove.setAttribute('aria-label', `Remove it? Press again to take down ${rec.title}`);
-      setTimeout(unarmed, 3000);
-    });
-    meta.append(p, remove);
+    meta.append(p);
     li.append(open, meta);
     grid.appendChild(li);
   }

@@ -1107,7 +1107,8 @@ kbd {
   }
 
   .placard-actions button:first-child,
-  .placard-actions:has(#downloadBtn[hidden]) button {
+  .placard-actions:has(#downloadBtn[hidden]) button,
+  #takeDownBtn {
     grid-column: 1 / -1;
   }
 
@@ -1196,13 +1197,6 @@ kbd {
   aspect-ratio: 4 / 3;
 }
 
-.wall-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 8px;
-}
-
 .wall-meta p {
   margin: 0;
   font-size: 13px;
@@ -1217,19 +1211,12 @@ kbd {
   color: var(--ink);
 }
 
-.wall-meta button {
-  flex: none;
-  padding: 6px 8px;
-  font-size: 12px;
-}
-
 .wall-date::before {
   content: ', ';
 }
 
-/* A phone: two paintings to a row, the title, the name and the date stacked over Remove, so twelve take six rows of
-   scrolling. The name stays on one line and the date gets its own, and each Remove sits at the bottom of its card, so the
-   Removes in a row line up however long the title or the name. */
+/* A phone: two paintings to a row, the title, the name and the date stacked under each, so twelve take six rows of
+   scrolling. The name stays on one line and the date gets its own. (Take it down is on a painting's label.) */
 @media (max-width: 559px) {
   .wall-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1242,12 +1229,6 @@ kbd {
 
   .wall-open {
     padding: 5px;
-  }
-
-  .wall-meta {
-    flex: 1;
-    flex-direction: column;
-    gap: 2px;
   }
 
   .wall-meta p {
@@ -1276,11 +1257,6 @@ kbd {
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     overflow: hidden;
-  }
-
-  .wall-meta button {
-    margin-top: auto;
-    margin-left: -8px;
   }
 }
 

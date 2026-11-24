@@ -783,3 +783,16 @@ test('a cloud painted just above the horizon stays clear of it', () =>
       assert.ok(lowest <= S.hy - 6, `a cloud from a splat ${Math.round(S.hy - sp.y)}px above the horizon reaches ${Math.round(lowest - S.hy)}px below it`);
     }
   }, 91));
+
+test('a canoe or a sailboat near the horizon is big enough to see', () =>
+  sameDice(() => {
+    // A red tap far out on the lake made a canoe 12px long and 2px tall while the painter said it was a canoe.
+    const S = bareStudio();
+    for (let i = 0; i < 100; i++) {
+      const R = rand(11, 22);
+      const y = S.hy + rand(3, 40);
+      const c = canoe(S, { x: 600, y, R, tint: paintOf('bright-red').rgb });
+      assert.ok(c.meta.size >= Math.max(28, R * 1.3), `a canoe from a tap of R ${R.toFixed(0)} was ${c.meta.size.toFixed(0)}px long`);
+      assert.ok(P.sailboat(S, { x: 600, y, R: 15, tint: paintOf('titanium-white').rgb }).meta.size >= 20, 'a sailboat was too small to see');
+    }
+  }, 101));

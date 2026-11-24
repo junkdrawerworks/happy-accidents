@@ -157,7 +157,8 @@ function withReflection(ctx, y, depth, draw) {
 export function sailboat(S, p) {
   const { scheme, hy, H } = S;
   const dT = clamp((p.y - hy) / (H - hy), 0, 1);
-  const s = clamp((p.y - hy) * 0.28 + p.R * 0.6, 14, 130);
+  // Smaller the further off it is, but never too small to see.
+  const s = clamp((p.y - hy) * 0.28 + p.R * 0.6, 20, 130);
   const L = S.lightDir;
   const { x, y } = p;
   const dir = chance(0.5) ? 1 : -1;
@@ -208,7 +209,8 @@ export function sailboat(S, p) {
 // Red paint on open water: a canoe.
 export function canoe(S, p) {
   const { scheme, hy } = S;
-  const s = clamp((p.y - hy) * 0.32 + p.R * 0.6, 12, 150);
+  // Smaller the further off it is, but never smaller than the splat that made it, nor too small to see.
+  const s = clamp(Math.max((p.y - hy) * 0.32 + p.R * 0.6, p.R * 1.3), 28, 150);
   const { x, y } = p;
   const body = dim(S, mix(p.tint, [200, 40, 30], 0.3));
   const lit = lighten(body, 0.3);

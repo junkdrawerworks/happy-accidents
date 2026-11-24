@@ -769,7 +769,8 @@ function showPlacard(record, src, from = null, hung = null) {
       );
     });
   }
-  img.alt = `${record.title}, a landscape painting by ${record.artist}`;
+  // Says what's in it, so the picture describes itself when a screen reader comes to it on its own.
+  img.alt = `${record.title} by ${record.artist}. ${record.features}`;
   $('plArtist').textContent = record.artist;
   $('plTitle').textContent = record.title;
   $('plYear').textContent = record.year;

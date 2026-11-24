@@ -882,6 +882,11 @@ await page.waitForSelector('#placard:not([hidden])', { timeout: 30000 });
 assert.deepEqual(await S(() => window.framedBusy), [false, false], 'the painting was framed while paint on it was still going on');
 assert.equal(await page.textContent('#plTitle'), 'Test Pattern at Otter Cove');
 assert.equal(await page.textContent('#plArtist'), 'Robin');
+// A screen reader hears the label when it opens (the artist, what it was made from and what it features), not just
+// the title, and the picture says what's in it.
+assert.equal(await page.getAttribute('.placard', 'aria-describedby'), 'plArtist plNote plFeatures keptNote');
+assert.equal(await page.getAttribute('#placardImg', 'alt'), `Test Pattern at Otter Cove by Robin. ${await page.textContent('#plFeatures')}`);
+assert.match(await page.textContent('#plFeatures'), /^Features /);
 // A title in a right-to-left script keeps the year after it, not pulled round in front of it ("2026 ,title").
 assert.equal(await page.getAttribute('#plTitle', 'dir'), 'auto');
 assert.equal(await S(() => document.getElementById('plArtist').localName), 'bdi', 'the artist’s name on the label isn’t set apart from the text around it');

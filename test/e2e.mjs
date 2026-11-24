@@ -82,8 +82,8 @@ assert.equal(await S(() => document.fonts.check('24px Caprasimo')), true, 'the d
 await S(() => window.happyAccidents.skipIntro());
 
 // A tree on an island, at the water's edge, gets a reflection: a layer just behind it, under its foot, painted only over
-// water, which paint goes straight through, and which follows the tree when the tree is painted on. A tree standing
-// back from the water gets none.
+// water (land laid across it later takes it off there), which paint goes straight through, and which follows the tree
+// when the tree is painted on. A tree standing back from the water gets none.
 {
   await S(async () => {
     const st = window.happyAccidents;
@@ -92,16 +92,18 @@ await S(() => window.happyAccidents.skipIntro());
     st.addSplat({ x: 600, y: st.hy + 120, R: 44, pigment: PIGMENTS.find((p) => p.id === 'sap-green'), hint: 'island', auto: true, delay: 10 });
   });
   await settle();
-  const mirror = await S(async () => {
+  await S(async () => {
     const st = window.happyAccidents;
     const P = await import('./src/paint/index.js');
     const isl = st.elements.find((e) => e.kind === 'island');
-    const [x, y] = isl.meta.spots[Math.floor(isl.meta.spots.length / 2)];
+    // A foot right at the island's near shore: the middle of the island, at the lowest land in that column.
+    const [x, y0] = isl.meta.spots.reduce((a, s) => (Math.abs(s[0] - 600) < Math.abs(a[0] - 600) ? s : a));
+    let y = y0;
+    while (st.isLand(x, y + 2) && y < st.H - 4) y += 2;
     window.isleTree = st.addElement(P.evergreen(st, { x, baseY: y, h: 150, tint: [63, 92, 35], tintAmt: 0.15 }));
     // And a tree well back on a bank that runs to the bottom of the canvas: no water at its foot.
     st.addLand([[0, 600], [300, 600], [300, 900], [0, 900]]);
     window.backTree = st.addElement(P.evergreen(st, { x: 150, baseY: 700, h: 150, tint: [63, 92, 35], tintAmt: 0.15 }));
-    return null;
   });
   await settle();
   const seen = await S(() => {
@@ -110,26 +112,25 @@ await S(() => window.happyAccidents.skipIntro());
     const m = t.mirror;
     if (!m) return { none: true };
     const { x, baseY } = t.meta;
-    // The first water below the foot, and the land just under it.
-    let wy = baseY + 2;
-    while (st.isLand(x, wy) && wy < baseY + 60) wy += 2;
+    // Points on the water under the foot, inside the reflection.
+    const under = [12, 24, 40].map((d) => [x, baseY + d]).filter(([px, py]) => !st.isLand(px, py));
     return {
       kind: m.kind,
       behind: m.depth < t.depth && st.elements.indexOf(m) < st.elements.indexOf(t),
       top: m.bbox.y === Math.floor(baseY),
-      onWater: st.alphaAt(m, x, wy + 6) > 20,
-      onLand: st.alphaAt(m, x, baseY + 3) > 20 && st.isLand(x, baseY + 3),
-      throughIt: st.elementAt(x, wy + 6, 4)?.kind ?? null,
+      onWater: under.length > 0 && under.some(([px, py]) => st.alphaAt(m, px, py) > 20),
+      throughIt: under.some(([px, py]) => st.elementAt(px, py, 4) === m),
       counted: 'mirror' in st.counts,
       back: !!window.backTree.mirror,
     };
   });
   assert.equal(seen.none, undefined, 'a tree at the water’s edge got no reflection');
-  assert.deepEqual(seen, { kind: 'mirror', behind: true, top: true, onWater: true, onLand: false, throughIt: null, counted: false, back: false });
-  // Paint on the tree: its reflection is painted again once the light is on it.
-  const again = await S(async () => {
+  assert.deepEqual(seen, { kind: 'mirror', behind: true, top: true, onWater: true, throughIt: false, counted: false, back: false });
+  // Land laid across the reflection takes it off there, and paint on the tree paints it again once the light is on it.
+  await S(async () => {
     const st = window.happyAccidents;
     const R = await import('./src/paint/react.js');
+    const { x, baseY } = window.isleTree.meta;
     let n = 0;
     const draw = st.drawMirror;
     st.drawMirror = function (el) {
@@ -137,11 +138,20 @@ await S(() => window.happyAccidents.skipIntro());
       return draw.call(this, el);
     };
     window.mirrorDraws = () => n;
+    st.addLand([[x - 40, baseY + 50], [x + 40, baseY + 50], [x + 40, baseY + 70], [x - 40, baseY + 70]], baseY + 70);
     st.paintOnto(window.isleTree, R.treeGlow(st, window.isleTree, { tint: [242, 194, 26] }));
     return null;
   });
   await settle();
-  assert.ok((await S(() => window.mirrorDraws())) >= 1, 'the reflection wasn’t painted again after the tree was');
+  const after = await S(() => {
+    const st = window.happyAccidents;
+    const t = window.isleTree;
+    const { x, baseY } = t.meta;
+    return { draws: window.mirrorDraws() >= 2, onLand: Math.max(...[-16, -8, 0, 8, 16].flatMap((dx) => [56, 60, 64].map((dy) => st.alphaAt(t.mirror, x + dx, baseY + dy)))), stillOnWater: st.alphaAt(t.mirror, x, baseY + 40) > 20 || st.isLand(x, baseY + 40) };
+  });
+  assert.ok(after.draws, 'the reflection wasn’t painted again after land came across it and the tree was painted on');
+  assert.ok(after.onLand <= 20, `the reflection still shows on land laid across it (alpha ${after.onLand})`);
+  assert.ok(after.stillOnWater, 'the reflection went off the water too');
   await S(() => {
     const st = window.happyAccidents;
     delete st.drawMirror;

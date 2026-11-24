@@ -363,7 +363,7 @@ test('paints running together are named when there are two and counted when ther
 test('a little paint run into a lot of another that stays its color says it’s still that color', () => {
   // A big yellow and a little blue said "Cadmium Yellow and Phthalo Blue make yellow", like a sum gone wrong.
   const said = [];
-  const studio = { dryIn() {}, say() {}, kick() {}, hooks: { onNarrate: (n) => said.push(n.line) } };
+  const studio = { dryIn() {}, say() {}, kick() {}, sayMix: Studio.prototype.sayMix, hooks: { onNarrate: (n) => said.push(n.line) } };
   const run = (big, small, R = 46, r = 12) => {
     said.length = 0;
     const a = makeSplat({ x: 600, y: 300, R, pigment: paintOf(big) });

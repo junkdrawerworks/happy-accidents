@@ -256,6 +256,12 @@ class Stack {
 // How many strips of the lake (two pixels high each) one frame paints again, at most: about a third of the lake.
 const LAKE_STRIPS = 64;
 
+// How many more splats a wet splat takes in before it's full: after that, the next one to hit it is a splat of its own,
+// so paint fired at one spot doesn't all run into one big muddy splat.
+export const MAX_HITS = 12;
+// And the painter says what a splat's paints made at most once a second, so the lines can be read.
+const MIX_LINE_GAP = 1000;
+
 const paintFor = (hint) => {
   const id = pick(PAINT_FOR[hint] || PAINT_FOR.cloud);
   return PIGMENTS.find((p) => p.id === id);
@@ -660,12 +666,16 @@ export class Studio {
     return sp;
   }
 
-  // A splat hits the canvas. If it lands in paint that's still wet, the two run together.
+  // A splat hits the canvas. If it lands in paint that's still wet, the two run together, unless that paint is full.
   land(sp, delay) {
     sp.gen = this.gen;
     sp.landed = performance.now();
     const wet = this.splats.find(
-      (s) => s.state === 'wet' && s.gen === this.gen && Math.hypot(s.x - sp.x, s.y - sp.y) < (s.R * s.stretch + sp.R * sp.stretch) * 0.7,
+      (s) =>
+        s.state === 'wet' &&
+        s.gen === this.gen &&
+        (s.merged?.length || 0) < MAX_HITS &&
+        Math.hypot(s.x - sp.x, s.y - sp.y) < (s.R * s.stretch + sp.R * sp.stretch) * 0.7,
     );
     this.splats.push(sp);
     this.accidents += 1;
@@ -707,9 +717,28 @@ export class Studio {
     this.dryIn(a, rand(800, 1100));
     // A lot of one paint and a little of another can stay the first paint's color: the painter says it's still that.
     const still = familyOf(rgb) === familyOf(main.rgb) && colorName(rgb) === colorName(main.rgb);
-    if (names.length > 1) this.hooks.onNarrate?.({ line: mixLine(names, colorName(rgb), still ? main.name : undefined), info: '', kind: 'merge' });
-    else this.say('merge', 'merge');
+    a.mixSay = () => {
+      if (names.length > 1) this.hooks.onNarrate?.({ line: mixLine(names, colorName(rgb), still ? main.name : undefined), info: '', kind: 'merge' });
+      else this.say('merge', 'merge');
+    };
+    this.sayMix(a, t0);
     this.kick();
+  }
+
+  // What a splat's paints made, said at once, or, if the painter spoke about this splat less than a second ago, once the
+  // second is up and only if it's still wet then (so the line is about the paints as they are by then).
+  sayMix(a, now) {
+    const wait = (a.mixSaidAt ?? -Infinity) + MIX_LINE_GAP - now;
+    if (wait <= 0) {
+      a.mixSaidAt = now;
+      a.mixSay();
+      return;
+    }
+    if (a.mixTimer) return;
+    a.mixTimer = setTimeout(() => {
+      a.mixTimer = 0;
+      if (a.state === 'wet' && a.gen === this.gen) this.sayMix(a, performance.now());
+    }, wait);
   }
 
   // A wet splat is read (and painted in) after ms.

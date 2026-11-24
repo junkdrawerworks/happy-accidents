@@ -213,6 +213,33 @@ const wetFor = await S(() => {
 assert.ok(wetFor.length >= 3, `Let it happen threw only ${wetFor.length} splats while the paints were picked`);
 assert.ok(Math.max(...wetFor) <= 3000, `a splat stayed wet ${Math.max(...wetFor)} ms while paints were picked (${wetFor.join(', ')})`);
 
+// Paint fired at one spot doesn't all run into one muddy splat: a wet splat takes in 12 more and is then full, so the next
+// hit is a splat of its own. And the painter says what the paints made at most once a second for each splat, not once
+// a hit (20 quick hits used to make one splat and 19 lines nobody could read).
+{
+  await settle();
+  const fired = await S(async () => {
+    const { PIGMENTS } = await import('./src/schemes.js');
+    const st = window.happyAccidents;
+    const mixes = [];
+    const narrate = st.hooks.onNarrate;
+    st.hooks.onNarrate = (n) => {
+      if (n.kind === 'merge') mixes.push(performance.now());
+      narrate(n);
+    };
+    const ids = ['cadmium-yellow', 'phthalo-blue', 'bright-red', 'titanium-white'];
+    const mine = [];
+    for (let i = 0; i < 20; i++) mine.push(st.addSplat({ x: 600 + (i % 3) * 4, y: st.hy * 0.5, R: 20, pigment: PIGMENTS.find((p) => p.id === ids[i % 4]), delay: 4000 }));
+    const t0 = performance.now();
+    await new Promise((r) => setTimeout(r, 1400));
+    st.hooks.onNarrate = narrate;
+    return { own: mine.filter((s) => !s.parent).map((s) => (s.merged || []).length), mixes: mixes.map((t) => Math.round(t - t0)) };
+  });
+  assert.deepEqual(fired.own, [12, 6], `20 hits on one spot should make a full splat of 13 and one of 7 (splats took in ${fired.own.join(', ')})`);
+  assert.ok(fired.mixes.length >= 2 && fired.mixes.length <= 4, `the painter said ${fired.mixes.length} lines about the mixes (at ${fired.mixes.join(', ')} ms), not one a second for each of the two splats`);
+  await settle();
+}
+
 // One finger paints at a time: a finger that comes down while another is painting is ignored. Two fingers tapped
 // together make one splat, where the first one landed, and a second finger can't move a puddle the first is pouring.
 // And if the canvas loses hold of a finger without hearing it lift, the next touch still paints.

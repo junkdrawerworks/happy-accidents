@@ -590,6 +590,33 @@ for (const [width, height] of [[390, 844], [844, 390], [667, 375]]) {
 }
 await page.setViewportSize({ width: 390, height: 844 });
 
+// Finger-sized targets on a phone (44 px, after Apple's Human Interface Guidelines and WCAG 2.2's 2.5.5 Target Size):
+// upright, the header and tray buttons are 44 px tall, and so are the sign form's. The dabs of paint keep their size and
+// place on the palette, and so do the buttons held sideways, but a finger landing just outside one still gets it.
+for (const [width, height] of [[390, 844], [844, 390]]) {
+  await page.setViewportSize({ width, height });
+  await page.waitForTimeout(300);
+  const targets = await S((upright) => {
+    const out = { short: [], missed: [], dab: null };
+    const near = (el, dx, dy) => { const r = el.getBoundingClientRect(); const x = dx < 0 ? r.left - 3 : dx > 0 ? r.right + 3 : r.left + r.width / 2; const y = dy < 0 ? r.top - 3 : dy > 0 ? r.bottom + 3 : r.top + r.height / 2; return el.contains(document.elementFromPoint(x, y)); };
+    for (const b of document.querySelectorAll('.top-actions button, .actions button')) {
+      if (upright && b.getBoundingClientRect().height < 44) out.short.push(b.id);
+      if (!upright && b.closest('.top-actions') && !(near(b, 0, -1) && near(b, 0, 1))) out.missed.push(b.id);
+    }
+    for (const d of document.querySelectorAll('.dab')) if (!(near(d, 0, -1) && near(d, 0, 1) && near(d, -1, 0) && near(d, 1, 0))) out.missed.push(d.getAttribute('aria-label'));
+    const r = document.querySelector('.dab').getBoundingClientRect();
+    out.dab = [Math.round(r.width), Math.round(r.height)];
+    out.manipulation = getComputedStyle(document.getElementById('oopsBtn')).touchAction;
+    return out;
+  }, height > width);
+  assert.deepEqual(targets, { short: [], missed: [], dab: [32, 28], manipulation: 'manipulation' }, `tap targets at ${width} × ${height}`);
+}
+await page.setViewportSize({ width: 390, height: 844 });
+await page.waitForTimeout(300);
+await page.keyboard.press('s');
+assert.deepEqual(await S(() => [...document.querySelectorAll('#signSheet button')].filter((b) => b.getBoundingClientRect().height < 44).map((b) => b.textContent)), [], 'the sign form’s buttons are 44 px tall');
+await page.keyboard.press('Escape');
+
 // Space is Oops, M turns the sound on and off (and remembers it), and Ctrl+Z gets a word about there being no undo.
 await S(() => document.activeElement?.blur());
 before = await S(() => window.happyAccidents.accidents);
@@ -710,8 +737,8 @@ await page.click('#keepBtn');
 assert.equal(await page.textContent('#galleryCount'), '1');
 
 // Held sideways, the label opens showing the whole framed painting, signature corner and all, with its three buttons
-// beside it, in one screen and not scrolled down.
-for (const [width, height] of [[844, 390], [667, 375]]) {
+// beside it, in one screen and not scrolled down. (Upright too, where the buttons are under it.)
+for (const [width, height] of [[844, 390], [667, 375], [390, 844]]) {
   await page.setViewportSize({ width, height });
   await page.waitForTimeout(300);
   await page.click('#signBtn');
@@ -726,7 +753,7 @@ for (const [width, height] of [[844, 390], [667, 375]]) {
       short: ['anotherBtn', 'keepBtn', 'downloadBtn'].filter((id) => document.getElementById(id).getBoundingClientRect().height < 44),
     };
   });
-  assert.deepEqual(seen, { scrolled: 0, frame: true, offScreen: [], short: [] }, `the label held sideways at ${width} × ${height}`);
+  assert.deepEqual(seen, { scrolled: 0, frame: true, offScreen: [], short: [] }, `the label at ${width} × ${height}`);
   await page.click('#keepBtn');
 }
 await page.setViewportSize({ width: 390, height: 844 });
@@ -789,9 +816,10 @@ await page.keyboard.press('Escape');
       titleLines: Math.round(cite.getBoundingClientRect().height / parseFloat(getComputedStyle(cite).lineHeight)),
       closeAtBottom: document.elementFromPoint(close.left + close.width / 2, close.top + close.height / 2)?.id,
       sideways: document.documentElement.scrollWidth > innerWidth,
+      short: [...document.querySelectorAll('#gallery button.quiet')].filter((b) => b.getBoundingClientRect().height < 44).length,
     };
   });
-  assert.deepEqual(wall, { perRow: 2, titleLines: 2, closeAtBottom: 'closeGallery', sideways: false }, 'twelve paintings on the wall on a phone');
+  assert.deepEqual(wall, { perRow: 2, titleLines: 2, closeAtBottom: 'closeGallery', sideways: false, short: 0 }, 'twelve paintings on the wall on a phone (Close and Remove 44 px tall)');
   await wctx.close();
 }
 

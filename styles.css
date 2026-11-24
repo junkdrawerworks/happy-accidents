@@ -103,6 +103,8 @@ button {
   justify-content: center;
   gap: 8px;
   white-space: nowrap;
+  /* No double-tap zoom, so quick taps of Oops in a row are all taps. */
+  touch-action: manipulation;
   transition: background-color 0.15s, border-color 0.15s, transform 0.1s;
 }
 
@@ -466,6 +468,7 @@ kbd {
 
 .dab {
   --c: #888;
+  position: relative;
   width: 32px;
   height: 28px;
   padding: 0;
@@ -476,6 +479,14 @@ kbd {
     radial-gradient(circle at 60% 75%, rgba(0, 0, 0, 0.18), transparent 60%),
     var(--c);
   box-shadow: inset 0 -3px 4px rgba(0, 0, 0, 0.25), 0 2px 2px rgba(40, 20, 5, 0.35);
+}
+
+/* A bigger target around each dab of paint, reaching halfway into the gaps around it (40 × 37 in all), without moving
+   the dabs apart. */
+.dab::after {
+  content: '';
+  position: absolute;
+  inset: -4.5px -4px;
 }
 
 .dab:nth-child(3n) {
@@ -509,6 +520,14 @@ kbd {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+
+/* Finger-sized buttons on a phone or tablet held upright. */
+@media (max-width: 959px) {
+  .actions button,
+  .top-actions button {
+    min-height: 44px;
+  }
 }
 
 .keys {
@@ -665,6 +684,25 @@ kbd {
   .actions button {
     padding-block: 9px;
   }
+
+  /* There's no height to spare sideways, so the header and tray buttons keep their size and reach a little past their
+     edges instead: 44 px tall for the header's, and into the gap between rows for the tray's. */
+  .actions button,
+  .top-actions button {
+    position: relative;
+    min-height: 0;
+  }
+
+  .actions button::after,
+  .top-actions button::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+  }
+
+  .top-actions button::after {
+    inset: -7px -2px;
+  }
 }
 
 /* No keyboard to go with the key hints on a phone. */
@@ -761,6 +799,13 @@ kbd {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+/* The buttons in the overlays are finger-sized wherever they are. */
+.sheet button,
+.placard-actions button,
+.wall button.quiet {
+  min-height: 44px;
 }
 
 /* The finished piece, framed, with a museum label beside it. */

@@ -582,7 +582,7 @@ const stillPalette = () => S(async () => {
   say(...was);
   return [...ys];
 });
-for (const [width, height] of [[390, 844], [844, 390], [667, 375]]) {
+for (const [width, height] of [[390, 844], [360, 740], [844, 390], [667, 375]]) {
   await page.setViewportSize({ width, height });
   await page.waitForTimeout(300);
   const ys = await stillPalette();

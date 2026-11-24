@@ -102,6 +102,27 @@ test('paints running together are named when there are two and counted when ther
   assert.match(mixLine(['A', 'B', 'C'], 'grey'), /three paints/i);
 });
 
+test('the brush line names each paint once, and no paint of another hue than the splat’s', () => {
+  const paint = (id) => PIGMENTS.find((p) => p.id === id);
+  const crimson = toolInfo('cloud', paint('alizarin-crimson'));
+  assert.equal(crimson.match(/Alizarin Crimson/g).length, 1, crimson);
+  assert.equal(crimson, '1-inch brush · Titanium White, a whisper of Alizarin Crimson');
+  assert.equal(toolInfo('cloud', paint('prussian-blue')), '1-inch brush · Titanium White · a touch of Prussian Blue', 'a blue cloud is painted without crimson');
+  assert.equal(toolInfo('flowers', paint('phthalo-blue')), 'Liner brush · Phthalo Blue', 'blue flowers are painted in blue, not red');
+  const hue = { 'Cadmium Yellow': 'yellow', 'Yellow Ochre': 'yellow', 'Indian Yellow': 'yellow', 'Bright Red': 'red', 'Alizarin Crimson': 'red', 'Sap Green': 'green', 'Phthalo Green': 'green', 'Phthalo Blue': 'blue', 'Prussian Blue': 'blue' };
+  for (const kind of [...Object.keys(LINES), 'rain']) {
+    for (const p of PIGMENTS) {
+      const text = toolInfo(kind, p);
+      if (!text) continue;
+      for (const name of Object.keys(hue)) assert.ok((text.match(new RegExp(name, 'g')) || []).length <= 1, `${name} twice: ${text}`);
+      if (!['yellow', 'red', 'green', 'blue'].includes(p.family)) continue;
+      const named = text.split(' · ').slice(1).join(', ').split(', ');
+      const others = named.filter((n) => Object.keys(hue).some((h) => n.includes(h) && hue[h] !== p.family));
+      assert.deepEqual(others, [], `${p.name} on ${kind}: ${text}`);
+    }
+  }
+});
+
 test('the painter’s lines use curly apostrophes, like the rest of the page', () => {
   for (const [key, lines] of Object.entries(LINES)) {
     for (const text of lines) assert.doesNotMatch(text, /'/, `${key}: ${text}`);

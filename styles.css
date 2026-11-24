@@ -410,10 +410,17 @@ kbd {
   }
 }
 
-/* On a phone the painter's line keeps room for three lines, the longest any of them takes there. */
+/* On a phone the painter's line keeps room for three lines, the longest any of them takes there; on the narrowest
+   phones the brush line keeps room for three as well. */
 @media (max-width: 559px) {
   .line {
     min-height: 4.05em;
+  }
+}
+
+@media (max-width: 379px) {
+  .tool {
+    min-height: 4.35em;
   }
 }
 

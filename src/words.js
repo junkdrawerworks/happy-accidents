@@ -1,5 +1,6 @@
 // Everything the painter says, the brushes they reach for, and what the finished piece is called.
 import { pick, pickFresh } from './util.js';
+import { PIGMENTS } from './schemes.js';
 
 export const LINES = {
   wash: [
@@ -176,12 +177,23 @@ export function mixLine(names, color) {
   ]);
 }
 
+// The family of each paint the painter names, for the ones that aren't on the palette too.
+const FAMILY = { ...Object.fromEntries(PIGMENTS.map((p) => [p.name, p.family])), 'Liquid White': 'white', 'Midnight Black': 'black', 'Dark Sienna': 'brown', 'Phthalo Green': 'green' };
+const HUES = new Set(['yellow', 'red', 'green', 'blue']);
+const familyIn = (name) => FAMILY[Object.keys(FAMILY).find((n) => name.includes(n))];
+
+// The brush and paints for a kind of thing, and a touch of the splat's own paint when they don't already name it. A
+// paint of another hue than the splat's is left out (a blue cloud gets no whisper of crimson); when that leaves none,
+// the splat's paint is the one named.
 export function toolInfo(kind, pigment) {
   const t = TOOLS[kind];
   if (!t) return '';
-  const [tool, paints] = t;
+  const [tool, all] = t;
+  const clashes = (name) => pigment && HUES.has(pigment.family) && HUES.has(familyIn(name)) && familyIn(name) !== pigment.family;
+  const paints = all.filter((name) => !clashes(name));
+  if (!paints.length) return `${tool} · ${pigment.name}`;
   let text = `${tool} · ${paints.join(', ')}`;
-  if (pigment && !paints.includes(pigment.name)) text += ` · a touch of ${pigment.name}`;
+  if (pigment && !paints.some((name) => name.includes(pigment.name))) text += ` · a touch of ${pigment.name}`;
   return text;
 }
 

@@ -124,9 +124,10 @@ const LINE_MS = 1400;
 let lineTimer = 0;
 let lineShown = -Infinity;
 let nextLine = null;
-function narrate({ line: text, info }) {
+// hold keeps a line up that much longer than LINE_MS before anything else is said (the first visit's opening line).
+function narrate({ line: text, info, hold = 0 }) {
   if (!text) return;
-  nextLine = { text, info };
+  nextLine = { text, info, hold };
   if (lineTimer) return;
   lineTimer = setTimeout(swapLine, Math.max(0, lineShown + LINE_MS - performance.now()));
 }
@@ -136,9 +137,9 @@ function swapLine() {
     lineEl.textContent = nextLine.text;
     toolEl.textContent = nextLine.info || '';
     lineEl.classList.remove('swap');
+    lineShown = performance.now() + nextLine.hold;
     nextLine = null;
     lineTimer = 0;
-    lineShown = performance.now();
   }, 180);
 }
 
@@ -1280,12 +1281,13 @@ const moodsUsed = store.get(KEY.moods, []);
 studio.moodsUsed = Array.isArray(moodsUsed) ? moodsUsed.filter((id) => SCHEMES.some((s) => s.id === id)) : [];
 studio.newCanvas();
 // The first visit in this browser opens with what the toy is (you can't really aim, and there's no undo) in place of
-// the sky wash's line, and the intro waits two seconds more so it can be read. Never again in this browser (in one that
-// keeps nothing, such as a private window, every visit is a first).
+// the sky wash's line, and the intro waits two seconds more so it can be read. It stays up at least four seconds even
+// if you start painting straight away (the painter's word on your first splat waits for it). Never again in this
+// browser (in one that keeps nothing, such as a private window, every visit is a first).
 const firstVisit = !store.get(KEY.welcomed, false);
 if (firstVisit) {
   store.set(KEY.welcomed, true);
-  narrate({ line: line('welcome'), info: nextLine?.info ?? '' });
+  narrate({ line: line('welcome'), info: nextLine?.info ?? '', hold: 4000 - LINE_MS });
 }
 runDemo(firstVisit ? 2000 : 0);
 

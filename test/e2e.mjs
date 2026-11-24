@@ -2114,6 +2114,27 @@ await ctx.setOffline(false);
   await ictx.close();
 }
 
+// Someone who starts tapping the moment the page opens still gets to read the first visit's opening line: it stays up at
+// least four seconds, and the painter's word on their splats waits for it. (It was up 1.4 seconds.)
+{
+  const wctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
+  const p = await wctx.newPage();
+  await p.goto(base);
+  await p.waitForFunction(() => window.happyAccidents);
+  const welcome = await p.evaluate(async () => (await import('./src/words.js')).LINES.welcome[0]);
+  await p.waitForFunction((t) => document.getElementById('line').textContent === t, welcome, { timeout: 3000 });
+  const shownAt = await p.evaluate(() => performance.now());
+  const b = await p.locator('#canvas').boundingBox();
+  for (const [x, y] of [[0.3, 0.3], [0.6, 0.75], [0.7, 0.2]]) {
+    await p.touchscreen.tap(b.x + b.width * x, b.y + b.height * y);
+    await p.waitForTimeout(300);
+  }
+  const swap = await p.waitForFunction((t) => document.getElementById('line').textContent !== t && performance.now(), welcome, { timeout: 10000 });
+  const gone = await swap.jsonValue();
+  assert.ok(gone - shownAt >= 3700, `tapping straight away, the opening line was up only ${Math.round(gone - shownAt)} ms`);
+  await wctx.close();
+}
+
 // Drawing speed: on a busy canvas, a frame draws the finished part of the painting from a few ready-made pictures and
 // only what's still being painted layer by layer (not every layer and the whole lake again), and what it draws is the
 // same as drawing every layer again. On a phone (the canvas at 1200 px) and at 1.5 times that (a laptop or tablet with

@@ -719,6 +719,14 @@ await page.keyboard.press('s');
 assert.deepEqual(await S(() => [...document.querySelectorAll('#signSheet button')].filter((b) => b.getBoundingClientRect().height < 44).map((b) => b.textContent)), [], 'the sign form’s buttons are 44 px tall');
 await page.keyboard.press('Escape');
 
+// In forced colours (Windows High Contrast) the paints keep their colours and the paint on the brush has an outline.
+await page.emulateMedia({ forcedColors: 'active' });
+assert.deepEqual(await S(() => {
+  const dab = document.querySelector('.dab[aria-checked=true]');
+  return [getComputedStyle(document.getElementById('palette')).forcedColorAdjust, getComputedStyle(dab).outlineStyle, getComputedStyle(document.querySelector('[data-id=bright-red]')).backgroundColor.includes('rgb(')];
+}), ['none', 'solid', true], 'in forced colours the palette lost its paints or the ring round the one on the brush');
+await page.emulateMedia({ forcedColors: 'none' });
+
 // Space is Oops, M turns the sound on and off (and remembers it), and Ctrl+Z gets a word about there being no undo.
 await S(() => document.activeElement?.blur());
 before = await S(() => window.happyAccidents.accidents);

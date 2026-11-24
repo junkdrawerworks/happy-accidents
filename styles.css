@@ -554,6 +554,22 @@ kbd {
     conic-gradient(from 20deg, #f2c21a, #c9321f, #7e1b2e, #15418a, #3f5c23, #c48a33, #f2c21a);
 }
 
+/* In forced colours (Windows High Contrast and the like) backgrounds and shadows go, and with them every paint on the
+   palette and the ring round the one on the brush. The paints are what you choose between, so they keep their own
+   colours (and the palette, clamp and ledge theirs), and the paint on the brush gets an outline in the text colour. */
+@media (forced-colors: active) {
+  .palette,
+  .clamp,
+  .ledge {
+    forced-color-adjust: none;
+  }
+
+  .dab[aria-checked='true'] {
+    outline: 3px solid CanvasText;
+    outline-offset: 2px;
+  }
+}
+
 .actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

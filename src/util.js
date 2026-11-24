@@ -37,7 +37,7 @@ export function pickFresh(key, list) {
   const pool = list.filter((item) => !seen.includes(item));
   const choice = pick(pool.length ? pool : list);
   seen.push(choice);
-  while (seen.length > Math.min(4, list.length - 1)) seen.shift();
+  while (seen.length > Math.min(6, list.length - 1)) seen.shift();
   recent.set(key, seen);
   return choice;
 }

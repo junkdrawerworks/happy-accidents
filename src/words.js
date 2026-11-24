@@ -21,11 +21,22 @@ export const LINES = {
     'Push it up, let it be big. Mountains don’t apologize.',
     'There was a mountain hiding in that one. Same shape and everything.',
   ],
-  foothills: ['A few little trees climbing up the hill.', 'Some trees wandered up the mountain. That’s allowed.'],
-  mist: ['Let a little mist drift through here. It softens everything.'],
+  foothills: [
+    'A few little trees climbing up the hill.',
+    'Some trees wandered up the mountain. That’s allowed.',
+    'Trees on the slope. They like it up there.',
+    'A little green on the mountainside. Somebody’s been planting.',
+    'Just tap a few trees up the side. They’ll find their footing.',
+  ],
+  mist: [
+    'Let a little mist drift through here. It softens everything.',
+    'A little fog settled in down there. Leave it soft.',
+    'Mist at the foot of the mountain. It keeps a secret or two.',
+  ],
   treeline: [
     'Way back there, a whole row of little trees. They’re far away, so they’re quiet.',
     'Just tap in a distant forest. Nobody has to count them.',
+    'A row of trees on the far shore. Just a suggestion of them.',
   ],
   evergreen: [
     'There’s a happy little tree in there. Let him grow.',
@@ -36,92 +47,254 @@ export const LINES = {
   deciduous: [
     'This one gets leaves. Just dab them on.',
     'A leafy fella. Leave some holes so the birds can get through.',
+    'A round little tree. Let the light hit one side of him.',
   ],
-  bush: ['Just a little bush. Tap it in and walk away.', 'Push the brush in and let the bristles do the work.'],
-  tree: ['There’s a happy little tree in there. Let him grow.'],
-  friend: ['He looked lonely, so he got a friend.', 'Everybody needs a neighbor.', 'Let’s give him some company.'],
-  family: ['Well, now it’s a whole family.'],
-  flowers: ['A few little flowers came up there.', 'Just a dot of color. Leave it alone and it looks like flowers.'],
-  cabin: ['Somebody lives here now. A little cabin, nice and cozy.', 'Put a little home in there. Everybody deserves a place to be.'],
-  bank: ['This needs some land under it. Let’s make some ground.', 'Pull a little land in from the side. It’s the same shape as your splat.'],
+  bush: [
+    'Just a little bush. Tap it in and walk away.',
+    'Push the brush in and let the bristles do the work.',
+    'A little bush to keep the ground company.',
+  ],
+  friend: [
+    'He looked lonely, so he got a friend.',
+    'Everybody needs a neighbor.',
+    'Let’s give him some company.',
+    'Another one, right next to him. Trees like to stand together.',
+    'Now there’s two of them. Nobody has to stand out there alone.',
+    'A friend came up beside him. Same paint, same ground.',
+  ],
+  family: [
+    'Well, now it’s a whole family.',
+    'A whole little grove now. They’re all related.',
+    'One on each side. That’s a family.',
+    'More trees showed up. Word gets around.',
+  ],
+  flowers: [
+    'A few little flowers came up there.',
+    'Just a dot of color. Leave it alone and it looks like flowers.',
+    'Some color down in the grass. They’re wildflowers now.',
+  ],
+  cabin: [
+    'Somebody lives here now. A little cabin, nice and cozy.',
+    'Put a little home in there. Everybody deserves a place to be.',
+    'A cabin. Somebody’s got a good view from that porch.',
+  ],
+  bank: [
+    'This needs some land under it. Let’s make some ground.',
+    'Pull a little land in from the side. It’s the same shape as your splat.',
+    'Let’s give the lake an edge over here.',
+    'A little shore. Somewhere for things to stand.',
+    'Land, the same shape as the paint. Pull it right down to the water.',
+  ],
   bankTree: ['He needs somewhere to stand. Land first, then the tree.'],
-  island: ['It spilled into an island. Same shape and everything.', 'Out in the middle of the lake, a little island.'],
-  islandTree: ['An island, and somebody’s already growing on it.'],
-  merge: ['Those two ran together. Now it’s one big thing.', 'Wet into wet. They’re one splat now.'],
-  treeSnow: ['Snow found him. He looks good in it.', 'Little bit of snow on the branches. Just tap it on top.'],
-  treeGlow: ['The light’s hitting him just right now.', 'Catch the edges with a little warm light.'],
+  island: [
+    'It spilled into an island. Same shape and everything.',
+    'Out in the middle of the lake, a little island.',
+    'Land out in the water. Somebody could row out to that.',
+  ],
+  islandTree: [
+    'An island, and somebody’s already growing on it.',
+    'A little island with a tree on it. He’s got the place to himself.',
+    'Out on the water, some land, and a tree to keep it company.',
+  ],
+  merge: [
+    'Those two ran together. Now it’s one big thing.',
+    'Wet into wet. They’re one splat now.',
+    'Still wet, so they ran together. That’s how paint is.',
+    'They touched while they were wet. Now they’re one.',
+    'Two splats, one puddle. We’ll see what it wants to be.',
+  ],
+  treeSnow: [
+    'Snow found him. He looks good in it.',
+    'Little bit of snow on the branches. Just tap it on top.',
+    'White on a tree? That’s snow on the branches.',
+    'He caught some snow. Let it sit on top.',
+  ],
+  treeGlow: [
+    'The light’s hitting him just right now.',
+    'Catch the edges with a little warm light.',
+    'Warm light on one side. He’s facing the right way.',
+    'Just touch the edges. The light does the rest.',
+  ],
   autumn: {
     default: {
-      lines: ['That one turned. Fall came early for him.'],
+      lines: ['That one turned. Fall came early for him.', 'Red and gold on that one now. He turned overnight.'],
       you: ['You hit him with some color, so now it’s autumn over there.'],
       auto: ['Some color found him, so now it’s autumn over there.'],
     },
-    'autumn-blaze': { lines: ['Even more color over there. He didn’t want to be left out.', 'He was the last one still green. Not anymore.'] },
+    'autumn-blaze': {
+      lines: ['Even more color over there. He didn’t want to be left out.', 'He was the last one still green. Not anymore.', 'One more in color. Everybody’s doing it this year.'],
+    },
     'winter-hush': {
-      lines: ['Frost turned that one. He’d been holding on to his leaves.'],
+      lines: ['Frost turned that one. He’d been holding on to his leaves.', 'A little late color, right there in the snow. He wears it well.'],
       you: ['You hit him with some color, and he turned.'],
       auto: ['Some color found him, and he turned.'],
     },
   },
   company: {
-    lines: ['He got bumped, and a friend showed up.'],
+    lines: [
+      'He got bumped, and a friend showed up.',
+      'Paint on a tree makes another tree. That’s just how it works in here.',
+      'Somebody new came up next to him.',
+      'Bump a tree and there’s two of them.',
+      'A little company came up beside him.',
+    ],
     you: ['You hit him, so now he’s got company.'],
     auto: ['Paint found him, so now he’s got company.'],
   },
-  snowfall: ['Fresh snow up top. It came down overnight.', 'White on the mountain. It snowed.'],
+  snowfall: [
+    'Fresh snow up top. It came down overnight.',
+    'White on the mountain. It snowed.',
+    'Snow on the peaks. It’s cold up there.',
+    'A fresh coat of white up top. Leave the rest alone.',
+  ],
   waterfall: {
-    lines: ['Blue on the mountain? That’s a waterfall now.'],
+    lines: ['Blue on the mountain? That’s a waterfall now.', 'Water coming down the rocks. Just a few streaks.'],
     you: ['Water found a way down from right where you hit.'],
     auto: ['Water found a way down from right where the paint hit.'],
   },
   alpenglow: {
-    evening: ['Now the mountain’s catching the last of the light.', 'Warm up the peaks. That’s the evening hitting them.'],
-    morning: ['First light found the peaks. Just warm up the tops.', 'The sun’s barely up, and it’s already on that mountain.'],
-    night: ['The moon’s catching the snow up there.', 'A little glow on the peaks. Somebody left the moon on.'],
-    default: ['Warm up the peaks. The light’s right on them now.', 'Now the mountain’s catching the light.'],
+    evening: ['Now the mountain’s catching the last of the light.', 'Warm up the peaks. That’s the evening hitting them.', 'The peaks go pink right before dark.'],
+    morning: ['First light found the peaks. Just warm up the tops.', 'The sun’s barely up, and it’s already on that mountain.', 'Morning gets to the tops first. It always does.'],
+    night: ['The moon’s catching the snow up there.', 'A little glow on the peaks. Somebody left the moon on.', 'Moonlight on the high snow. Very quiet up there.'],
+    default: ['Warm up the peaks. The light’s right on them now.', 'Now the mountain’s catching the light.', 'The peaks are lit up. Just a little warmth on top.'],
   },
   sunset: {
-    lines: ['Paint on the sun, and the whole sky warms up.'],
+    lines: ['Paint on the sun, and the whole sky warms up.', 'Warm paint on the sun, and the sky catches it.'],
     you: ['You touched the sun. Everything goes a little golden.'],
     auto: ['Paint landed on the sun. Everything goes a little golden.'],
   },
   moonGlow: {
-    lines: ['Paint on the moon, and the whole sky lights up.'],
+    lines: ['Paint on the moon, and the whole sky lights up.', 'Light on the moon, and it spreads across the sky.'],
     you: ['You touched the moon. Everything goes a little silver.'],
     auto: ['Paint landed on the moon. Everything goes a little silver.'],
   },
-  cloudOverSun: ['A little cloud wandered across the sun.'],
-  cloudOverMoon: ['A little cloud drifted across the moon.'],
-  storm: ['That cloud got heavy. Here comes a little rain.', 'Dark paint on a cloud means weather.'],
-  sunlitCloud: ['The edges of that cloud caught the light.'],
-  lights: ['Somebody’s home. The lights just came on.', 'Light in the window and smoke in the chimney.'],
-  roofSnow: ['Snow on the roof. Cozy in there.'],
-  garden: ['They planted a little garden out front.'],
-  moss: ['A little moss on the rock.'],
-  rockSnow: ['Snow on the rock.'],
-  rock: ['A little rock, sitting in the water, minding its own business.', 'Knife it in, touch the top with light. That’s a rock now.'],
-  ripples: ['Just a few ripples. The water noticed.', 'A little sparkle on the water.'],
-  birds: ['Every little drop that flew off turned into a bird.', 'A couple of birds heard about the view.'],
-  stars: ['Look at that. Every drop’s a star.', 'A little spatter up there and the night fills itself in.'],
-  sun: ['That’s a sun if I ever saw one.', 'Let’s give this painting some light.'],
-  moon: ['The moon’s up. Everybody be quiet now.'],
-  aurora: ['The sky’s doing that shimmery thing tonight.'],
+  cloudOverSun: [
+    'A little cloud wandered across the sun.',
+    'A cloud drifted in front of the sun. He’ll move along.',
+    'Some cloud over the sun. It softens the light a little.',
+  ],
+  cloudOverMoon: [
+    'A little cloud drifted across the moon.',
+    'A cloud in front of the moon. Just passing through.',
+    'Some cloud over the moon. The night got a little softer.',
+  ],
+  storm: [
+    'That cloud got heavy. Here comes a little rain.',
+    'Dark paint on a cloud means weather.',
+    'Weather’s coming. That cloud is full.',
+    'It got dark, so now it’s raining over there.',
+  ],
+  sunlitCloud: [
+    'The edges of that cloud caught the light.',
+    'Warm paint on a cloud. Now its edges glow.',
+    'Light caught the rim of that cloud. Just a little.',
+  ],
+  lights: [
+    'Somebody’s home. The lights just came on.',
+    'Light in the window and smoke in the chimney.',
+    'The windows lit up. Somebody’s making supper.',
+  ],
+  roofSnow: [
+    'Snow on the roof. Cozy in there.',
+    'White on the roof. It snowed on them.',
+    'A little snow on top of the cabin. Warm inside.',
+  ],
+  garden: [
+    'They planted a little garden out front.',
+    'Flowers by the door. Somebody’s proud of those.',
+    'A few flowers by the cabin. Somebody waters those.',
+  ],
+  moss: [
+    'A little moss on the rock.',
+    'Green on the rock. That’s moss, slow and patient.',
+    'A little moss came in. Rocks don’t mind.',
+  ],
+  rockSnow: [
+    'Snow on the rock.',
+    'White on the rock. Snow sat right down on it.',
+    'A little cap of snow on that rock.',
+  ],
+  rock: [
+    'A little rock, sitting in the water, minding its own business.',
+    'Knife it in, touch the top with light. That’s a rock now.',
+    'A rock. Nothing moves it.',
+  ],
+  ripples: [
+    'Just a few ripples. The water noticed.',
+    'A little sparkle on the water.',
+    'The water moved a little. That’s all.',
+    'A couple of rings on the lake. Something stirred.',
+    'Just a few lines on the water. Let them be.',
+  ],
+  birds: [
+    'Every little drop that flew off turned into a bird.',
+    'A couple of birds heard about the view.',
+    'A few birds came by to see what we’re up to.',
+    'Birds. Just a little check mark for each one.',
+    'Some birds, way up. They’re heading somewhere.',
+  ],
+  stars: [
+    'Look at that. Every drop’s a star.',
+    'A little spatter up there and the night fills itself in.',
+    'Stars, every one of them a drop of paint.',
+    'The sky filled up with little lights.',
+    'Little lights all over up there. Count them if you like.',
+  ],
+  sun: [
+    'That’s a sun if I ever saw one.',
+    'Let’s give this painting some light.',
+    'There’s the sun. Now everything has somewhere to look.',
+  ],
+  moon: [
+    'The moon’s up. Everybody be quiet now.',
+    'There’s the moon. Let him light the water.',
+    'A moon came up. It’s all quiet now.',
+  ],
+  aurora: [
+    'The sky’s doing that shimmery thing tonight.',
+    'Green lights up there. The north does that sometimes.',
+    'A little ribbon of light across the sky. Let it wave.',
+  ],
   // What a paint turned into, when the color made the call.
-  wisp: ['Just a wisp of cloud. Barely there.', 'A little streak of cloud, thin as you like.'],
+  wisp: [
+    'Just a wisp of cloud. Barely there.',
+    'A little streak of cloud, thin as you like.',
+    'A thin bit of cloud, just passing.',
+    'Hardly a cloud at all. Just a breath of one.',
+    'One little streak up there. That’s plenty.',
+  ],
   goldenCloud: {
-    lines: ['Yellow up there, so the cloud’s lit from underneath.'],
+    lines: ['Yellow up there, so the cloud’s lit from underneath.', 'A golden cloud. The yellow went right into it.', 'Yellow up high makes a cloud with some glow to it.'],
     night: ['A cloud with the moon on it. That’s where the yellow went.'],
     default: ['A cloud with the sun on it. That’s where the yellow went.'],
   },
   sunsetCloud: {
-    evening: ['Red in the sky makes a sunset cloud.', 'A pink cloud. Somebody’s having a nice evening.'],
-    morning: ['Red in the sky, first thing. That’s a sunrise cloud.', 'A pink cloud. Somebody’s up early.'],
-    night: ['A rosy cloud, out in the dark. Somebody’s up late.', 'Red up there makes a cloud with a little color left in it.'],
-    default: ['Red in the sky makes a rosy cloud.', 'A pink cloud. The afternoon’s getting on.'],
+    evening: ['Red in the sky makes a sunset cloud.', 'A pink cloud. Somebody’s having a nice evening.', 'A rosy cloud. The day’s winding down.', 'Red up there turns into the end of the day.'],
+    morning: ['Red in the sky, first thing. That’s a sunrise cloud.', 'A pink cloud. Somebody’s up early.', 'A pink cloud. The day’s just getting started.', 'Red in the morning sky. A rosy little cloud.'],
+    night: ['A rosy cloud, out in the dark. Somebody’s up late.', 'Red up there makes a cloud with a little color left in it.', 'A dark red cloud, way up there.', 'A cloud with some red in it, even at night.'],
+    default: ['Red in the sky makes a rosy cloud.', 'A pink cloud. The afternoon’s getting on.', 'A warm cloud. The red went right into it.', 'Somebody put a little red in the sky. Now it’s a cloud.'],
   },
-  coolCloud: ['A cool blue cloud. Weather might be on the way.', 'Blue in the sky makes a cool, shady cloud.'],
-  stormCloud: ['Dark paint up high? That’s a storm cloud.', 'That one’s heavy. Dark clouds carry weather.'],
-  snowyMountain: ['All that white is snow. There was a mountain under it.', 'White, low in the sky. That’s a snowy peak.'],
+  coolCloud: [
+    'A cool blue cloud. Weather might be on the way.',
+    'Blue in the sky makes a cool, shady cloud.',
+    'A cloud with some blue in it. Might rain later.',
+    'Cool paint up high. That’s a cloud in the shade.',
+    'A blue-grey cloud, taking its time.',
+  ],
+  stormCloud: [
+    'Dark paint up high? That’s a storm cloud.',
+    'That one’s heavy. Dark clouds carry weather.',
+    'A heavy cloud. Better bring the laundry in.',
+    'Dark up there. Something’s brewing.',
+    'That cloud means business.',
+  ],
+  snowyMountain: [
+    'All that white is snow. There was a mountain under it.',
+    'White, low in the sky. That’s a snowy peak.',
+    'A snowy peak. Cold up there, but it looks good.',
+    'Snow all over the top. Somebody likes winter.',
+    'A white mountain. Leave a little shadow on one side.',
+  ],
   blueMountain: ['Blue mountains, way off. Distance turns everything blue.', 'A blue ridge. Far away and quiet.'],
   brownMountain: ['Brown, low in the sky. That’s rock. A big old mountain.', 'Van Dyke Brown makes good solid rock.'],
   redMountain: {
@@ -136,20 +309,74 @@ export const LINES = {
     default: ['Ochre makes a sunny mountain. Sandstone, maybe.'],
   },
   greenMountain: ['A green mountain, trees all the way up.', 'Green that high up is a forested hill.'],
-  tallTree: ['Green way up there? That’s the top of a tall tree.', 'A tall one. He grew right up to where the paint landed.'],
-  snowyTreeline: ['A row of snowy trees, way off.'],
-  blueSpruce: ['Blue paint on the ground makes a blue spruce.', 'A little blue spruce. They’re real, you know.'],
-  birch: ['White on the ground? A birch. White bark, dark marks.', 'A birch tree. The white paint went into the bark.'],
-  snowyTree: ['White on the land. A tree that’s been out in the snow.', 'That white’s snow. There’s a tree under it.'],
+  tallTree: [
+    'Green way up there? That’s the top of a tall tree.',
+    'A tall one. He grew right up to where the paint landed.',
+    'A big pine, all the way up. He doesn’t mind being tall.',
+  ],
+  snowyTreeline: [
+    'A row of snowy trees, way off.',
+    'Far-off trees, all in snow.',
+    'A line of white trees on the far shore.',
+  ],
+  blueSpruce: [
+    'Blue paint on the ground makes a blue spruce.',
+    'A little blue spruce. They’re real, you know.',
+    'Blue on the ground. That’s a spruce, cool and dark.',
+  ],
+  birch: [
+    'White on the ground? A birch. White bark, dark marks.',
+    'A birch tree. The white paint went into the bark.',
+    'A birch. Pale bark, a few dark lines.',
+  ],
+  snowyTree: [
+    'White on the land. A tree that’s been out in the snow.',
+    'That white’s snow. There’s a tree under it.',
+    'A tree, all snowed on. He’s been out all winter.',
+  ],
   goldenTree: ['Yellow on the ground turns into a golden tree.', 'A golden fella. The yellow went into the leaves.'],
   redTree: ['A red one. Maples do that.', 'Red paint on the land makes a red tree.'],
-  bareTree: ['Brown makes a bare tree. Just branches. He’s resting.', 'No leaves on this one. Brown paint, bare branches.'],
-  redCabin: ['Red on the land? A little red cabin.', 'Somebody painted their cabin red. Good for them.'],
-  whiteCabin: ['A little white house. Somebody keeps it nice.'],
-  sailboat: ['White on the water is a sail. Somebody’s out on the lake.', 'A little sailboat. The white paint caught the wind.'],
-  canoe: ['Red on the water. That’s a canoe.', 'A red canoe, just drifting. Nobody’s in a hurry.'],
-  glints: ['Light on the water. That’s where the paint went.', 'A little sparkle where the light hits the lake.'],
-  blueRipples: ['Blue on the water just moves the water around.', 'A few ripples, cool and blue.'],
+  bareTree: [
+    'Brown makes a bare tree. Just branches. He’s resting.',
+    'No leaves on this one. Brown paint, bare branches.',
+    'Bare branches. He’ll get his leaves back.',
+  ],
+  redCabin: [
+    'Red on the land? A little red cabin.',
+    'Somebody painted their cabin red. Good for them.',
+    'A red cabin. You can see it from across the lake.',
+  ],
+  whiteCabin: [
+    'A little white house. Somebody keeps it nice.',
+    'A white cabin. Neat as a pin.',
+    'White walls. A tidy little place by the water.',
+  ],
+  sailboat: [
+    'White on the water is a sail. Somebody’s out on the lake.',
+    'A little sailboat. The white paint caught the wind.',
+    'A sail out on the lake. There’s a breeze today.',
+  ],
+  canoe: [
+    'Red on the water. That’s a canoe.',
+    'A red canoe, just drifting. Nobody’s in a hurry.',
+    'Somebody left a canoe out. They’ll be back.',
+    'A canoe. Red so you can find it.',
+    'A little red boat, sitting still on the water.',
+  ],
+  glints: [
+    'Light on the water. That’s where the paint went.',
+    'A little sparkle where the light hits the lake.',
+    'The water caught some light.',
+    'A few bright spots on the lake. That’s the sky in there.',
+    'Sparkle on the water. Just dab it and leave it.',
+  ],
+  blueRipples: [
+    'Blue on the water just moves the water around.',
+    'A few ripples, cool and blue.',
+    'The water wrinkled up a little.',
+    'A few blue lines. The lake’s breathing.',
+    'Some ripples. Something swam by, maybe.',
+  ],
   signature: [
     'Now sign it. That makes it yours.',
     'A little red, down in the corner. That makes it yours.',
@@ -168,7 +395,6 @@ export const LINES = {
     'It’s found what it wanted to be. Sign it, or keep going.',
   ],
   undo: ['There’s no undo in here. Let’s see what it turns into instead.'],
-  leave: ['That one landed off the canvas. Happens to everybody.'],
 };
 
 const TOOLS = {
@@ -225,11 +451,25 @@ export function linesFor(key, { scheme, auto = false } = {}) {
     const timed = v[scheme] ?? v[TIME[scheme]] ?? v.default;
     return [...(v.lines || []), ...((auto ? v.auto : v.you) || []), ...pool(timed)];
   };
-  return pool(LINES[key]);
+  return [...pool(LINES[key]), ...pool(LINES[ALSO[key]])];
 }
 
+// Specific keys that can also say their general kind's lines (a snowy mountain is still a mountain). They share one memory
+// of what was said lately, so a line doesn't come round again from the other key.
+const ALSO = {
+  snowyMountain: 'mountain',
+  blueMountain: 'mountain',
+  brownMountain: 'mountain',
+  redMountain: 'mountain',
+  goldMountain: 'mountain',
+  greenMountain: 'mountain',
+  bankTree: 'bank',
+  redTree: 'deciduous',
+  goldenTree: 'deciduous',
+};
+
 export function line(key, ctx) {
-  return pickFresh(key, linesFor(key, ctx));
+  return pickFresh(ALSO[key] ?? key, linesFor(key, ctx));
 }
 
 // Paints ran together into a new color. Two are named; three or more are counted, so the line stays short.

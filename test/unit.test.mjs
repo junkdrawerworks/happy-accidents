@@ -125,6 +125,35 @@ test('paint the toy threw itself doesn’t get “you hit him”', () => {
   for (let i = 0; i < 10; i++) assert.ok(linesFor('company', { auto: true }).includes(line('company', { auto: true })));
 });
 
+test('the painter has at least three things to say for everything a splat can become, and never the same line twice', async () => {
+  const src = await readFile(join(root, 'src/decide.js'), 'utf8');
+  const said = new Set(['merge', 'wash']);
+  for (const m of src.matchAll(/say: '(\w+)'|say = [^;]*/g)) for (const k of (m[1] ? [m[1]] : [...m[0].matchAll(/[?:] '(\w+)'/g)].map((q) => q[1]))) said.add(k);
+  for (const m of src.matchAll(/'(\w+)' : '(\w+)'/g)) said.add(m[1]).add(m[2]);
+  for (const k of said) assert.ok(LINES[k], `decide.js says “${k}”, which has no lines`);
+  // Everything but what the page itself says around the painting (signing, the wall, the intro, Let it happen's end).
+  const page = ['signature', 'hung', 'invite', 'done', 'undo'];
+  for (const key of Object.keys(LINES).filter((k) => !page.includes(k))) {
+    for (const sc of SCHEMES) {
+      for (const auto of [false, true]) {
+        const n = new Set(linesFor(key, { scheme: sc.id, auto })).size;
+        assert.ok(n >= 3, `${key} in ${sc.id}${auto ? ' (auto)' : ''} has only ${n} lines`);
+      }
+    }
+  }
+  const all = everyLine();
+  const twice = all.filter((t, i) => all.indexOf(t) !== i);
+  assert.deepEqual(twice, [], 'lines written into two lists');
+  assert.ok(!('tree' in LINES) && !('leave' in LINES), 'lines nobody can hear are gone');
+  assert.ok(linesFor('snowyMountain').includes('Push it up, let it be big. Mountains don’t apologize.'), 'a snowy mountain can say the mountain lines too');
+});
+
+test('a line doesn’t come round again until most of the others have been said', () => {
+  const list = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  const got = Array.from({ length: 70 }, () => pickFresh('seven', list));
+  for (let i = 7; i < got.length; i++) assert.ok(!got.slice(i - 6, i).includes(got[i]), `${got[i]} again within six: ${got.slice(i - 6, i + 1)}`);
+});
+
 test('a tall tree with no land under it says “land first” for the land, and the tall tree line with the tree', () =>
   sameDice(() => {
     for (let i = 0; i < 10; i++) {

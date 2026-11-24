@@ -8,13 +8,13 @@
 // refreshed only when a page that loads it is visited online, and the copy could mix two releases. So FILES is a
 // fingerprint of every file in SHELL: change any of them and test/e2e.mjs fails until FILES is changed to match (it
 // says what to), which changes this file, so every copy is made whole again at once.
-const CACHE = 'happy-accidents-v4';
-const FILES = '24689ede'; // test/e2e.mjs checks this
+const CACHE = 'happy-accidents-v5';
+const FILES = '2018d287'; // test/e2e.mjs checks this
 const SHELL = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest', 'icon.svg',
   'fonts/caprasimo.woff2', 'fonts/figtree.woff2', 'fonts/figtree-italic.woff2', 'fonts/mrs-saint-delafield.woff2',
   'src/main.js', 'src/studio.js', 'src/splat.js', 'src/shape.js', 'src/decide.js', 'src/words.js',
-  'src/schemes.js', 'src/color.js', 'src/util.js', 'src/brush.js', 'src/sound.js', 'src/edge-guard.js',
+  'src/schemes.js', 'src/color.js', 'src/util.js', 'src/brush.js', 'src/sound.js', 'src/edge-guard.js', 'src/label.js',
   'src/paint/index.js', 'src/paint/sky.js', 'src/paint/mountains.js', 'src/paint/trees.js',
   'src/paint/land.js', 'src/paint/water.js', 'src/paint/react.js', 'src/paint/signature.js',
 ];

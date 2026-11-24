@@ -1212,8 +1212,8 @@ for (const [width, height] of [[844, 390], [667, 375], [390, 844]]) {
     return {
       scrolled: document.getElementById('placard').scrollTop,
       frame: frame.top >= 0 && frame.bottom <= innerHeight,
-      offScreen: ['placardImg', 'anotherBtn', 'keepBtn', 'downloadBtn'].filter((id) => !inside(id)),
-      short: ['anotherBtn', 'keepBtn', 'downloadBtn'].filter((id) => document.getElementById(id).getBoundingClientRect().height < 44),
+      offScreen: ['placardImg', 'anotherBtn', 'keepBtn', 'downloadBtn', 'labelSaveBtn'].filter((id) => !inside(id)),
+      short: ['anotherBtn', 'keepBtn', 'downloadBtn', 'labelSaveBtn'].filter((id) => document.getElementById(id).getBoundingClientRect().height < 44),
     };
   });
   assert.deepEqual(seen, { scrolled: 0, frame: true, offScreen: [], short: [] }, `the label at ${width} × ${height}`);
@@ -1692,6 +1692,26 @@ await page.keyboard.press('g');
 await page.locator('.wall-open').first().click();
 const [saved] = await Promise.all([page.waitForEvent('download'), page.click('#downloadBtn')]);
 assert.equal(saved.suggestedFilename(), `${(await wall())[0].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.jpg`, 'the download is named for the painting');
+// With the label, beside it, saves the painting framed on the wall with its cream label under it, as one JPEG.
+{
+  assert.equal(await page.getAttribute('#labelSaveBtn', 'aria-label'), 'Download image with the label');
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('#labelSaveBtn')]);
+  assert.equal(dl.suggestedFilename(), saved.suggestedFilename().replace(/\.jpg$/, '-with-label.jpg'), 'the picture with the label isn’t named for the painting');
+  const look = await S(async (b64) => {
+    const img = new Image();
+    img.src = `data:image/jpeg;base64,${b64}`;
+    await img.decode();
+    const c = Object.assign(document.createElement('canvas'), { width: img.naturalWidth, height: img.naturalHeight });
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    // Down the middle: wall, frame, painting, then the cream label (between its lines of text).
+    const col = g.getImageData(Math.round(c.width / 2), 0, 1, c.height).data;
+    const cream = [];
+    for (let y = 0; y < c.height; y++) if (col[y * 4] > 235 && col[y * 4 + 1] > 230 && col[y * 4 + 2] > 220) cream.push(y / c.height);
+    return { tall: c.height > c.width, wallTop: !cream.some((y) => y < 0.02), creamLow: cream.filter((y) => y > 0.6).length / (c.height * 0.4) };
+  }, (await readFile(await dl.path())).toString('base64'));
+  assert.ok(look.tall && look.wallTop && look.creamLow > 0.4, `the picture with the label isn’t the painting with a cream label under it (${JSON.stringify(look)})`);
+}
 // Where the browser can hand a picture to the share sheet (phones; pretended here), the button says Save or share and
 // shares the full-size painting as one JPEG named for it. Closing the sheet does nothing, and if sharing goes wrong
 // any other way, the picture downloads instead. Where it can't share, the button says Download image.
@@ -1724,6 +1744,11 @@ assert.deepEqual(await S(() => window.shared[0]), { title: (await wall())[0], fi
 }
 await S(() => (window.shareFails = 'NotAllowedError'));
 await Promise.all([page.waitForEvent('download', { timeout: 5000 }), page.click('#downloadBtn')]).catch(() => assert.fail('when sharing went wrong, the picture didn’t download instead'));
+// With the label shares too, as one JPEG named for the painting.
+await S(() => (window.shareFails = null));
+await page.click('#labelSaveBtn');
+await page.waitForFunction(() => window.shared.length === 4, null, { timeout: 10000 }).catch(() => assert.fail('With the label didn’t share'));
+assert.deepEqual(await S(() => window.shared[3].files.map((f) => [f.name, f.type])), [[saved.suggestedFilename().replace(/\.jpg$/, '-with-label.jpg'), 'image/jpeg']], 'With the label didn’t share the picture with its label');
 await S(() => {
   delete navigator.canShare;
   delete navigator.share;

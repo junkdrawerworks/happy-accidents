@@ -1018,6 +1018,18 @@ kbd {
   gap: 8px;
 }
 
+/* Download (or Save or share) and With the label, side by side. */
+.save-pair {
+  display: flex;
+  gap: 8px;
+}
+
+.save-pair button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-inline: 8px;
+}
+
 .save-hint {
   margin: 0;
   font-size: 13px;
@@ -1106,8 +1118,11 @@ kbd {
     padding-inline: 8px;
   }
 
-  .placard-actions button:first-child,
-  .placard-actions:has(#downloadBtn[hidden]) button,
+  /* Paint another and Back to the easel, then the two ways to save it, two to a row. */
+  .save-pair {
+    display: contents;
+  }
+
   #takeDownBtn {
     grid-column: 1 / -1;
   }

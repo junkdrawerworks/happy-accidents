@@ -4,6 +4,7 @@ import { makeTitle, featureLine, canvasContents, madeFrom, line, keptNote } from
 import { pick, rand, gauss, slug } from './util.js';
 import * as sound from './sound.js';
 import { guardEdges } from './edge-guard.js';
+import { labelledPicture } from './label.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -824,6 +825,23 @@ function showPlacard(record, src, from = null, hung = null) {
   onShow = record;
   let best = src || (studio.signed?.id === record.id && studio.signed.full) || record.img;
   img.src = best;
+  // The picture with the label is drawn as soon as the label opens (and again from the full-size picture once that's
+  // in), so it's ready in the tap that saves or shares it.
+  let labelled = null;
+  const drawLabelled = (from) => {
+    const job = labelledPicture(from, {
+      artist: record.artist,
+      title: record.title,
+      year: record.year,
+      note: madeFrom(record.accidents, record.seconds),
+      features: record.features,
+      credit: $('plCredit').textContent,
+    }).catch(() => null);
+    labelled = job;
+    job.then((url) => {
+      if (labelled === job && url) labelled = url;
+    });
+  };
   if (best === record.img) {
     pictures.get(record.id).then((full) => {
       if (typeof full !== 'string' || !full.startsWith('data:image/')) return;
@@ -834,6 +852,7 @@ function showPlacard(record, src, from = null, hung = null) {
           if (onShow !== record) return;
           best = full;
           img.src = full;
+          drawLabelled(full);
         },
         () => {},
       );
@@ -852,7 +871,17 @@ function showPlacard(record, src, from = null, hung = null) {
   const saveBtn = $('downloadBtn');
   saveBtn.hidden = !canSave;
   saveBtn.textContent = share ? 'Save or share' : 'Download image';
-  saveBtn.onclick = () => saveImage(best, `${slug(record.title)}.jpg`, record.title);
+  saveBtn.onclick = () => saveImage(best, `${slug(record.title)}.jpg`, record.title, saveBtn);
+  // A second choice beside it: the painting framed on the wall with its label under it.
+  const labelBtn = $('labelSaveBtn');
+  labelBtn.hidden = !canSave;
+  labelBtn.textContent = 'With the label';
+  labelBtn.setAttribute('aria-label', `${saveBtn.textContent} with the label`);
+  labelBtn.onclick = async () => {
+    const url = typeof labelled === 'string' ? labelled : await labelled;
+    if (url) saveImage(url, `${slug(record.title)}-with-label.jpg`, record.title, labelBtn);
+  };
+  if (canSave) drawLabelled(best);
   $('saveHint').hidden = canSave;
   const note = hung ? keptNote(hung, canSave && !share) : '';
   $('keptNote').textContent = note;
@@ -910,15 +939,15 @@ function canShareImages() {
   }
 }
 
-async function saveImage(src, filename, title) {
-  const btn = $('downloadBtn');
+async function saveImage(src, filename, title, btn) {
   if (downloads) {
     try {
       await downloads.save({ filename, data: dataUrlBytes(src) });
       btn.textContent = 'Saved';
     } catch (err) {
       if (err?.code === 'declined' || err?.code === 'rate_limited') return;
-      btn.hidden = true;
+      $('downloadBtn').hidden = true;
+      $('labelSaveBtn').hidden = true;
       $('saveHint').hidden = false;
     }
     return;

@@ -1,5 +1,5 @@
 // Everything the painter says, the brushes they reach for, and what the finished piece is called.
-import { pick, pickFresh } from './util.js';
+import { pick, pickFresh, weighted } from './util.js';
 import { PIGMENTS } from './schemes.js';
 
 export const LINES = {
@@ -623,51 +623,81 @@ const MOOD = {
   'violet-dusk': { adj: ['Violet', 'Evening', 'Dusky', 'Lavender'], time: ['Dusk', 'Last Light', 'Nightfall'], hour: 'Evening' },
 };
 
-// What a painting could be named for: [one, many], with many only when there are two or more of it (a canvas has one
-// cabin and one moon at most). Stars are always many.
+// What a painting could be named for: [one, many, weight], with many only when there are two or more of it (a canvas has
+// one cabin and one moon at most). Stars are always many. The things a painting is remembered by (a cabin, a boat, the
+// falls, an island, the moon, stars) weigh two and a half times what trees, peaks and stones do, shared among the words
+// for each.
+const STANDS_OUT = 2.5;
 function subjects(counts) {
   const s = [];
-  const add = (kind, ...pairs) => {
+  const add = (kind, weight, ...pairs) => {
     const n = [].concat(kind).reduce((sum, k) => sum + (counts[k] || 0), 0);
-    if (n) for (const [one, many] of pairs) s.push([one, n >= 2 ? many : null]);
+    if (n) for (const [one, many] of pairs) s.push([one, n >= 2 ? many : null, weight / pairs.length]);
   };
-  add('cabin', ['Cabin', 'Cabins'], ['Hideaway', 'Hideaways'], ['Homestead', 'Homesteads']);
-  add('mountain', ['Peak', 'Peaks'], ['Ridge', 'Ridges'], ['Mountain', 'Mountains']);
-  add('evergreen', ['Pine', 'Pines'], ['Evergreen', 'Evergreens']);
-  add(['deciduous', 'bush'], ['Grove', 'Groves'], ['Thicket', 'Thickets']);
-  add('rock', ['Stone', 'Stones']);
-  add('island', ['Island', 'Islands']);
-  add('waterfall', ['Falls', 'Falls']);
-  add('sailboat', ['Sail', 'Sails']);
-  add('canoe', ['Canoe', 'Canoes']);
-  add('moon', ['Moon', 'Moons']);
-  if (counts.stars) s.push(['Stars', 'Stars']);
-  if (!s.length) s.push(['Water', 'Waters'], ['Sky', 'Skies'], ['Shore', 'Shores']);
+  add('cabin', STANDS_OUT, ['Cabin', 'Cabins'], ['Hideaway', 'Hideaways'], ['Homestead', 'Homesteads']);
+  add('mountain', 1, ['Peak', 'Peaks'], ['Ridge', 'Ridges'], ['Mountain', 'Mountains']);
+  add('evergreen', 1, ['Pine', 'Pines'], ['Evergreen', 'Evergreens']);
+  add(['deciduous', 'bush'], 1, ['Grove', 'Groves'], ['Thicket', 'Thickets']);
+  add('rock', 1, ['Stone', 'Stones']);
+  add('island', STANDS_OUT, ['Island', 'Islands']);
+  add('waterfall', STANDS_OUT, ['Falls', 'Falls']);
+  add('sailboat', STANDS_OUT, ['Sail', 'Sails']);
+  add('canoe', STANDS_OUT, ['Canoe', 'Canoes']);
+  add('moon', STANDS_OUT, ['Moon', 'Moons']);
+  if (counts.stars) s.push(['Stars', 'Stars', STANDS_OUT]);
+  if (!s.length) s.push(['Water', 'Waters', 1], ['Sky', 'Skies', 1], ['Shore', 'Shores', 1]);
   return s;
 }
 
-function oneTitle(counts, schemeId) {
+// Adjectives that read as a color: "The Golden Mountain" over a grey-blue one looks like a mistake, so a peak, a ridge or
+// a mountain doesn't get them.
+const COLOR_WORDS = new Set(['Golden', 'Amber', 'Copper', 'Violet', 'Silver', 'Lavender', 'Russet']);
+const PEAKS = new Set(['Peak', 'Peaks', 'Ridge', 'Ridges', 'Mountain', 'Mountains']);
+const wordsOf = (text) => text.split(/[\s,]+/).filter(Boolean);
+
+// One title. off is the words already in titles on the wall: place names that use them are left out while there are
+// enough others, and subjects that use them come up less.
+function oneTitle(counts, schemeId, off = new Set()) {
   const mood = MOOD[schemeId] || MOOD['golden-hour'];
-  const place = `${pick(PLACE_A)} ${pick(PLACE_B)}`.replace('Hollow Hollow', 'Hollow Creek');
-  const [one, many] = pick(subjects(counts));
+  const fresh = (list) => {
+    const left = list.filter((w) => !wordsOf(w).some((x) => off.has(x)));
+    return left.length >= 3 ? left : list;
+  };
+  // A subject already named on the wall comes up a sixth as often, so a cabin with Cabin at Otter Cove on the wall is more
+  // likely to be a Hideaway or a Homestead than a Thicket.
+  const [one, many] = weighted(subjects(counts).map((sub) => [sub, sub[2] * (off.has(sub[0]) || off.has(sub[1]) ? 1 / 6 : 1)]));
   const adj = pick(mood.adj.filter((a) => !(one === 'Stars' && a === 'Starlit')));
+  // The adjective right before the subject, in The Quiet Pine or Starlit Groves.
+  const near = PEAKS.has(one) ? pick(mood.adj.filter((a) => !COLOR_WORDS.has(a))) : adj;
+  const time = pick(mood.time);
   // Midnight Night and Evening Evening say it twice: just Midnight, just Evening.
   const hour = adj === 'Midnight' || adj === mood.hour ? adj : `${adj} ${mood.hour}`;
+  // A place that says one of the title's other words again (Ridge at Stillwater Ridge, Silver Morning at Silver Lake) is
+  // picked again.
+  const taken = new Set([one, many, adj, near, ...wordsOf(time)]);
+  let place;
+  for (let i = 0; i < 6; i++) {
+    place = `${pickFresh('placeA', fresh(PLACE_A))} ${pickFresh('placeB', fresh(PLACE_B))}`.replace('Hollow Hollow', 'Hollow Creek');
+    if (!wordsOf(place).some((w) => taken.has(w))) break;
+  }
   const templates = [
     () => `${one} at ${place}`,
-    () => `${pick(mood.time)} at ${place}`,
-    () => `The ${adj} ${one}`,
-    () => `${place}, ${pick(mood.time)}`,
+    () => `${time} at ${place}`,
+    () => `The ${near} ${one}`,
+    () => `${place}, ${time}`,
     () => `${hour} at ${place}`,
   ];
-  if (many) templates.push(() => `${adj} ${many}`, () => `Where the ${many} Are`);
+  if (many) templates.push(() => `${near} ${many}`, () => `Where the ${many} Are`);
   return templates[pickFresh('title', templates.map((_, i) => i))]();
 }
 
-// A title for the painting; avoid is the titles already on the wall, which it tries not to repeat.
+// A title for the painting; avoid is the titles already on the wall, which it tries not to repeat, and whose place names
+// and subjects it steers clear of.
 export function makeTitle(counts, schemeId, avoid = []) {
-  let title = oneTitle(counts, schemeId);
-  for (let i = 0; i < 8 && avoid.includes(title); i++) title = oneTitle(counts, schemeId);
+  const off = new Set(avoid.flatMap(wordsOf));
+  for (const w of ['The', 'at', 'Where', 'the', 'Are']) off.delete(w);
+  let title = oneTitle(counts, schemeId, off);
+  for (let i = 0; i < 8 && avoid.includes(title); i++) title = oneTitle(counts, schemeId, off);
   return title;
 }
 

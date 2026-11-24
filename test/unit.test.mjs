@@ -130,6 +130,47 @@ test('a new title steers clear of the titles already on the wall', () => {
   }
 });
 
+test('a title never says a word twice, like Ridge at Stillwater Ridge or Silver Morning at Silver Lake', () => {
+  const everything = { cabin: 1, mountain: 2, evergreen: 2, deciduous: 2, bush: 1, rock: 2, island: 1, waterfall: 1, sailboat: 2, canoe: 1, moon: 1, stars: 3 };
+  const ones = Object.fromEntries(Object.keys(everything).map((k) => [k, 1]));
+  for (const s of SCHEMES) {
+    for (let i = 0; i < 5000; i++) {
+      const t = makeTitle(i % 2 ? everything : ones, s.id);
+      const words = t.toLowerCase().split(/[\s,]+/).filter((w) => w !== 'at' && w !== 'the');
+      assert.equal(new Set(words).size, words.length, `${s.name}: ${t}`);
+    }
+  }
+});
+
+test('titles on the wall don’t share their place names, or call a grey mountain golden', () => {
+  const PLACE_A = ['Hollow', 'Cedar', 'Otter', 'Wren', 'Bramble', 'Silver', 'Miller’s', 'Juniper', 'Heron', 'Quiet', 'Lantern', 'Foxglove', 'Birch', 'Stillwater', 'Old Mill', 'Kestrel'];
+  const counts = { mountain: 2, evergreen: 3, deciduous: 2, bush: 1 };
+  for (const s of SCHEMES) {
+    for (let run = 0; run < 50; run++) {
+      const wall = [];
+      for (let i = 0; i < 12; i++) wall.push(makeTitle(counts, s.id, wall));
+      const used = PLACE_A.map((a) => wall.filter((t) => new RegExp(`(^| at )${a} (Creek|Lake|Cove|Pond|Hollow|Reach|Bend|Ridge|Meadow|Crossing|Narrows|Point)(,|$)`).test(t)).length);
+      assert.ok(used.every((n) => n <= 1), `${s.name}: a place name twice in ${wall.join(' / ')}`);
+    }
+    for (let i = 0; i < 2000; i++) {
+      const t = makeTitle({ mountain: 2 }, s.id);
+      assert.doesNotMatch(t, /^(The )?(Golden|Amber|Copper|Violet|Silver|Lavender|Russet) (Peak|Ridge|Mountain)s?$/, t);
+    }
+  }
+});
+
+test('a title is more often named for the boat, the cabin or the moon than for the trees', () => {
+  const sails = { mountain: 2, evergreen: 3, deciduous: 2, bush: 2, sailboat: 3 };
+  const titles = Array.from({ length: 4000 }, () => makeTitle(sails, 'golden-hour'));
+  const n = (re) => titles.filter((t) => re.test(t)).length;
+  assert.ok(n(/\bSails?\b/) > 2 * n(/\b(Grove|Thicket)s?\b/), `Sails ${n(/\bSails?\b/)}, Groves and Thickets ${n(/\b(Grove|Thicket)s?\b/)}`);
+  assert.ok(n(/\bSails?\b/) > 2 * n(/\b(Pine|Evergreen)s?\b/), `Sails ${n(/\bSails?\b/)}, Pines and Evergreens ${n(/\b(Pine|Evergreen)s?\b/)}`);
+  // With Cabin at Otter Cove on the wall, a cabin is more likely to be a Hideaway or a Homestead.
+  const wall = ['Cabin at Otter Cove'];
+  const next = Array.from({ length: 2000 }, () => makeTitle({ cabin: 1, mountain: 1 }, 'golden-hour', wall));
+  assert.ok(next.filter((t) => /\bCabin\b/.test(t)).length * 3 < next.filter((t) => /Hideaway|Homestead/.test(t)).length);
+});
+
 test('painting time and accident counts read naturally', () => {
   assert.equal(durationText(1), '1 second');
   assert.equal(durationText(42), '42 seconds');

@@ -212,8 +212,9 @@ test('the label says when the browser didn’t keep the painting, or took older 
   assert.equal(keptNote({ kept: true, dropped: 0 }), '', 'a usual signing says nothing');
   assert.match(keptNote({ kept: false, dropped: 0 }), /won’t go up on the wall\. Download it to keep it\.$/);
   assert.match(keptNote({ kept: false, dropped: 0 }, false), /Save the picture to keep it\.$/, 'with no Download button it doesn’t point at one');
-  assert.match(keptNote({ kept: true, dropped: 1 }), /the oldest painting came down/);
-  assert.match(keptNote({ kept: true, dropped: 7 }), /the seven oldest paintings came down/);
+  assert.equal(keptNote({ kept: true, dropped: 0, gone: ['Cabin at Otter Cove'] }), 'Cabin at Otter Cove came down to make room.', 'a full wall doesn’t say which painting came down');
+  assert.equal(keptNote({ kept: true, dropped: 1, gone: ['Warm Pines'] }), 'The browser ran short of room, so Warm Pines came down to make space for this one.');
+  assert.match(keptNote({ kept: true, dropped: 7, gone: Array(8).fill('x') }), /the eight oldest paintings came down/, 'the count leaves out the one that would have come down anyway');
 });
 
 test('titles are always real words', () => {

@@ -1570,7 +1570,8 @@ let hungNow = await wall();
 assert.equal(hungNow.length, 12, 'the wall should keep 12');
 assert.equal(hungNow[0], await page.textContent('#plTitle'), 'the new painting goes up first');
 assert.ok(!hungNow.includes('Painting 1') && hungNow.includes('Painting 2'), `the 13th signing should take the oldest down (${hungNow})`);
-assert.equal(await page.isHidden('#keptNote'), true, 'a usual 13th signing has nothing to say under the label');
+assert.equal(await page.textContent('#keptNote'), 'Painting 1 came down to make room.', 'a 13th signing doesn’t say which painting came down');
+assert.equal(await page.isHidden('#keptNote'), false);
 assert.equal(await page.textContent('#galleryCount'), '12');
 // Only the paintings on the wall keep a full-size picture: the new one does, and the ones that came down don't.
 await page.waitForTimeout(300);
@@ -1596,6 +1597,7 @@ await page.waitForTimeout(300);
   const after = await wallIds();
   assert.deepEqual([after.length, (await wall())[0], after.includes(before[0]), after.slice(1)], [12, 'Second Thoughts', false, before.slice(1)], 'a canvas signed again should replace its earlier copy on the wall, not hang a second one');
   assert.equal(await page.textContent('#galleryCount'), '12');
+  assert.equal(await page.isHidden('#keptNote'), true, 'a canvas signed again said a painting came down');
   await page.waitForTimeout(300);
   assert.ok(!(await pictureIds()).includes(before[0]), 'the earlier copy’s full-size picture was kept');
 }
@@ -1631,7 +1633,7 @@ await S(() => {
 await signAgain();
 assert.equal((await wall()).length, 5);
 assert.equal(await page.isHidden('#keptNote'), false, 'the label didn’t say older paintings came down');
-assert.match(await page.textContent('#keptNote'), /the seven oldest paintings came down/);
+assert.match(await page.textContent('#keptNote'), /the eight oldest paintings came down/);
 assert.equal(await page.textContent('#galleryCount'), '5');
 await page.click('#keepBtn');
 await S(() => {

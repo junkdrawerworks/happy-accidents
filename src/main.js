@@ -958,19 +958,20 @@ function readGallery() {
 // Hangs a newly signed painting, newest first, keeping the 12 newest. A canvas signed again takes down its earlier
 // copy (the painting with the id in replaces), so the new version is the newest, and nothing else comes down for it.
 // When the browser won't take that many, the oldest come down until it does, and when it won't keep any, the wall stays
-// as it was. Says whether the new painting was kept, and how many older ones came down beyond the usual 12th. The
-// full-size picture goes in with it, and the pictures of any that came down go with them.
+// as it was. Says whether the new painting was kept, how many older ones came down beyond the usual 12th, and the
+// titles of all that came down to make room (oldest last). The full-size picture goes in with it, and the pictures of
+// any that came down go with them.
 const WALL_SIZE = 12;
 function hang(record, picture, replaces = null) {
-  const list = [record, ...readGallery().filter((r) => !replaces || r.id !== replaces)].slice(0, WALL_SIZE);
+  const older = readGallery().filter((r) => !replaces || r.id !== replaces);
+  const list = [record, ...older].slice(0, WALL_SIZE);
   const room = list.length;
   while (list.length && !store.set(KEY.gallery, list)) list.pop();
   updateCount();
-  if (list.length) {
-    pictures.keep(list.map((r) => r.id), { id: record.id, picture });
-    askToKeep();
-  }
-  return { kept: list.length > 0, dropped: list.length ? room - list.length : 0 };
+  if (!list.length) return { kept: false, dropped: 0, gone: [] };
+  pictures.keep(list.map((r) => r.id), { id: record.id, picture });
+  askToKeep();
+  return { kept: true, dropped: room - list.length, gone: older.filter((r) => !list.includes(r)).map((r) => r.title) };
 }
 
 // Once a painting is up, the browser is asked to keep the wall when it clears out stored data to make room. Chrome and

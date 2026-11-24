@@ -1027,7 +1027,11 @@ function renderWall() {
     cite.textContent = rec.title;
     const artist = document.createElement('bdi');
     artist.textContent = rec.artist;
-    p.append(cite, artist, `, ${new Date(rec.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`);
+    // The date in a span of its own, so on a phone it can go on a line of its own under the name.
+    const date = document.createElement('span');
+    date.className = 'wall-date';
+    date.textContent = new Date(rec.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    p.append(cite, artist, date);
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'quiet';

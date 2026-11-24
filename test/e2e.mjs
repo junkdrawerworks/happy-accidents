@@ -1124,7 +1124,8 @@ await page.keyboard.press('Escape');
   await p.evaluate(() => {
     window.happyAccidents.skipIntro();
     const img = window.happyAccidents.snapshot(240, 'image/jpeg', 0.8);
-    const list = Array.from({ length: 12 }, (_, i) => ({ id: `w${i}`, title: 'The Midnight Homestead at Stillwater Crossing, Early October', artist: 'Wilhelmina Featherstonehaugh', year: 2026, date: new Date(2026, 10, i + 1).toISOString(), img, accidents: 9, seconds: 80, scheme: 'Golden Hour', number: i + 1, features: 'Features a cabin.' }));
+    // Long titles and names and short ones mixed, so a row has cards of different heights.
+    const list = Array.from({ length: 12 }, (_, i) => ({ id: `w${i}`, title: i % 3 === 1 ? 'Warm Pines' : 'The Midnight Homestead at Stillwater Crossing, Early October', artist: i % 4 < 2 ? 'Wilhelmina Featherstonehaugh' : 'Robin', year: 2026, date: new Date(2026, 10, i + 1).toISOString(), img, accidents: 9, seconds: 80, scheme: 'Golden Hour', number: i + 1, features: 'Features a cabin.' }));
     localStorage.setItem('happy-accidents:gallery', JSON.stringify(list));
   });
   await p.tap('#galleryBtn');
@@ -1140,9 +1141,19 @@ await page.keyboard.press('Escape');
       closeAtBottom: document.elementFromPoint(close.left + close.width / 2, close.top + close.height / 2)?.id,
       sideways: document.documentElement.scrollWidth > innerWidth,
       short: [...document.querySelectorAll('#gallery button.quiet')].filter((b) => b.getBoundingClientRect().height < 44).length,
+      // The name on one line (cut short with an ellipsis), the date on a line of its own under it, and the Removes in each
+      // row level with each other.
+      nameLines: Math.max(...[...document.querySelectorAll('.wall-meta bdi')].map((b) => Math.round(b.getBoundingClientRect().height / parseFloat(getComputedStyle(b).lineHeight)))),
+      dateBelow: [...document.querySelectorAll('.wall-meta p')].every((p) => p.querySelector('.wall-date').getBoundingClientRect().top >= p.querySelector('bdi').getBoundingClientRect().bottom - 1),
+      ragged: [...document.querySelectorAll('.wall-item')].reduce((rows, li) => {
+        const top = Math.round(li.getBoundingClientRect().top);
+        (rows[top] ||= []).push(li.querySelector('.wall-meta button').getBoundingClientRect().top);
+        return rows;
+      }, {}),
     };
   });
-  assert.deepEqual(wall, { perRow: 2, titleLines: 2, closeAtBottom: 'closeGallery', sideways: false, short: 0 }, 'twelve paintings on the wall on a phone (Close and Remove 44 px tall)');
+  wall.ragged = Object.values(wall.ragged).filter((tops) => Math.max(...tops) - Math.min(...tops) > 1).length;
+  assert.deepEqual(wall, { perRow: 2, titleLines: 2, closeAtBottom: 'closeGallery', sideways: false, short: 0, nameLines: 1, dateBelow: true, ragged: 0 }, 'twelve paintings on the wall on a phone (Close and Remove 44 px tall, the Removes in a row level)');
   await wctx.close();
 }
 

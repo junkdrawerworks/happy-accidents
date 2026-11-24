@@ -1221,7 +1221,13 @@ kbd {
   font-size: 12px;
 }
 
-/* A phone: two paintings to a row, the title and date stacked over Remove, so twelve take six rows of scrolling. */
+.wall-date::before {
+  content: ', ';
+}
+
+/* A phone: two paintings to a row, the title, the name and the date stacked over Remove, so twelve take six rows of
+   scrolling. The name stays on one line and the date gets its own, and each Remove sits at the bottom of its card, so the
+   Removes in a row line up however long the title or the name. */
 @media (max-width: 559px) {
   .wall-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1237,12 +1243,29 @@ kbd {
   }
 
   .wall-meta {
+    flex: 1;
     flex-direction: column;
     gap: 2px;
   }
 
   .wall-meta p {
+    max-width: 100%;
     font-size: 12px;
+  }
+
+  .wall-meta bdi,
+  .wall-date {
+    display: block;
+  }
+
+  .wall-meta bdi {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .wall-date::before {
+    content: none;
   }
 
   .wall-meta cite {
@@ -1254,6 +1277,7 @@ kbd {
   }
 
   .wall-meta button {
+    margin-top: auto;
     margin-left: -8px;
   }
 }

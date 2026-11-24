@@ -286,6 +286,7 @@ export class Studio {
     // Where strokes have gone on the layers since the canvas was last drawn, as [x0, y0, x1, y1].
     this.painted = [];
     this.lakeDue = new Map();
+    this.lakeNext = 0;
     // The moods used so far this round (see pickScheme).
     this.moodsUsed = [];
     this.gen = 0;
@@ -377,6 +378,7 @@ export class Studio {
     }
     // The strips due to be painted again, and from where to where across.
     this.lakeDue = new Map();
+    this.lakeNext = 0;
     this.number += 1;
     this.whole = true;
     this.addElement(sky(this));
@@ -1066,12 +1068,19 @@ export class Studio {
     });
   }
 
-  // Paints the next strips of the lake that are due: up to LAKE_STRIPS of them in a row, nearest the horizon first, so
-  // a change across the whole sky reaches the lake over a few frames instead of holding one up. Returns the part of the
-  // canvas painted again, or null.
+  // Paints the next strips of the lake that are due: up to LAKE_STRIPS of them in a row, so a change across the whole
+  // sky reaches the lake over a few frames instead of holding one up. It goes down the lake from where the last frame
+  // stopped, and back to the horizon at the bottom, so strips far from the horizon get their turn even while something
+  // near it keeps changing. Returns the part of the canvas painted again, or null.
   paintLake() {
     const { hy, k } = this;
-    const first = Math.min(...this.lakeDue.keys());
+    let first = Infinity;
+    let nearest = Infinity;
+    for (const i of this.lakeDue.keys()) {
+      nearest = Math.min(nearest, i);
+      if (i >= this.lakeNext) first = Math.min(first, i);
+    }
+    if (first === Infinity) first = nearest;
     let last = first;
     let [left, right] = this.lakeDue.get(first);
     while (last - first + 1 < LAKE_STRIPS && this.lakeDue.has(last + 1)) {
@@ -1081,6 +1090,7 @@ export class Studio {
       right = Math.max(right, r);
     }
     for (let i = first; i <= last; i++) this.lakeDue.delete(i);
+    this.lakeNext = last + 1;
     const top = this.water.top;
     const cw = this.water.canvas.width;
     const ch = this.water.canvas.height;

@@ -1873,6 +1873,22 @@ for (const [viewport, scale] of [[{ width: 390, height: 844 }, 1], [{ width: 128
     same(frame, hint);
     await p.waitForFunction(() => !window.happyAccidents.busy && !window.happyAccidents.active.length, null, { timeout: 20000 });
   }
+  // The lake far from the horizon gets its turn within a few frames, even while the part near the horizon keeps
+  // changing every frame (a mountain or a low cloud being painted), instead of waiting until that's finished.
+  const waited = await p.evaluate(() => {
+    const st = window.happyAccidents;
+    const far = st.strips.length - 1;
+    st.lakeDue.set(far, [0, st.W]);
+    let frames = 0;
+    while (st.lakeDue.has(far) && frames < 20) {
+      for (let i = 0; i < 64; i++) st.lakeDue.set(i, [0, st.W]);
+      st.render(performance.now(), { splats: false });
+      frames++;
+    }
+    while (st.lakeDue.size) st.render(performance.now(), { splats: false });
+    return frames;
+  });
+  assert.ok(waited <= 3, `the far end of the lake waited ${waited} frames while the strips near the horizon kept changing`);
   assert.deepEqual(errors, [], 'problems while drawing from ready-made pictures');
   await sctx.close();
 }

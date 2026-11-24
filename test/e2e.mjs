@@ -865,6 +865,40 @@ await page.keyboard.press('Escape');
   await kctx.close();
 }
 
+// On a phone the suggested title shows whole: the field has the sheet's full width, with Another under it, and a long
+// title wraps onto a second line instead of hiding its end (beside Another, 22% of titles were cut off at 390 px wide
+// and 61% at 360). It's still one line of text: Enter signs, and a line break pasted in becomes a space.
+for (const [width, height] of [[390, 844], [360, 740]]) {
+  const tctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
+  const p = await tctx.newPage();
+  await p.goto(base);
+  await p.waitForFunction(() => window.happyAccidents?.skipIntro);
+  await p.evaluate(() => window.happyAccidents.skipIntro());
+  await p.tap('#signBtn');
+  const fit = await p.evaluate(async () => {
+    const { makeTitle } = await import('./src/words.js');
+    const { SCHEMES } = await import('./src/schemes.js');
+    const el = document.getElementById('artTitle');
+    const counts = { cabin: 1, mountain: 2, evergreen: 2, deciduous: 2, bush: 1, rock: 2, island: 1, waterfall: 1, sailboat: 2, canoe: 1, moon: 1, stars: 3 };
+    const cut = [];
+    for (let i = 0; i < 50; i++) {
+      el.value = makeTitle(counts, SCHEMES[i % SCHEMES.length].id);
+      el.dispatchEvent(new Event('input'));
+      if (el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight) cut.push(el.value);
+    }
+    const another = document.getElementById('rerollBtn').getBoundingClientRect();
+    const box = el.getBoundingClientRect();
+    el.value = 'Two\nLines';
+    el.dispatchEvent(new Event('input'));
+    return { cut, below: another.top >= box.bottom, right: Math.abs(another.right - box.right) < 1, tall: another.height >= 44, pasted: el.value, attrs: ['maxlength', 'enterkeyhint'].map((a) => el.getAttribute(a)) };
+  });
+  assert.deepEqual(fit, { cut: [], below: true, right: true, tall: true, pasted: 'Two Lines', attrs: ['60', 'done'] }, `at ${width} wide, the title field shows the whole title, with Another under it on the right`);
+  await p.focus('#artTitle');
+  await p.keyboard.press('Enter');
+  await p.waitForFunction(() => document.getElementById('signSheet').hidden, null, { timeout: 5000 }).catch(() => assert.fail('Enter in the title field didn’t sign'));
+  await tctx.close();
+}
+
 // Sign it: the label shows and the painting goes up in the gallery. Anything still being painted when you sign is
 // finished before the painting is framed, even something slow (here a splat that stays wet for eight seconds, longer
 // than the wait used to last), and until then New canvas, Sign it, Let it happen and the gallery wall wait, from the

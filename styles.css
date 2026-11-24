@@ -121,7 +121,8 @@ button:active {
 
 button:focus-visible,
 canvas:focus-visible,
-input:focus-visible {
+input:focus-visible,
+textarea:focus-visible {
   outline: 2px solid var(--cad);
   outline-offset: 2px;
 }
@@ -867,7 +868,8 @@ kbd {
   color: var(--muted);
 }
 
-.field input {
+.field input,
+.field textarea {
   width: 100%;
   font: 500 16px/1.2 var(--body);
   letter-spacing: 0;
@@ -879,6 +881,13 @@ kbd {
   padding: 11px 12px;
 }
 
+/* The title is one line, and wraps onto a second rather than hiding its end when it's longer than the field. */
+#artTitle {
+  display: block;
+  resize: none;
+  overflow: hidden;
+}
+
 #artistName {
   font: 400 30px/1 'Mrs Saint Delafield', cursive;
   color: #e36a55;
@@ -888,6 +897,19 @@ kbd {
 .with-button {
   display: flex;
   gap: 8px;
+}
+
+/* On a phone the title gets the field's whole width, with Another on its own line under it, on the right: beside the
+   button, the field showed only part of most suggested titles. */
+@media (max-width: 559px) {
+  .with-button {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .with-button textarea {
+    flex-basis: 100%;
+  }
 }
 
 .sheet-actions {

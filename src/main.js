@@ -688,7 +688,27 @@ function openSign() {
   artistName.value = typeof saved === 'string' ? saved : '';
   artTitle.value = makeTitle(studio.counts, studio.scheme.id, wallTitles());
   openOverlay($('signSheet'), artistName.value ? artTitle : artistName);
+  fitTitle();
 }
+
+// The title field is a textarea one line tall, so a long title wraps onto a second line on a narrow phone instead of
+// hiding its end. It's still one line of text: Enter (the keyboard's Done) signs, and a line break pasted in is a space.
+function fitTitle() {
+  artTitle.style.height = 'auto';
+  artTitle.style.height = `${artTitle.scrollHeight + artTitle.offsetHeight - artTitle.clientHeight}px`;
+}
+artTitle.addEventListener('input', () => {
+  if (/[\r\n]/.test(artTitle.value)) artTitle.value = artTitle.value.replace(/\s*[\r\n]+\s*/g, ' ');
+  fitTitle();
+});
+artTitle.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.isComposing) return;
+  e.preventDefault();
+  $('signForm').requestSubmit();
+});
+window.addEventListener('resize', () => {
+  if (!$('signSheet').hidden) fitTitle();
+});
 
 // Enter in the name field goes on to the title, the way the keyboard's Next key says; Enter in the title signs.
 artistName.addEventListener('keydown', (e) => {
@@ -716,6 +736,7 @@ new MutationObserver(fitSheet).observe(signSheet, { attributes: true, attributeF
 const wallTitles = () => readGallery().map((r) => r.title);
 $('rerollBtn').addEventListener('click', () => {
   artTitle.value = makeTitle(studio.counts, studio.scheme.id, [...wallTitles(), artTitle.value]);
+  fitTitle();
 });
 $('cancelSign').addEventListener('click', () => closeOverlay($('signSheet')));
 

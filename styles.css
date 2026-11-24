@@ -686,8 +686,17 @@ kbd {
   }
 }
 
+/* While the on-screen keyboard is up on a phone that doesn't shrink the page for it (iOS Safari), the sign form's
+   overlay is fitted to the part of the screen that's still showing (see fitSheet() in main.js). */
+.overlay.kb {
+  bottom: auto;
+}
+
 .sheet {
   width: min(420px, 100%);
+  /* Centered when there's room, from the top when there isn't (a keyboard up on a phone held sideways), so the heading
+     can't be cut off above. */
+  margin: auto;
   display: flex;
   flex-direction: column;
   gap: 16px;

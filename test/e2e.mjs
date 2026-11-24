@@ -606,6 +606,39 @@ assert.equal(await S(() => document.activeElement.id), 'artistName', 'with no na
 assert.deepEqual(await S(() => window.typed), [], 'pressing S typed into the sign form');
 await page.keyboard.press('Escape');
 
+// The on-screen keyboard doesn't cover Sign it. Chrome shrinks the page for it (the viewport tag asks it to); iOS Safari
+// leaves the page full height and only the visible part (window.visualViewport) shrinks, which is pretended here: a
+// 336 px keyboard and its 44 px bar over a 390 × 844 phone. Enter in the name field goes on to the title.
+{
+  const kctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
+  await kctx.addInitScript(() => {
+    const vv = new EventTarget();
+    Object.assign(vv, { width: 390, height: 844, offsetTop: 0, offsetLeft: 0, scale: 1 });
+    Object.defineProperty(window, 'visualViewport', { value: vv, configurable: true });
+  });
+  const p = await kctx.newPage();
+  await p.goto(base);
+  await p.waitForFunction(() => window.happyAccidents?.skipIntro);
+  await p.evaluate(() => window.happyAccidents.skipIntro());
+  assert.match(await p.getAttribute('meta[name=viewport]', 'content'), /interactive-widget=resizes-content/, 'the viewport tag asks for the page to shrink for the keyboard');
+  assert.deepEqual(await p.evaluate(() => ['autocapitalize', 'autocorrect', 'spellcheck', 'enterkeyhint'].map((a) => document.getElementById('artistName').getAttribute(a))), ['words', 'off', 'false', 'next'], 'the name field asks the keyboard for capitals and no corrections');
+  await p.tap('#signBtn');
+  await p.focus('#artistName');
+  const keyboard = (height) => p.evaluate((height) => { window.visualViewport.height = height; window.visualViewport.dispatchEvent(new Event('resize')); }, height);
+  await keyboard(844 - 336 - 44);
+  const seen = await p.evaluate(() => {
+    const bottom = (sel) => Math.round(document.querySelector(sel).getBoundingClientRect().bottom);
+    const top = Math.round(document.querySelector('.sheet').getBoundingClientRect().top);
+    return { top: top >= 0, title: bottom('#artTitle') <= 464, signIt: bottom('#signForm button[type=submit]') <= 464 };
+  });
+  assert.deepEqual(seen, { top: true, title: true, signIt: true }, 'with the keyboard up, the sign form is in the part of the screen still showing');
+  await p.keyboard.press('Enter');
+  assert.deepEqual(await p.evaluate(() => [document.activeElement.id, document.getElementById('signSheet').hidden]), ['artTitle', false], 'Enter in the name field goes on to the title');
+  await keyboard(844);
+  assert.equal(await p.evaluate(() => document.getElementById('signSheet').style.height), '', 'with the keyboard down, the overlay is full height again');
+  await kctx.close();
+}
+
 // Sign it: the label shows and the painting goes up in the gallery. Anything still being painted when you sign is
 // finished before the painting is framed, even something slow (here a splat that stays wet for eight seconds, longer
 // than the wait used to last), and until then New canvas, Sign it, Let it happen and the gallery wall wait, from the

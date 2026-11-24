@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Happy Accidents</title>
 <meta name="description" content="Flick, tap or pour paint at a canvas. A gentle painter turns every splat into part of a landscape: its color decides what it becomes, its shape carries through, and paint that lands on something already there changes it.">
 <meta property="og:title" content="Happy Accidents">
@@ -73,12 +73,12 @@
     <h2 class="sheet-title" id="signTitle">Sign your painting</h2>
     <label class="field" for="artistName">
       <span>Your name</span>
-      <input id="artistName" name="artist" maxlength="28" placeholder="Anonymous">
+      <input id="artistName" name="artist" maxlength="28" placeholder="Anonymous" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="next">
     </label>
     <div class="field">
       <label for="artTitle">Title</label>
       <span class="with-button">
-        <input id="artTitle" name="title" maxlength="60">
+        <input id="artTitle" name="title" maxlength="60" autocapitalize="words" enterkeyhint="done">
         <button type="button" class="quiet small" id="rerollBtn">Another</button>
       </span>
     </div>

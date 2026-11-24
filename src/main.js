@@ -483,6 +483,28 @@ function openSign() {
   openOverlay($('signSheet'), artistName.value ? artTitle : artistName);
 }
 
+// Enter in the name field goes on to the title, the way the keyboard's Next key says; Enter in the title signs.
+artistName.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.isComposing) return;
+  e.preventDefault();
+  artTitle.focus();
+});
+
+// The on-screen keyboard. Chrome and Firefox shrink the page for it (interactive-widget=resizes-content in the viewport
+// tag), so the overlay's own scrolling keeps Sign it in reach. iOS Safari leaves the page full height under the keyboard,
+// so there the sign form's overlay is fitted to what's still showing.
+const signSheet = $('signSheet');
+function fitSheet() {
+  const vv = window.visualViewport;
+  const covered = vv && !signSheet.hidden && vv.scale < 1.01 && vv.height < window.innerHeight - 1;
+  signSheet.classList.toggle('kb', !!covered);
+  signSheet.style.top = covered ? `${vv.offsetTop}px` : '';
+  signSheet.style.height = covered ? `${vv.height}px` : '';
+}
+window.visualViewport?.addEventListener('resize', fitSheet);
+window.visualViewport?.addEventListener('scroll', fitSheet);
+new MutationObserver(fitSheet).observe(signSheet, { attributes: true, attributeFilter: ['hidden'] });
+
 $('rerollBtn').addEventListener('click', () => {
   artTitle.value = makeTitle(studio.counts, studio.scheme.id);
 });

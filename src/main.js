@@ -384,7 +384,8 @@ function setSound(on) {
   sound.setSound(on);
   store.set(KEY.sound, on);
   soundBtn.setAttribute('aria-pressed', String(on));
-  soundBtn.textContent = on ? 'Sound on' : 'Sound off';
+  // Reads as how things are now (a button saying just "Sound off" could be what it does), with aria-pressed to match.
+  soundBtn.textContent = on ? 'Sound: on' : 'Sound: off';
 }
 
 $('oopsBtn').addEventListener('click', oops);

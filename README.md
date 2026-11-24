@@ -25,6 +25,7 @@
 - **Wet paint mixes like paint.** Two splats that touch while they're still wet run together into one bigger splat, and the mixed color decides what it becomes: yellow into blue makes green, red into yellow makes orange, white into red makes pink, red into green makes brown. Picking another paint keeps the last splat wet for a moment, so you can hit it again.
 - **The palette** loads the brush. **Surprise me** picks a new paint every time.
 - **Oops** (<kbd>Space</kbd>) makes an accident you didn't. **Let it happen** (<kbd>A</kbd>) keeps accidents coming on their own until the painting feels done. They use the paint you've loaded and aim it somewhere it makes sense; on Surprise me, they pick a paint that suits where they're aiming.
+- **New canvas** (<kbd>N</kbd>) starts over, and asks first if there's paint that isn't up on your wall yet. **Sound** (<kbd>M</kbd>) is off until you turn it on: the damp pat of a splat and the swish of a brush.
 - **Every canvas gets a mood:** Golden Hour, Winter Hush, Northern Night, Autumn Blaze, Misty Morning or Violet Dusk. The lake reflects everything above the horizon.
 - **Sign it** (<kbd>S</kbd>) to put your name on it in red. You get a museum label with a made-up title, and the painting goes up on your gallery wall (<kbd>G</kbd>).
 - No account and no server. The gallery wall keeps your 12 newest signed paintings, in your browser. It works offline and installs to a phone's home screen.
@@ -60,7 +61,7 @@ Paint that lands on something already there changes it instead:
 It's a static site: plain HTML, CSS and JavaScript modules, with no build step.
 
 ```sh
-npx serve .                   # or any static file server, then open the printed address
+npm start                     # serves it at http://localhost:8080 (or use any static file server)
 npm install                   # only for the tools below
 npm test                      # unit tests, then paints in Chromium through the real page (needs Playwright)
 node tools/screenshots.mjs    # redraws docs/*.png and og.png

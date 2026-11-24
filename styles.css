@@ -424,6 +424,17 @@ kbd {
   }
 }
 
+/* The narrowest phones: the header's buttons pack closer, clear of the name. */
+@media (max-width: 359px) {
+  .top-actions {
+    gap: 0;
+  }
+
+  .top-actions button {
+    padding-inline: 6px;
+  }
+}
+
 .palette-block {
   display: flex;
   flex-direction: column;

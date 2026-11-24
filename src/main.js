@@ -211,8 +211,8 @@ function toCanvas(e) {
 
 canvas.addEventListener('pointerdown', (e) => {
   // One finger paints at a time: another finger that comes down meanwhile is ignored, so it can't take over the first
-  // one's paint or move its puddle.
-  if (gesture) return;
+  // one's paint or move its puddle. While the signature goes on, the canvas takes no new paint (see signing below).
+  if (gesture || signing) return;
   if (e.pointerType === 'mouse' && e.button !== 0) return;
   e.preventDefault();
   canvas.setPointerCapture?.(e.pointerId);
@@ -249,7 +249,8 @@ function finishGesture(e, cancelled = false) {
   gesture = null;
   clearTimeout(g.poolTimer);
   studio.takeDrops();
-  if (cancelled) {
+  // A finger already down when Sign it was pressed lets go without painting: what's signed is what's on the easel.
+  if (cancelled || signing) {
     studio.endPool();
     return;
   }
@@ -293,13 +294,16 @@ const edgeGuard = guardEdges({ surfaces: [canvas], history: !inFrame });
 // ——— actions ———
 
 function oops() {
+  if (signing) return;
   userActed();
   cancelDone();
   studio.randomAccident({ pigment: accidentPigment() });
 }
 
 // True from Sign it in the sign form until the label is up: the signature is going on and the painting is about to
-// be framed, so starting over, signing again, letting more accidents happen or opening the wall waits until then.
+// be framed, so starting over, signing again, letting more accidents happen or opening the wall waits until then, and
+// the canvas takes no new paint (a tap, Oops, Space or Enter), so the wait for the paint to dry ends and the picture
+// framed is the one that was signed.
 // (From the wall, Paint another on an older painting would start over under the signature, and it would never finish.)
 let signing = false;
 

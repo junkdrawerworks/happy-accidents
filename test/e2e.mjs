@@ -696,10 +696,23 @@ await S(async () => {
     return snapshot(...args);
   };
 });
+const accidentsSigned = await S(() => window.happyAccidents.accidents);
 await page.click('#signBtn');
 await page.fill('#artistName', 'Robin');
 await page.fill('#artTitle', 'Test Pattern at Otter Cove');
 await page.click('#signForm button[type=submit]');
+// While the signature goes on, the canvas takes no new paint: not a tap, not Oops, not Space, not Enter on the canvas.
+// (New paint kept the wait for the paint to dry going, and the picture was framed with it half-painted.)
+b = await box();
+await page.mouse.click(b.x + b.width * 0.3, b.y + b.height * 0.25);
+await page.touchscreen.tap(b.x + b.width * 0.6, b.y + b.height * 0.7);
+await page.click('#oopsBtn');
+await page.keyboard.press(' ');
+await page.focus('#canvas');
+await page.keyboard.press('Enter');
+assert.equal(await page.isHidden('#placard'), true, 'the label came up before the paint during the signature was tried');
+await page.waitForTimeout(400);
+assert.equal(await S(() => window.happyAccidents.accidents), accidentsSigned, 'paint went on the canvas while the signature went on');
 const canvasNo = await page.textContent('#canvasNo');
 await page.click('#newBtn');
 assert.equal(await page.textContent('#canvasNo'), canvasNo, 'New canvas waits while the painting is being signed');
@@ -718,7 +731,9 @@ await page.waitForSelector('#placard:not([hidden])', { timeout: 30000 });
 assert.deepEqual(await S(() => window.framedBusy), [false, false], 'the painting was framed while paint on it was still going on');
 assert.equal(await page.textContent('#plTitle'), 'Test Pattern at Otter Cove');
 assert.equal(await page.textContent('#plArtist'), 'Robin');
-assert.match(await page.textContent('#plNote'), /happy accidents/);
+assert.match(await page.textContent('#plNote'), new RegExp(`from ${accidentsSigned} happy accidents`));
+assert.equal(await S(() => window.happyAccidents.accidents), accidentsSigned, 'paint went on the canvas while the signature went on');
+assert.equal(await S(() => window.happyAccidents.signed.accidents), accidentsSigned, 'the label and the easel disagree on how many accidents were signed');
 assert.equal(await S(() => document.getElementById('app').inert), true, 'the page behind the label is out of reach');
 await page.click('#keepBtn');
 assert.equal(await page.textContent('#galleryCount'), '1');

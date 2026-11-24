@@ -387,7 +387,8 @@ function tallTree(S, b) {
   const { W, H, hy } = S;
   const nearY = hy + (H - hy) * 0.35;
   const look = { kind: 'evergreen', p: { tintAmt: 0.15 } };
-  const grow = (x, baseY) => P.evergreen(S, { ...b, x, baseY, h: clamp(baseY - b.y + b.R, 80, H * 1.05), tintAmt: look.p.tintAmt, haze: 0 });
+  // As tall as the paint was high, but with its tip on the canvas, not up under the easel's clamp.
+  const grow = (x, baseY) => P.evergreen(S, { ...b, x, baseY, h: clamp(baseY - b.y + b.R, 80, baseY - 16), tintAmt: look.p.tintAmt, haze: 0 });
   for (const dx of [0, -25, 25, -55, 55, -90, 90]) {
     const x = b.x + dx;
     if (x < 10 || x > W - 10) continue;

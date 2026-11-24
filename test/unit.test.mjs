@@ -1034,3 +1034,17 @@ test('a new bank laid over older land draws its water line only where it meets w
     assert.ok(marks > 100, `only ${marks} water-line marks were drawn`);
     assert.equal(onGround, 0, `${onGround} of ${marks} water-line marks landed on solid ground`);
   }, 111));
+
+test('a tall pine grown from green at the very top stays on the canvas', () =>
+  sameDice(() => {
+    // It grew to the height of the canvas and more, so its tip ran off the top, under the easel's clamp.
+    for (let i = 0; i < 40; i++) {
+      const bare = i % 2 === 0;
+      const S = bareStudio('golden-hour', bare ? { land: () => false } : {});
+      const plan = decide(S, makeSplat({ x: rand(100, 1100), y: rand(2, 30), R: rand(16, 40), pigment: paintOf('sap-green') }));
+      const prev = bare ? plan[0].make() : undefined;
+      const pine = plan.at(-1).make(prev);
+      assert.equal(pine.kind, 'evergreen');
+      assert.ok(pine.bbox.y >= 4, `a tall pine${bare ? ' on new land' : ''} reaches ${Math.round(pine.bbox.y)}px from the top`);
+    }
+  }, 121));

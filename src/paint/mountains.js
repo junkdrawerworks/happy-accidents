@@ -23,6 +23,17 @@ function ridgeLine(a, b, amp, levels) {
   return pts;
 }
 
+// How high a mountain's ridge is at x (its base, off either end). m is the mountain's meta.
+export function ridgeAt(m, x) {
+  const r = m.ridge;
+  for (let i = 1; i < r.length; i++) {
+    const [x0, y0] = r[i - 1];
+    const [x1, y1] = r[i];
+    if (x >= Math.min(x0, x1) && x <= Math.max(x0, x1)) return x1 === x0 ? Math.min(y0, y1) : y0 + ((y1 - y0) * (x - x0)) / (x1 - x0);
+  }
+  return m.base;
+}
+
 export function mountain(S, p) {
   const { W, hy, scheme } = S;
   const idx = clamp(p.index ?? 0, 0, 2);
@@ -226,8 +237,11 @@ export function treeline(S, p) {
   for (let x = x0; x < x1; x += rand(2.5, 6) * Math.max(0.6, scale)) {
     const t = (x - x0) / w;
     const env = sky ? 0.2 + 0.8 * at(sky, t) : Math.pow(Math.sin(Math.PI * t), 0.6);
-    const dy = p.slope !== undefined ? (x - p.x) * p.slope + rand(-1, 1) * maxH * 0.5 : 0;
-    trees.push({ x, h: maxH * env * rand(sky ? 0.6 : 0.35, 1) + 2, dy });
+    const h = maxH * env * rand(sky ? 0.6 : 0.35, 1) + 2;
+    let dy = p.slope !== undefined ? (x - p.x) * p.slope + rand(-1, 1) * maxH * 0.5 : 0;
+    // On a mountainside, no tree's top rises above the ridge (p.under is the mountain).
+    if (p.under) dy = Math.max(dy, ridgeAt(p.under, x) + h * 0.9 - baseY);
+    trees.push({ x, h, dy });
   }
   const lo = Math.min(...trees.map((t) => t.dy));
   const hi = Math.max(...trees.map((t) => t.dy));

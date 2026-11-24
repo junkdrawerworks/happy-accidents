@@ -99,8 +99,9 @@ function react(S, t, b, c) {
       if (fam === 'green' || chance(0.5)) {
         return [
           step('foothills', () =>
-            P.treeline(S, {
+            onMountain(t, P.treeline(S, {
               ...b,
+              under: t.meta,
               baseY: b.y + 10,
               haze: 0.5,
               scale: 0.6,
@@ -109,7 +110,7 @@ function react(S, t, b, c) {
               noGround: true,
               kind: 'foothills',
               tintAmt: fam === 'green' ? 0.3 : 0.06,
-            }),
+            })),
           ),
         ];
       }
@@ -344,6 +345,18 @@ function mountainStep(S, b, look, say) {
   return step('mountain', () => P.mountain(S, { ...b, index, ...look }), { say });
 }
 
+// Trees up a mountain's slope stay under its ridge (treeline's under), and are painted only where the mountain is, so
+// a strip that climbs past the ridge (on a low mountain, or near the summit) doesn't stand in the empty sky.
+function onMountain(m, spec) {
+  const path = m.meta.path;
+  return { ...spec, ops: spec.ops.map((op) => (ctx) => {
+    ctx.save();
+    ctx.clip(path);
+    op(ctx);
+    ctx.restore();
+  }) };
+}
+
 // A green mountain, with trees climbing one flank.
 function greenMountain(S, b) {
   const main = mountainStep(S, b, { tintAmt: 0.55 }, 'greenMountain');
@@ -359,7 +372,7 @@ function greenMountain(S, b) {
         // Up the other flank if this one runs off the canvas, so the trees can be seen.
         const s = m.peak[0] + side * reach < 0 || m.peak[0] + side * reach > S.W ? -side : side;
         const x = m.peak[0] + s * reach;
-        return P.treeline(S, { ...b, x, y, baseY: y + 10, haze: 0.5, scale: 0.6, slope: s * 0.4, depth: prev.depth + 0.5, noGround: true, kind: 'foothills', tintAmt: 0.3 });
+        return onMountain(prev, P.treeline(S, { ...b, x, y, baseY: y + 10, under: m, haze: 0.5, scale: 0.6, slope: s * 0.4, depth: prev.depth + 0.5, noGround: true, kind: 'foothills', tintAmt: 0.3 }));
       },
       { quiet: true },
     ),

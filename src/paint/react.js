@@ -6,6 +6,7 @@ import { rand, chance, clamp, gauss } from '../util.js';
 import { rgba, mix, jitter, darken, lighten, hex, dim } from '../color.js';
 import { bristle, linePts, knife, soft, mistAtop, pathOf } from '../brush.js';
 import { fanTap, leafPass } from './trees.js';
+import { ridgeAt } from './mountains.js';
 
 const WHITE = [250, 251, 255];
 const AUTUMN = ['#6b200e', '#b4471d', '#e28b22', '#f5c54f'].map(hex);
@@ -179,17 +180,6 @@ export function alpenglow(S, t, p) {
     );
   }
   return { kind: 'alpenglow', onto: t, ops, dur: 1500 };
-}
-
-// How high the mountain's ridge is at x (its base, off either end).
-function ridgeAt(m, x) {
-  const r = m.ridge;
-  for (let i = 1; i < r.length; i++) {
-    const [x0, y0] = r[i - 1];
-    const [x1, y1] = r[i];
-    if (x >= Math.min(x0, x1) && x <= Math.max(x0, x1)) return x1 === x0 ? Math.min(y0, y1) : y0 + ((y1 - y0) * (x - x0)) / (x1 - x0);
-  }
-  return m.base;
 }
 
 // Blue paint on a mountain: water finds its way down from where it hit. Too near the foot for a fall, it starts higher

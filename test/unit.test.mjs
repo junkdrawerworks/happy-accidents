@@ -747,3 +747,27 @@ test('snow on a pine sits on its branches and leaves it dark underneath', () =>
     }
     assert.ok(snow / needles < 0.35, `the snow is ${Math.round((100 * snow) / needles)}% of the needles`);
   }, 71));
+
+test('trees up a mountain’s slope are painted only on the mountain', () =>
+  sameDice(() => {
+    // Every stroke of them is clipped to the mountain's outline, as a waterfall is, so on a low mountain or near a summit
+    // they don't climb into the empty sky. Green on a mountain, and a green mountain's own trees.
+    const clippedToIt = (spec, path) =>
+      spec.ops.every((op) => {
+        const calls = [];
+        const gradient = { addColorStop() {} };
+        op(new Proxy({}, { get: (t, k) => (k in t ? t[k] : (...a) => (calls.push([k, a[0]]), gradient)), set: (t, k, v) => ((t[k] = v), true) }));
+        return calls[0]?.[0] === 'save' && calls[1]?.[0] === 'clip' && calls[1][1] === path;
+      });
+    for (let i = 0; i < 10; i++) {
+      const el = { ...TARGETS.mountain(bareStudio()) };
+      const S = bareStudio('golden-hour', { land: leftBank, target: el });
+      const plan = decide(S, makeSplat({ ...hitOn('mountain', el), R: 20, pigment: paintOf('sap-green') }));
+      assert.equal(plan[0].kind, 'foothills');
+      assert.ok(clippedToIt(plan[0].make(), el.meta.path), 'trees up the slope reach past the mountain');
+      const green = decide(bareStudio(), makeSplat({ x: 600, y: 400, R: 40, pigment: paintOf('sap-green'), hint: 'mountain' }));
+      const mountain = green[0].make();
+      green[0].spec = mountain;
+      assert.ok(clippedToIt(green[1].make(mountain), mountain.meta.path), 'a green mountain’s trees reach past it');
+    }
+  }, 81));

@@ -34,6 +34,7 @@ const KEY = {
   gallery: 'happy-accidents:gallery',
   canvases: 'happy-accidents:canvases',
   moods: 'happy-accidents:moods',
+  welcomed: 'happy-accidents:welcomed',
 };
 
 const canvas = $('canvas');
@@ -349,18 +350,20 @@ function helpTick() {
 // A mountain, a near bank (in the lower half of the lake, so it's big enough for the tree to find) and a tree on it.
 // The first-time hint stays out of the way until the demo has been painted in, then comes up with the painter's "Your
 // turn", so nothing the demo says (a tree's friend showing up) talks over it.
-function runDemo() {
+// later is how much later than usual it starts (on a first visit, so the opening line can be read before the mountain
+// talks over it).
+function runDemo(later = 0) {
   const steps = [
     ['mountain', 2100],
     ['bank', 4000, () => ({ y: studio.hy + (studio.H - studio.hy) * rand(0.5, 0.8) })],
     ['tree', 5800],
   ];
-  for (const [hint, at, spot] of steps) demoTimers.push(setTimeout(() => studio.randomAccident({ hint, delay: 400, spot: spot?.() }), at));
+  for (const [hint, at, spot] of steps) demoTimers.push(setTimeout(() => studio.randomAccident({ hint, delay: 400, spot: spot?.() }), at + later));
   demoTimers.push(
     setTimeout(() => {
       inviteFor = 'demo';
       startHelp();
-    }, 6400),
+    }, 6400 + later),
   );
 }
 
@@ -1235,7 +1238,15 @@ studio.number = Number.isInteger(lastCanvas) && lastCanvas > 0 ? lastCanvas : 0;
 const moodsUsed = store.get(KEY.moods, []);
 studio.moodsUsed = Array.isArray(moodsUsed) ? moodsUsed.filter((id) => SCHEMES.some((s) => s.id === id)) : [];
 studio.newCanvas();
-runDemo();
+// The first visit in this browser opens with what the toy is (you can't really aim, and there's no undo) in place of
+// the sky wash's line, and the intro waits two seconds more so it can be read. Never again in this browser (in one that
+// keeps nothing, such as a private window, every visit is a first).
+const firstVisit = !store.get(KEY.welcomed, false);
+if (firstVisit) {
+  store.set(KEY.welcomed, true);
+  narrate({ line: line('welcome'), info: nextLine?.info ?? '' });
+}
+runDemo(firstVisit ? 2000 : 0);
 
 // Exposed for tinkering from the console, and for test/e2e.mjs and tools/screenshots.mjs.
 window.happyAccidents = studio;

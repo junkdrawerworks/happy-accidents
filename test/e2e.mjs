@@ -1986,13 +1986,18 @@ await ctx.setOffline(false);
   const watchLines = () => p.evaluate(() => {
     window.lines = [];
     const el = document.getElementById('line');
-    new MutationObserver(() => window.lines.push({ text: el.textContent, busy: window.happyAccidents.busy })).observe(el, { childList: true });
+    new MutationObserver(() => window.lines.push({ text: el.textContent, busy: window.happyAccidents.busy, t: performance.now() })).observe(el, { childList: true });
   });
   const hintShows = () => p.evaluate(() => !document.getElementById('hint').classList.contains('gone'));
 
+  // The very first visit opens with what the toy is, said once: you can't really aim, and there's no undo. It stays up
+  // long enough to read (the intro's mountain waits for it), and isn't said again in this browser.
   await p.goto(base);
   await p.waitForFunction(() => window.happyAccidents);
   await watchLines();
+  const [welcome] = await lines('welcome');
+  await p.waitForFunction((t) => document.getElementById('line').textContent === t, welcome, { timeout: 3000 }).catch(() => assert.fail('the first visit didn’t open with the line about not aiming and no undo'));
+  assert.equal(await p.evaluate(() => localStorage.getItem('happy-accidents:welcomed')), 'true', 'the first visit’s opening line wasn’t remembered');
   const [invite] = await lines('invite');
   await p.waitForFunction((t) => window.lines.some((l) => l.text === t), invite, { timeout: 25000 }).catch(() => assert.fail('left alone, the intro never said “Your turn”'));
   const said = await p.evaluate(() => window.lines);
@@ -2001,6 +2006,13 @@ await ctx.setOffline(false);
   assert.equal(await hintShows(), true, 'the hint didn’t come up with “Your turn”');
   await p.waitForTimeout(2500);
   assert.equal((await p.evaluate(() => window.lines)).at(-1).text, invite, 'something talked over “Your turn” after the intro');
+  {
+    // (From the page's start, if it was already up before the lines were being watched.)
+    const seen = await p.evaluate(() => window.lines);
+    const at = seen.findIndex((l) => l.text === welcome);
+    const shown = seen[at + 1].t - (at < 0 ? 0 : seen[at].t);
+    assert.ok(shown >= 3500, `the opening line was up only ${Math.round(shown)} ms before the intro talked over it`);
+  }
 
   await p.reload();
   await p.waitForFunction(() => window.happyAccidents);
@@ -2027,6 +2039,7 @@ await ctx.setOffline(false);
   await p.waitForTimeout(8000);
   assert.equal((await p.evaluate(() => window.lines)).filter((l) => nudges.includes(l.text)).length, 1, 'the line about flinging and pouring came more than once');
   assert.equal((await p.evaluate(() => window.lines)).filter((l) => l.text === invite).length, 1, '“Your turn” came more than once');
+  assert.equal(await p.evaluate((t) => [document.getElementById('line').textContent, ...window.lines.map((l) => l.text)].includes(t), welcome), false, 'the opening line about not aiming came again on the next visit');
   assert.deepEqual(errors, []);
   await ictx.close();
 }

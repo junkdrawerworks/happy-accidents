@@ -515,6 +515,8 @@ export const LINES = {
   ],
   // After a signing the browser wouldn't keep (the label has said so).
   unkept: ['It’s signed, but this browser wouldn’t keep it, so it isn’t on the wall.'],
+  // The very first line in a browser that hasn't been here before, and never again in it: what the toy is.
+  welcome: ['You can’t really aim in here, and there’s no undo. That’s the fun part. Tap, flick, or hold.'],
   invite: ['Your turn. Tap, flick, or press and hold. Try hitting what’s already there, too.'],
   // Once a visit, when the first four goes on the canvas were all taps.
   nudge: [

@@ -628,7 +628,7 @@ export function keptNote({ kept, dropped }, canSave = true) {
   return '';
 }
 
-export function featureLine(counts) {
+function features(counts, { stars = false } = {}) {
   const parts = [];
   for (const [key, one, many] of FEATURE_NAMES) {
     const n = counts[key] || 0;
@@ -637,7 +637,21 @@ export function featureLine(counts) {
   }
   if (counts.sun) parts.push('the sun');
   if (counts.moon) parts.push('the moon');
+  if (stars && counts.stars) parts.push('stars');
   if (counts.aurora) parts.push('an aurora');
+  return parts;
+}
+
+// What's on the canvas, for a screen reader: everything, stars too, with no "and more".
+export function canvasContents(counts) {
+  const parts = features(counts, { stars: true });
+  if (!parts.length) return 'Nothing on it yet but sky and water.';
+  const last = parts.pop();
+  return `It has ${parts.length ? `${parts.join(', ')} and ` : ''}${last}.`;
+}
+
+export function featureLine(counts) {
+  const parts = features(counts);
   if (!parts.length) return 'Mostly sky and water, which is plenty.';
   if (parts.length === 1) return `Features ${parts[0]}.`;
   if (parts.length > 6) return `Features ${parts.slice(0, 5).join(', ')} and more.`;

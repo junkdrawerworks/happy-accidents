@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { featureLine, madeFrom, durationText, makeTitle, toolInfo, keptNote, mixLine, line, linesFor, LINES } from '../src/words.js';
+import { featureLine, canvasContents, madeFrom, durationText, makeTitle, toolInfo, keptNote, mixLine, line, linesFor, LINES } from '../src/words.js';
 import { topEdge, heights, at, span, sideProfile } from '../src/shape.js';
 import { ramp, mix, hex, mixPaint, familyOf, colorName } from '../src/color.js';
 import { weighted, pickFresh, clamp, rand, chance, pick, TAU, slug } from '../src/util.js';
@@ -51,6 +51,13 @@ test('the placard lists what is in the painting in plain English', () => {
   assert.match(long, /[a-z] and more\.$/, 'no comma before “and more”, the same as before the last of a short list');
   assert.doesNotMatch(long, /and more and/);
   assert.equal(featureLine({ evergreen: 14, birds: 1 }), 'Features fourteen happy little trees and a flock of birds.');
+  // For a screen reader, the whole of it: no "and more", and the stars too.
+  assert.equal(canvasContents({}), 'Nothing on it yet but sky and water.');
+  assert.equal(canvasContents({ stars: 1 }), 'It has stars.');
+  assert.equal(
+    canvasContents({ mountain: 2, evergreen: 3, deciduous: 2, bush: 1, cabin: 1, cloud: 2, rock: 1, moon: 1, stars: 2, aurora: 1 }),
+    'It has two mountains, three happy little trees, two leafy trees, a bush, a cabin, two clouds, a rock, the moon, stars and an aurora.',
+  );
   assert.equal(featureLine({ cloud: 20 }), 'Features twenty clouds.');
 });
 

@@ -1,6 +1,6 @@
 import { Studio } from './studio.js';
 import { PIGMENTS, SCHEMES } from './schemes.js';
-import { makeTitle, featureLine, madeFrom, line, keptNote } from './words.js';
+import { makeTitle, featureLine, canvasContents, madeFrom, line, keptNote } from './words.js';
 import { pick, rand, gauss, slug } from './util.js';
 import * as sound from './sound.js';
 import { guardEdges } from './edge-guard.js';
@@ -152,6 +152,7 @@ const studio = new Studio(canvas, {
     store.set(KEY.moods, s.moodsUsed);
     $('canvasNo').textContent = `Canvas No. ${s.number}`;
     $('schemeName').textContent = s.scheme.name;
+    describeCanvas();
   },
   onSplat(sp) {
     sound.splat(sp.R);
@@ -160,6 +161,17 @@ const studio = new Studio(canvas, {
     sound.brush(kind, ms);
   },
 });
+
+// What's on the canvas, for a screen reader (the canvas's description, read when it gets focus): its number, its mood
+// and everything painted on it. Brought up to date whenever nothing is being painted, not read out as it changes.
+function describeCanvas() {
+  const el = $('canvasDesc');
+  const text = `Canvas No. ${studio.number}, ${studio.scheme.name}. ${canvasContents(studio.counts)}`;
+  if (el.textContent !== text) el.textContent = text;
+}
+setInterval(() => {
+  if (!studio.busy) describeCanvas();
+}, 500);
 
 // ——— fitting the canvas to the screen ———
 
@@ -414,6 +426,12 @@ canvas.addEventListener('pointercancel', (e) => finishGesture(e, true));
 // there, so it can't keep the next one from painting.
 canvas.addEventListener('lostpointercapture', (e) => finishGesture(e, true));
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+// A screen reader's "press" (Enter in a browse mode, a double tap with VoiceOver or TalkBack) sends the canvas a click
+// with no pointer behind it (detail 0): that's an accident, like Enter. A real tap's click (detail 1 or more) has painted
+// already, through the pointer.
+canvas.addEventListener('click', (e) => {
+  if (e.detail === 0) oops();
+});
 // A flick near the screen's side can set off Android's back gesture (or Chrome's swipe to go back), which takes the
 // touch (pointercancel) and then goes Back, leaving the studio and the painting on the easel. A Back that comes while a
 // finger is on the canvas, or within a second of the canvas's touch being taken, is a slip, and the painting stays as

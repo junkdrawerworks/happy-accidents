@@ -94,6 +94,21 @@ await page.waitForTimeout(200);
 await settle();
 assert.ok((await total()) > before, 'a tap turned into something');
 assert.equal(await S(() => window.happyAccidents.accidents), 1);
+// The canvas says what's on it to a screen reader, once it has been painted in: its number, its mood and what's there.
+await page.waitForTimeout(700);
+const described = await S(async () => {
+  const { canvasContents } = await import('./src/words.js');
+  const st = window.happyAccidents;
+  const c = document.getElementById('canvas');
+  return [document.getElementById(c.getAttribute('aria-describedby'))?.textContent, `${document.getElementById('canvasNo').textContent}, ${document.getElementById('schemeName').textContent}. ${canvasContents(st.counts)}`];
+});
+assert.equal(described[0], described[1], 'the canvas doesn’t describe what’s on it');
+assert.match(described[0], /It has /);
+// A screen reader's press on the canvas (a click with no pointer behind it) is an accident, like Enter.
+await S(() => document.getElementById('canvas').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+assert.equal(await S(() => window.happyAccidents.accidents), 2, 'a screen reader’s press on the canvas did nothing');
+await page.waitForTimeout(200);
+await settle();
 
 // A flick: press, drag fast, let go.
 before = await total();
@@ -114,7 +129,7 @@ assert.ok(poolR > 20, `holding pools the paint (R ${poolR})`);
 await page.mouse.up();
 await page.waitForTimeout(200);
 await settle();
-assert.equal(await S(() => window.happyAccidents.accidents), 3);
+assert.equal(await S(() => window.happyAccidents.accidents), 4);
 
 // Two wet splats that touch run together into one, and their paints mix like paint: yellow into blue is green,
 // and green in the lake makes land. (After a quiet spell, so the line about the mix shows at once rather than waiting

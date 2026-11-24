@@ -153,13 +153,15 @@ button.small {
   font-size: 13px;
 }
 
-/* Sound and Let it happen while they're on (their words say so too). */
+/* Sound and Let it happen while they're on (their words say so too). Sign it, once Let it happen has finished and the
+   painting has settled, takes the same breathing dot (.ready) as a quiet "this is the next step". */
 button.on {
   border-color: var(--cad);
   color: var(--cad);
 }
 
-button.on::before {
+button.on::before,
+button.ready::before {
   content: '';
   width: 7px;
   height: 7px;

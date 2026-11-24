@@ -699,6 +699,12 @@ await settle();
 await page.waitForTimeout(800);
 const doneLines = await S(async () => (await import('./src/words.js')).LINES.done);
 assert.ok(await lineShows(doneLines), `the painter didn’t end on “that might be done” (${await page.textContent('#line')})`);
+// And Sign it takes the breathing dot the buttons that are on have, until more paint goes on.
+const signDot = () => S(() => { const b = document.getElementById('signBtn'); return [b.classList.contains('ready'), getComputedStyle(b, '::before').content]; });
+assert.deepEqual(await signDot(), [true, '""'], 'Sign it has no dot once Let it happen has finished');
+await page.click('#oopsBtn');
+assert.deepEqual(await signDot(), [false, 'none'], 'Sign it kept its dot after more paint went on');
+await settle();
 
 // Things painted near the edges stay on the canvas: the sun or moon from paint at the very top, the bush beside a
 // cabin built at the edge of a bank, and the trees climbing a green mountain near a side.

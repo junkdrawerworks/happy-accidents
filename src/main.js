@@ -166,6 +166,7 @@ const studio = new Studio(canvas, {
   onNarrate: narrate,
   onCanvas(s) {
     thrown = 0;
+    $('signBtn').classList.remove('ready');
     // The last brush strokes' swish stops with the old canvas, instead of going on over a blank one.
     sound.hush();
     store.set(KEY.moods, s.moodsUsed);
@@ -527,20 +528,25 @@ function tickAuto(delay) {
 }
 
 // When Let it happen has made its last accident, the painter says it might be done once everything has been painted
-// in (or after 15 seconds at most), so the line isn't talked over by the last few splats. New canvas, Let it happen
-// again, Sign it or another splat in the meantime calls it off.
+// in (or after 15 seconds at most), so the line isn't talked over by the last few splats, and Sign it takes the soft
+// breathing dot the buttons that are on have, pointing at what comes next without a word. New canvas, Let it happen
+// again, Sign it or another splat in the meantime calls it off, and takes the dot off again.
 let doneTimer = null;
 function sayDone(gen = studio.gen, until = Date.now() + 15000) {
   doneTimer = setTimeout(() => {
     doneTimer = null;
     if (studio.gen !== gen) return;
     if (studio.busy && Date.now() < until) sayDone(gen, until);
-    else narrate({ line: line('done'), info: '' });
+    else {
+      narrate({ line: line('done'), info: '' });
+      $('signBtn').classList.add('ready');
+    }
   }, 200);
 }
 function cancelDone() {
   clearTimeout(doneTimer);
   doneTimer = null;
+  $('signBtn').classList.remove('ready');
 }
 
 // A button that starts over asks first when there's paint that isn't on the gallery wall (all of it on an unsigned

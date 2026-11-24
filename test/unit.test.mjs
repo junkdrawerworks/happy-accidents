@@ -981,3 +981,56 @@ test('a canoe or a sailboat near the horizon is big enough to see', () =>
       assert.ok(P.sailboat(S, { x: 600, y, R: 15, tint: paintOf('titanium-white').rgb }).meta.size >= 20, 'a sailboat was too small to see');
     }
   }, 101));
+
+test('a new bank laid over older land draws its water line only where it meets water', () =>
+  sameDice(() => {
+    // Its shore scrapes (and a far shore's dark reflection) were tapped all along the shore, so where the new bank's shore
+    // ran across older ground they made rows of light marks in the grass.
+    const inside = (pts, x, y) => {
+      let hit = false;
+      for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const [xi, yi] = pts[i];
+        const [xj, yj] = pts[j];
+        if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
+      }
+      return hit;
+    };
+    const scheme = SCHEMES.find((s) => s.id === 'golden-hour');
+    const waterLine = `rgba(${scheme.waterLine.map(Math.round).join(',')},0.7)`;
+    let marks = 0;
+    let onGround = 0;
+    for (let i = 0; i < 40; i++) {
+      const left = i % 2 === 0;
+      const at = (u) => (left ? u : 1200 - u);
+      const far = i % 4 >= 2;
+      const old = decide(bareStudio('golden-hour', { land: () => false }), makeSplat({ x: at(rand(260, 330)), y: 480 + (far ? rand(120, 150) : rand(220, 300)), R: rand(36, 50), pigment: paintOf('sap-green'), hint: 'bank' }))[0].make();
+      const ground = (x, y) => inside(old.meta.outline, x, y);
+      const S = bareStudio('golden-hour', { land: ground });
+      const fresh = decide(S, makeSplat({ x: at(rand(150, 230)), y: 480 + (far ? rand(60, 110) : rand(160, 210)), R: rand(36, 50), pigment: paintOf('sap-green'), hint: 'bank' }))[0].make();
+      const solid = (x, y) => [[0, 0], [-12, 0], [12, 0], [0, -12], [0, 12]].every(([dx, dy]) => ground(x + dx, y + dy));
+      let style = '';
+      const ctx = new Proxy({}, {
+        get: (t, k) => {
+          if (k === 'moveTo') return (x, y) => {
+            if (style.replace(/\s/g, '') !== waterLine) return;
+            marks++;
+            if (solid(x, y)) onGround++;
+          };
+          // a far shore's dark reflection, under the shore point it's drawn for
+          if (k === 'fillRect') return (x, y) => {
+            marks++;
+            if (solid(x + 6, y + 1)) onGround++;
+          };
+          return k in t ? t[k] : () => ({ addColorStop() {} });
+        },
+        set: (t, k, v) => {
+          if (k === 'strokeStyle') style = String(v);
+          t[k] = v;
+          return true;
+        },
+      });
+      fresh.ops.at(-1)(ctx);
+    }
+    assert.ok(marks > 100, `only ${marks} water-line marks were drawn`);
+    assert.equal(onGround, 0, `${onGround} of ${marks} water-line marks landed on solid ground`);
+  }, 111));

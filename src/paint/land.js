@@ -177,13 +177,16 @@ export function bank(S, p) {
       ctx.restore();
     });
   }
-  // Water line: a thin light scrape where the land meets the water, and a dark reflection under it.
+  // Water line: a thin light scrape where the land meets the water, and a dark reflection under it. Only where there's
+  // still water on the open side of the shore (in front of a far shore, out from a near one): where this land's shore
+  // runs over older ground, there's no water there to meet. Worked out now, before this land goes into the mask.
+  const pts = far ? shore : shore.slice(0, -1);
+  const wet = pts.map(([x, y]) => (far ? !S.isLand(x, y + 4) : !S.isLand(x - side * 8, y + 2)));
   ops.push((ctx) => {
     const wl = scheme.waterLine;
-    const pts = far ? shore : shore.slice(0, -1);
     for (let i = 0; i < pts.length - 1; i++) {
       const [x, y] = pts[i];
-      if (y > H) continue;
+      if (y > H || !wet[i]) continue;
       if (far) {
         ctx.fillStyle = rgba(darken(dark, 0.1), 0.28);
         ctx.fillRect(x - 6, y + 1, 12, rand(2, 5 + dT * 20));

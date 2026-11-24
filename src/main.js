@@ -1020,6 +1020,30 @@ const shortcuts = new Map([
   ['m', () => setSound(!sound.soundOn())],
 ]);
 
+// Space is Oops, unless it's pressing a button you came to with the keyboard. A mouse leaves the focus on whatever it
+// clicked (a paint just picked, New canvas, a button focused again when an overlay closed), and there Space would press
+// that button again: reload the same paint, or turn New canvas into "Start over?" and then start over.
+let lastInput = 'key';
+window.addEventListener('pointerdown', () => (lastInput = 'pointer'), true);
+window.addEventListener(
+  'keydown',
+  (e) => {
+    if (e.key === 'Tab' || e.key?.startsWith('Arrow')) lastInput = 'key';
+  },
+  true,
+);
+const spaceIsOops = (e) => {
+  const onButton = e.target.closest?.('button');
+  return !onButton || onButton.classList.contains('dab') || lastInput === 'pointer';
+};
+// A button presses on Space's keyup, so the keyup of a Space that made an accident is kept from it too.
+let spaceOops = false;
+window.addEventListener('keyup', (e) => {
+  if (e.key !== ' ' || !spaceOops) return;
+  spaceOops = false;
+  e.preventDefault();
+});
+
 window.addEventListener('keydown', (e) => {
   const open = openOverlayEl();
   if (open) {
@@ -1033,10 +1057,10 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
-  const onButton = e.target.closest?.('button');
   const shortcut = shortcuts.get(e.key?.toLowerCase());
-  if (e.key === ' ' && !onButton) {
+  if (e.key === ' ' && spaceIsOops(e)) {
     e.preventDefault();
+    spaceOops = true;
     oops();
   } else if (e.key === 'Enter' && e.target === canvas) {
     oops();

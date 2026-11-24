@@ -1487,6 +1487,32 @@ await ctx.setOffline(false);
   await dctx.close();
 }
 
+// With a mouse, Space is still Oops: after clicking a paint, or New canvas (where two Spaces used to start over). A
+// button reached with Tab still presses on Space.
+{
+  const dctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
+  const p = await dctx.newPage();
+  await p.goto(base);
+  await p.waitForFunction(() => window.happyAccidents?.skipIntro);
+  await p.evaluate(() => window.happyAccidents.skipIntro());
+  const state = () => p.evaluate(() => [window.happyAccidents.accidents, document.getElementById('canvasNo').textContent, document.getElementById('newBtn').textContent]);
+  const paint = (n) => p.evaluate((n) => { for (let i = 0; i < n; i++) window.happyAccidents.randomAccident(); }, n);
+  await p.click('#newBtn');
+  await paint(3);
+  const [, no] = await state();
+  await p.keyboard.press(' ');
+  await p.keyboard.press(' ');
+  assert.deepEqual(await state(), [5, no, 'New canvas'], 'Space after clicking New canvas pressed it instead of making accidents');
+  await p.click('.dab >> nth=2');
+  await p.keyboard.press(' ');
+  assert.equal((await state())[0], 6, 'Space after picking a paint didn’t make an accident');
+  await p.focus('#autoBtn');
+  await p.keyboard.press('Tab');
+  await p.keyboard.press(' ');
+  assert.equal(await p.textContent('#newBtn'), 'Start over?', 'Space on New canvas reached with Tab didn’t press it');
+  await dctx.close();
+}
+
 // The first minute. Left alone, the intro paints in and then the painter says "Your turn" (the only line that says you
 // can flick and hold), with the hint under the canvas, and nothing the intro paints talks over it.
 // Touching the canvas before the intro is over cuts it short but doesn't skip that: it comes once your first splat has

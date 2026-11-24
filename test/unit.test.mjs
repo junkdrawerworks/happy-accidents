@@ -367,7 +367,7 @@ const day = { when: 'day' };
 const CELLS = {
   'high in the sky': {
     white: { text: 'a white cloud, the sun or moon, or stars at night', allows: [may('cloud'), may('sun', day), may('moon', night), may('stars', night)] },
-    yellow: { text: 'the sun, then golden clouds', allows: [may('sun', day), may('cloud')], todo: { night: 'yellow at night makes the moon' } },
+    yellow: { text: 'the sun (or the moon at night), then golden clouds', allows: [may('sun', day), may('moon', night), may('cloud')] },
     red: { text: 'a sunset cloud', allows: [may('cloud')] },
     green: { text: 'the top of a tall pine, or an aurora at night', allows: [may('tall pine'), may('aurora', night)] },
     blue: { text: 'a cool cloud, or a storm from Prussian Blue', allows: [may('cloud'), may('storm cloud', { only: ['prussian-blue'] })] },
@@ -375,26 +375,32 @@ const CELLS = {
   },
   'low in the sky': {
     white: { text: 'a snowy mountain or a cloud', allows: [may('mountain'), may('cloud')] },
-    yellow: { text: 'the sun or golden clouds', allows: [may('sun', day), may('cloud')], todo: 'Yellow Ochre makes a golden mountain, and at night yellow makes the moon' },
+    yellow: {
+      text: 'the sun (or the moon at night), golden clouds, or a golden mountain from Yellow Ochre',
+      allows: [may('sun', day), may('moon', night), may('cloud'), may('golden mountain', { only: ['yellow-ochre'] })],
+    },
     red: { text: 'a red-rock mountain or a sunset cloud', allows: [may('mountain'), may('cloud')] },
     green: { text: 'a wooded mountain', allows: [may('mountain')] },
     blue: { text: 'a blue mountain or a cool cloud', allows: [may('mountain'), may('cloud')] },
-    brown: { text: 'a mountain', allows: [may('mountain')], todo: 'brown low in the sky also makes storm clouds' },
+    brown: { text: 'a mountain or a storm cloud', allows: [may('mountain'), may('storm cloud')] },
   },
   'on the lake': {
     white: { text: 'a sailboat, or light on the water', allows: [may('sailboat'), may(['glints', 'ripples'])] },
-    yellow: { text: 'glints of light, or land from Yellow Ochre', allows: [may('glints', { only: ['cadmium-yellow', 'indian-yellow'] }), may(['land', 'island'], { only: ['yellow-ochre'] })], todo: 'a small Yellow Ochre splat on open water makes a rock' },
+    yellow: {
+      text: 'glints of light, or land or a rock from Yellow Ochre',
+      allows: [may('glints', { only: ['cadmium-yellow', 'indian-yellow'] }), may(['land', 'island'], { only: ['yellow-ochre'] }), may('rock', { only: ['yellow-ochre'] })],
+    },
     red: { text: 'a canoe', allows: [may('canoe')] },
     green: { text: 'land, an island or a mossy rock', allows: [may('land'), may('island'), may('mossy rock')] },
     blue: { text: 'ripples', allows: [may('ripples')] },
     brown: { text: 'land, or a rock', allows: [may(['land', 'island']), may('rock')] },
   },
   'on land': {
-    white: { text: 'a snowy pine, a birch or a white cabin', allows: [may('snowy pine'), may('birch'), may('cabin')], todo: 'small splats make flowers' },
-    yellow: { text: 'a golden tree or bush', allows: [may('leafy tree'), may('bush')], todo: 'small splats make flowers' },
-    red: { text: 'a red tree or bush, or a red cabin', allows: [may('leafy tree'), may('bush'), may('cabin')], todo: 'small splats make flowers' },
+    white: { text: 'a snowy pine, a birch or a white cabin, or flowers from a small splat', allows: [may('snowy pine'), may('birch'), may('cabin'), may('flowers')] },
+    yellow: { text: 'a golden tree or bush, or flowers from a small splat', allows: [may('leafy tree'), may('bush'), may('flowers')] },
+    red: { text: 'a red tree or bush, or a red cabin, or flowers from a small splat', allows: [may('leafy tree'), may('bush'), may('cabin'), may('flowers')] },
     green: { text: 'pines, leafy trees and bushes', allows: [may('pine'), may('leafy tree'), may('bush')] },
-    blue: { text: 'a blue spruce', allows: [may('blue spruce')], todo: 'small splats make flowers' },
+    blue: { text: 'a blue spruce, or flowers from a small splat', allows: [may('blue spruce'), may('flowers')] },
     brown: { text: 'a cabin, a bare tree or a bush', allows: [may('cabin'), may('bare tree'), may('bush')] },
   },
 };
@@ -545,7 +551,7 @@ const REACTIONS = [
     first: (target) => (target === 'island tree' ? ['treeGlow'] : ['friend']),
   },
   {
-    row: ['a mountain', 'white / blue / yellow or red / green', 'fresh snow / a waterfall / alpenglow / trees up the slope'],
+    row: ['a mountain', 'white / blue / yellow or red / green', 'fresh snow / a waterfall (or mist, right at its foot) / alpenglow / trees up the slope'],
     targets: ['mountain'],
     paints: [...PAINTS.white, ...PAINTS.blue, ...YELLOW_RED, ...PAINTS.green],
     first: (target, fam) => ({ white: ['snowfall'], blue: ['waterfall'], yellow: ['alpenglow'], red: ['alpenglow'], green: ['foothills'] })[fam],
@@ -556,11 +562,10 @@ const REACTIONS = [
   { row: ['a cloud', 'something dark', 'it turns stormy and rains'], targets: ['cloud'], paints: [...PAINTS.blue, ...PAINTS.brown], first: () => ['storm'] },
   { row: ['a cloud', 'yellow or red', 'its edges catch the light'], targets: ['cloud'], paints: YELLOW_RED, first: () => ['sunlitCloud'] },
   {
-    row: ['the cabin', 'white / warm / anything', 'snow on the roof / the lights come on (if they aren\'t on already) / a garden'],
+    row: ['the cabin', 'white / warm / anything', 'snow on the roof / the lights come on (if they aren\'t on already) / the lights come on, or a garden'],
     targets: ['cabin', 'lit cabin'],
     paints: PIGMENTS.map((p) => p.id),
-    first: (target, fam) => (fam === 'white' ? ['roofSnow'] : target === 'cabin' && (fam === 'yellow' || fam === 'red') ? ['lights'] : ['garden']),
-    todo: 'any paint turns the lights on 40% of the time, not only warm paint',
+    first: (target, fam) => (fam === 'white' ? ['roofSnow'] : target === 'lit cabin' ? ['garden'] : fam === 'yellow' || fam === 'red' ? ['lights'] : ['lights', 'garden']),
   },
   { row: ['a rock', 'green / white', 'moss / snow'], targets: ['rock'], paints: [...PAINTS.green, ...PAINTS.white], first: (target, fam) => (fam === 'green' ? ['moss'] : ['rockSnow']) },
 ];

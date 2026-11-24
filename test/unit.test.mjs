@@ -582,9 +582,10 @@ const PLACES = {
 };
 
 // Small flecks up high are birds, stars or wisps of cloud, whatever the paint (How it plays): splats under R 14, about a
-// quarter of taps.
+// quarter of taps. Only up high: low in the sky (below 0.45 of the way down to the horizon), a tap is what the table says.
 const FLECK_R = 14;
 const FLECKS = ['birds', 'stars', 'cloud'];
+const fleck = (what, sp) => sp.R < FLECK_R && sp.y < 480 * 0.45 && FLECKS.includes(what);
 
 // A splat of any size the page makes: half of them taps (R 11 to 22), half bigger flicks and pours, some stretched.
 function throwAt(spot, id) {
@@ -635,9 +636,9 @@ for (const [place, cells] of Object.entries(CELLS)) {
       const dice = seed++;
       test(`the rules: ${fam} ${place}, by ${time === 'day' ? 'day' : 'night'}, is ${cell.text}`, { todo }, () =>
         sameDice(() => {
-          const sky = place.includes('sky');
+          const sky = place === 'high in the sky';
           const fits = (a, id) => (!a.when || a.when === time) && (!a.only || a.only.includes(id));
-          const allowed = (what, id, sp) => cell.allows.some((a) => fits(a, id) && a.is.includes(what)) || (sky && sp.R < FLECK_R && FLECKS.includes(what));
+          const allowed = (what, id, sp) => cell.allows.some((a) => fits(a, id) && a.is.includes(what)) || (sky && fleck(what, sp));
           const { made, wrong } = throwMany(place, PAINTS[fam], time, 250, allowed);
           assert.equal(wrong.size, 0, reportWrong(wrong));
           for (const a of cell.allows) {
@@ -659,7 +660,7 @@ test('the rules: in the middle of the sky, paint becomes something from the high
     for (const fam of FAMILIES) {
       for (const time of ['day', 'night']) {
         const ok = (what, id, sp) => {
-          if (sp.R < FLECK_R && FLECKS.includes(what)) return true;
+          if (fleck(what, sp)) return true;
           return ['high in the sky', 'low in the sky'].some((place) => {
             const cell = CELLS[place][fam];
             if (cell.todo) return true;
@@ -671,6 +672,20 @@ test('the rules: in the middle of the sky, paint becomes something from the high
       }
     }
   }, 31));
+
+test('a tap low in the sky is never birds, stars or a wisp, whatever the paint', () =>
+  sameDice(() => {
+    for (const p of PIGMENTS) {
+      for (const time of ['day', 'night']) {
+        for (let i = 0; i < 200; i++) {
+          const S = bareStudio(pick(time === 'night' ? NIGHT : DAY), { land: leftBank, sunUp: chance(0.4) });
+          const plan = decide(S, makeSplat({ ...PLACES['low in the sky'](S), R: rand(11, 22), pigment: p }));
+          const [first] = plan;
+          assert.ok(!['birds', 'stars'].includes(first.kind) && first.say !== 'wisp', `${p.name} low in the sky by ${time} became ${first.say ?? first.kind}`);
+        }
+      }
+    }
+  }, 33));
 
 test('the rules: on the horizon, any paint makes a far-off row of trees', () =>
   sameDice(() => {

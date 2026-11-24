@@ -246,11 +246,13 @@ function sky(S, b, c, hint) {
   const { night } = S.scheme;
   const lit = S.has('sun') || S.has('moon');
   const room = S.count('mountain') < (hint === 'mountain' ? 4 : 3);
-  // A mountain, if there's room for one and the splat is big and low enough (or was aimed at being one).
-  const mountainy = (p) => room && (hint === 'mountain' || (!hint && lowSky && b.R > 20 && chance(p)));
+  // A mountain, if there's room for one and the splat is low enough and more than the smallest tap (or was aimed at
+  // being one).
+  const mountainy = (p) => room && (hint === 'mountain' || (!hint && lowSky && b.R > 16 && chance(p)));
 
-  // A small fleck (about a quarter of taps) is birds, stars or a wisp; anything bigger is a real thing.
-  if (b.R < 14 && !hint) {
+  // A small fleck up high (about a quarter of taps there) is birds, stars or a wisp; anything bigger, or anything low in
+  // the sky, is a real thing.
+  if (b.R < 14 && !hint && !lowSky) {
     const bright = c.fam === 'white' || c.fam === 'yellow';
     if (bright && (night || (S.scheme.stars && chance(0.5)))) return [step('stars', () => P.stars(S, b))];
     if (bright || c.fam === 'red') return [step('cloud', () => P.cloud(S, { ...b, elong: Math.max(b.elong, 2.6), ...cloudLook(S, c) }), { say: 'wisp' })];

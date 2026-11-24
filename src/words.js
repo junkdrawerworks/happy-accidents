@@ -792,11 +792,10 @@ const FEATURE_NAMES = [
 const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
 const num = (n) => WORDS[n] || String(n);
 
-// Under the label, when the browser wouldn't keep the painting, or kept it by taking older ones down beyond the usual
-// 12th. Empty when all went as usual.
-// What the label says about the wall right after a signing: nothing when it just went up; the title of the painting
-// that came down when the wall was full ("Cabin at Otter Cove came down to make room."); and how many came down when
-// the browser ran short of room (dropped is how many of those the browser's room took, beyond the wall's usual 12).
+// What the label says about the wall right after a signing: that the browser wouldn't keep the painting; the title of
+// the painting that came down when the wall was full ("Cabin at Otter Cove came down to make room."); how many came down
+// when the browser ran short of room (dropped is how many of those the browser's room took, beyond the wall's usual
+// 12); and nothing when it just went up.
 export function keptNote({ kept, dropped = 0, gone = [] }, canSave = true) {
   if (!kept) return `This browser isn’t keeping paintings, so this one won’t go up on the wall. ${canSave ? 'Download it to keep it.' : 'Save the picture to keep it.'}`;
   if (gone.length === 1) return dropped ? `The browser ran short of room, so ${gone[0]} came down to make space for this one.` : `${gone[0]} came down to make room.`;

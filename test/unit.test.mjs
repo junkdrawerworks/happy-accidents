@@ -11,6 +11,7 @@ import { weighted, pickFresh, clamp, rand, chance, pick, TAU } from '../src/util
 import { SCHEMES, PIGMENTS } from '../src/schemes.js';
 import { decide } from '../src/decide.js';
 import { makeSplat } from '../src/splat.js';
+import { lineKey } from '../src/studio.js';
 import * as P from '../src/paint/index.js';
 import { flowers, canoe, glints } from '../src/paint/index.js';
 import { autumn, treeGlow, sunlitCloud } from '../src/paint/react.js';
@@ -624,3 +625,22 @@ test('the rules: red into yellow makes orange, white into red makes pink, red in
     for (const g of PAINTS.green) assert.equal(familyOf(mixOf(r, g)), 'brown', `${r} into ${g}`);
   }
 });
+
+test('blue at the foot of a mountain still makes a waterfall, and the painter says what was painted', () =>
+  sameDice(() => {
+    // A hit just above the horizon used to be too near the foot for a fall: it painted mist, and the painter announced a
+    // waterfall anyway. Now the fall starts a little higher up the slope.
+    let falls = 0;
+    for (let i = 0; i < 40; i++) {
+      const el = { ...TARGETS.mountain(bareStudio()) };
+      const S = bareStudio('golden-hour', { land: leftBank, target: el });
+      const plan = decide(S, makeSplat({ x: el.meta.peak[0] + rand(-30, 30), y: S.hy - 5, R: 16, pigment: paintOf('phthalo-blue') }));
+      const spec = plan[0].make();
+      if (spec.kind === 'waterfall') falls++;
+      assert.equal(lineKey(plan[0], spec), spec.kind, `the painter would say ${lineKey(plan[0], spec)} for ${spec.kind}`);
+    }
+    assert.equal(falls, 40, `only ${falls} of 40 blue hits at a mountain's foot made a waterfall`);
+    assert.equal(lineKey({ kind: 'waterfall' }, { kind: 'mist' }), 'mist', 'a waterfall that fell back to mist says so');
+    assert.equal(lineKey({ kind: 'garden', say: 'garden' }, { kind: 'flowers' }), 'garden');
+    assert.equal(lineKey({ kind: 'cloudOverSun', say: 'cloudOverMoon' }, { kind: 'cloud' }), 'cloudOverMoon');
+  }, 41));

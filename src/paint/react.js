@@ -178,16 +178,32 @@ export function alpenglow(S, t, p) {
   return { kind: 'alpenglow', onto: t, ops, dur: 1500 };
 }
 
-// Blue paint on a mountain: water finds its way down from where it hit.
+// How high the mountain's ridge is at x (its base, off either end).
+function ridgeAt(m, x) {
+  const r = m.ridge;
+  for (let i = 1; i < r.length; i++) {
+    const [x0, y0] = r[i - 1];
+    const [x1, y1] = r[i];
+    if (x >= Math.min(x0, x1) && x <= Math.max(x0, x1)) return x1 === x0 ? Math.min(y0, y1) : y0 + ((y1 - y0) * (x - x0)) / (x1 - x0);
+  }
+  return m.base;
+}
+
+// Blue paint on a mountain: water finds its way down from where it hit. Too near the foot for a fall, it starts higher
+// up the slope instead, if the mountain is tall enough there for a short one.
 export function waterfall(S, t, p) {
   const m = t.meta;
   const bottom = m.base - 4;
-  if (bottom - p.y < 30) return null;
+  let y0 = p.y;
+  if (bottom - y0 < 30) {
+    y0 = Math.max(ridgeAt(m, p.x) + 4, bottom - 30);
+    if (bottom - y0 < 15) return null;
+  }
   const w = clamp(p.R * 0.45, 5, 22);
   const path = [];
   const wob = rand(100);
-  for (let y = p.y; y <= bottom; y += 5) {
-    const u = (y - p.y) / (bottom - p.y);
+  for (let y = y0; y <= bottom; y += 5) {
+    const u = (y - y0) / (bottom - y0);
     path.push([p.x + Math.sin(wob + u * 5) * w * 0.35 + Math.sin(wob * 2 + u * 13) * w * 0.12, y, w * (0.5 + 0.7 * u)]);
   }
   const water = mix(WHITE, S.scheme.water, 0.18);
@@ -226,7 +242,7 @@ export function waterfall(S, t, p) {
     kind: 'waterfall',
     depth: t.depth + 0.4,
     reflect: true,
-    bbox: { x: Math.min(p.x, lx) - w * 4, y: p.y - 10, w: Math.abs(lx - p.x) + w * 8, h: bottom - p.y + w * 3 + 20 },
+    bbox: { x: Math.min(p.x, lx) - w * 4, y: y0 - 10, w: Math.abs(lx - p.x) + w * 8, h: bottom - y0 + w * 3 + 20 },
     ops,
     dur: 1600,
   };

@@ -7,7 +7,7 @@ import { makeSplat, renderSplat } from './splat.js';
 import { decide, earthy } from './decide.js';
 import { sky, signature, SIGNATURE_FONT } from './paint/index.js';
 import { bristle, linePts } from './brush.js';
-import { line, toolInfo, mixLine } from './words.js';
+import { line, toolInfo, mixLine, LINES } from './words.js';
 
 export const W = 1200;
 export const H = 900;
@@ -45,6 +45,11 @@ const SEE_THROUGH = new Set(['sky', 'sunpath', 'signature', 'mist', 'aurora', 's
 
 // Things floating on the lake, which land laid over them covers.
 const AFLOAT = new Set(['sailboat', 'canoe', 'glints', 'ripples']);
+
+// What the painter says about a step: its own line if it has one; otherwise the line for what was actually painted, which
+// is usually the step's kind, but a step can fall back to something else (blue too near a mountain's foot for a
+// waterfall paints mist, and the painter shouldn't announce a waterfall).
+export const lineKey = (st, spec) => st.say ?? (spec.kind !== st.kind && LINES[spec.kind] ? spec.kind : st.kind);
 
 const paintFor = (hint) => {
   const id = pick(PAINT_FOR[hint] || PAINT_FOR.cloud);
@@ -449,7 +454,7 @@ export class Studio {
       return;
     }
     st.spec = spec;
-    if (!st.quiet) this.say(st.say ?? st.kind, spec.kind, sp.mixPigment || sp.pigment);
+    if (!st.quiet) this.say(lineKey(st, spec), spec.kind, sp.mixPigment || sp.pigment);
     const el = spec.onto ? this.paintOnto(spec.onto, spec) : this.addElement(spec);
     spec.el = el;
     el.onProgress = (t) => {

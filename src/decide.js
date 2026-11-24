@@ -131,7 +131,7 @@ function react(S, t, b, fam) {
       const onLand = (x, y) => S.isLand(x, y);
       const bloom = bloomColor(b.tint);
       return [
-        step('garden', () => P.flowers(S, { x: m.x0 - m.size * rand(0.05, 0.2), y: m.baseY + 2, R: m.size * 0.12, tint: bloom, onLand })),
+        step('garden', () => P.flowers(S, { x: m.x0 - m.size * rand(0.05, 0.2), y: m.baseY + 2, R: m.size * 0.12, tint: bloom, onLand }), { say: 'garden' }),
         step('flowers', () => P.flowers(S, { x: m.x1 + m.size * rand(0.05, 0.2), y: m.baseY + 2, R: m.size * 0.12, tint: bloom, onLand }), { quiet: true }),
       ];
     }

@@ -158,6 +158,8 @@ const studio = new Studio(canvas, {
   onNarrate: narrate,
   onCanvas(s) {
     thrown = 0;
+    // The last brush strokes' swish stops with the old canvas, instead of going on over a blank one.
+    sound.hush();
     store.set(KEY.moods, s.moodsUsed);
     $('canvasNo').textContent = `Canvas No. ${s.number}`;
     $('schemeName').textContent = s.scheme.name;
@@ -1143,6 +1145,10 @@ window.addEventListener('pointerdown', sound.wake, true);
 // By the standard (and in Safari), a touch only lets audio start once the finger lifts, so the very first tap needs this.
 window.addEventListener('pointerup', sound.wake, true);
 window.addEventListener('keydown', sound.wake, true);
+// Back from another app or a phone call, the sound starts again by itself where the browser lets it.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) sound.wake();
+});
 
 setSound(store.get(KEY.sound, false) === true);
 updateCount();

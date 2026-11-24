@@ -56,10 +56,11 @@ export function setSound(on) {
 
 export const soundOn = () => enabled;
 
-// Called on every tap and key press.
+// Called on every tap and key press, and when the page comes back into view. Safari can leave the audio 'interrupted'
+// (after a phone call, Siri or the phone locking) as well as 'suspended'; either way it's started again.
 export function wake() {
   if (!enabled || !mayStart() || !ensure()) return;
-  if (ac.state === 'suspended') ac.resume();
+  if (ac.state !== 'running' && ac.state !== 'closed') ac.resume()?.catch?.(() => {});
 }
 
 function noise(t, stop, loop = false) {
@@ -126,6 +127,9 @@ export function splat(size = 20) {
 // Palette-knife work sounds a little grainier than a brush, but still soft.
 const KNIFE = new Set(['mountain', 'rock', 'cabin', 'snowfall', 'rockSnow', 'roofSnow']);
 
+// The brushes still sounding (their gains), so a fresh canvas can quiet them.
+const brushing = new Set();
+
 // A brush on canvas: soft swishes that swell in and ease out, one per stroke, with the tone
 // rising and falling a little as the bristles drag.
 export function brush(kind, ms) {
@@ -150,5 +154,21 @@ export function brush(kind, ms) {
     bp.frequency.setTargetAtTime(f0 * 0.85, s + len * 0.5, len * 0.25);
   }
   g.gain.setTargetAtTime(0.0001, t + dur, 0.06);
-  noise(t, t + dur + 0.5, true).connect(bp).connect(lp).connect(g).connect(master);
+  const src = noise(t, t + dur + 0.5, true);
+  src.connect(bp).connect(lp).connect(g).connect(master);
+  brushing.add(g);
+  src.onended = () => brushing.delete(g);
+}
+
+// Fades out every brush still going, over 80 ms (no click): the strokes it went with are gone with the old canvas.
+export function hush() {
+  if (!ac) return;
+  const t = ac.currentTime;
+  for (const g of brushing) {
+    const v = g.gain.value;
+    g.gain.cancelScheduledValues(t);
+    g.gain.setValueAtTime(v, t);
+    g.gain.linearRampToValueAtTime(0, t + 0.08);
+  }
+  brushing.clear();
 }

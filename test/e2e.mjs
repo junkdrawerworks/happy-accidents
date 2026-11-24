@@ -1444,7 +1444,7 @@ const audioComplaints = [];
 page.on('console', (m) => { if (/AudioContext/.test(m.text())) audioComplaints.push(m.text()); });
 await ctx.addInitScript(() => {
   const Real = window.AudioContext;
-  if (Real) window.AudioContext = class extends Real { constructor(...args) { super(...args); (window.audioContexts ||= []).push(this); } };
+  if (Real) window.AudioContext = class extends Real { constructor(...args) { super(...args); (window.audioContexts ||= []).push(this); } createGain() { const g = super.createGain(); (window.gains ||= []).push(g); return g; } };
 });
 await S(() => localStorage.setItem('happy-accidents:sound', 'true'));
 await page.reload();
@@ -1457,6 +1457,12 @@ assert.deepEqual(audioComplaints, [], 'the console complained about audio');
 b = await box();
 await page.touchscreen.tap(b.x + b.width * 0.5, b.y + b.height * 0.3);
 await page.waitForFunction(() => window.audioContexts?.[0]?.state === 'running', null, { timeout: 10000 });
+// A new canvas quiets the brush strokes still sounding from the old one (every gain but the master volume).
+await page.waitForFunction(() => window.happyAccidents.active.length > 0, null, { timeout: 10000 });
+await page.waitForTimeout(300);
+await S(() => window.happyAccidents.newCanvas());
+await page.waitForTimeout(150);
+assert.ok(await S(() => window.gains.slice(1).every((g) => g.gain.value < 0.001)), 'the brush went on sounding over a new canvas');
 
 // Works offline once it has been opened: it opens, paints, signs and hangs the painting on the wall.
 await page.waitForFunction(() => navigator.serviceWorker && navigator.serviceWorker.controller, null, { timeout: 15000 });

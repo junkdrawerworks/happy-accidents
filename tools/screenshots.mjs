@@ -47,7 +47,8 @@ async function open(viewport, deviceScaleFactor) {
   }, SEED);
   await page.goto(base);
   await page.evaluate(() => document.fonts.ready);
-  await page.evaluate((seed) => { window.happyAccidents.skipIntro(); window.reseed(seed); window.happyAccidents.newCanvas('autumn-blaze'); }, SEED);
+  // Every painting here is shown as a first one, Canvas No. 1 (the page has already numbered its own first canvas).
+  await page.evaluate((seed) => { window.happyAccidents.skipIntro(); window.reseed(seed); window.happyAccidents.number = 0; window.happyAccidents.newCanvas('autumn-blaze'); }, SEED);
   await settle(page);
   return page;
 }
@@ -106,7 +107,7 @@ async function paint(page) {
   await page.waitForTimeout(400);
   await save(await page.screenshot(), 'docs/phone-splat.png');
 
-  await page.evaluate((seed) => { window.reseed(seed); window.happyAccidents.newCanvas('golden-hour'); }, SEED + 1);
+  await page.evaluate((seed) => { window.reseed(seed); window.happyAccidents.number = 0; window.happyAccidents.newCanvas('golden-hour'); }, SEED + 1);
   await settle(page);
   await paint(page);
   await page.click('#signBtn');

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { featureLine, madeFrom, durationText, makeTitle, toolInfo, keptNote, mixLine, LINES } from '../src/words.js';
+import { featureLine, madeFrom, durationText, makeTitle, toolInfo, keptNote, mixLine, line, linesFor, LINES } from '../src/words.js';
 import { topEdge, heights, at, span, sideProfile } from '../src/shape.js';
 import { ramp, mix, hex, mixPaint, familyOf, colorName } from '../src/color.js';
 import { weighted, pickFresh, clamp, rand, chance, pick, TAU } from '../src/util.js';
@@ -87,8 +87,52 @@ test('the painter names the brush and a touch of the paint you used', () => {
   const blue = PIGMENTS.find((p) => p.id === 'phthalo-blue');
   assert.equal(toolInfo('mountain', blue), 'Palette knife · Van Dyke Brown, Prussian Blue, Titanium White · a touch of Phthalo Blue');
   assert.equal(toolInfo('no-such-thing', blue), '');
-  for (const [key, lines] of Object.entries(LINES)) assert.ok(lines.length > 0, `no lines for ${key}`);
+  for (const key of Object.keys(LINES)) {
+    for (const s of SCHEMES) for (const auto of [false, true]) assert.ok(linesFor(key, { scheme: s.id, auto }).length > 0, `no lines for ${key} in ${s.id}${auto ? ' (auto)' : ''}`);
+  }
 });
+
+// Every string anywhere in LINES, however it's nested.
+const everyLine = (v = LINES) => (typeof v === 'string' ? [v] : Array.isArray(v) ? v.flatMap(everyLine) : Object.values(v).flatMap(everyLine));
+
+test('the painter’s lines fit the mood: no evening in the morning, no sun at night', () => {
+  // Keys that can't come up in a mood: the sun's at night (it's the moon then) and the moon's by day.
+  const never = { 'northern-night': ['sun', 'sunset', 'cloudOverSun'] };
+  const byDay = ['moon', 'moonGlow', 'cloudOverMoon'];
+  const wrong = {
+    morning: /evening|sunset|last of the light|dusk/i,
+    evening: /morning|first light|sunrise|up early/i,
+    night: /\bsun\b|sunny|sunset|evening|morning|afternoon/i,
+    day: /evening|morning|fall came early|now it’s autumn/i,
+  };
+  const time = { 'golden-hour': 'evening', 'violet-dusk': 'evening', 'misty-morning': 'morning', 'winter-hush': 'morning', 'northern-night': 'night', 'autumn-blaze': 'day' };
+  for (const s of SCHEMES) {
+    for (const key of Object.keys(LINES)) {
+      if ((never[s.id] || []).includes(key) || (s.id !== 'northern-night' && byDay.includes(key))) continue;
+      for (const auto of [false, true]) {
+        for (const text of linesFor(key, { scheme: s.id, auto })) assert.doesNotMatch(text, wrong[time[s.id]], `${s.name}, ${key}: ${text}`);
+      }
+    }
+  }
+  assert.doesNotMatch(linesFor('autumn', { scheme: 'winter-hush' }).join(' '), /fall came early/i, 'in Winter Hush, fall didn’t come early');
+});
+
+test('paint the toy threw itself doesn’t get “you hit him”', () => {
+  for (const key of Object.keys(LINES)) {
+    for (const s of SCHEMES) for (const text of linesFor(key, { scheme: s.id, auto: true })) assert.doesNotMatch(text, /\byou (hit|touched)\b/i, `${key}: ${text}`);
+  }
+  assert.ok(linesFor('company').some((t) => /You hit him/.test(t)), 'your own splat still gets “you hit him”');
+  for (let i = 0; i < 10; i++) assert.ok(linesFor('company', { auto: true }).includes(line('company', { auto: true })));
+});
+
+test('a tall tree with no land under it says “land first” for the land, and the tall tree line with the tree', () =>
+  sameDice(() => {
+    for (let i = 0; i < 10; i++) {
+      const S = bareStudio('golden-hour', { land: () => false });
+      const plan = decide(S, makeSplat({ x: 300 + i * 50, y: 120, R: 30, pigment: paintOf('sap-green') }));
+      assert.deepEqual(plan.map((st) => [st.kind, st.say]), [['bank', 'bankTree'], ['evergreen', 'tallTree']]);
+    }
+  }));
 
 test('paints running together are named when there are two and counted when there are more', () => {
   const four = ['Cadmium Yellow', 'Phthalo Blue', 'Sap Green', 'Alizarin Crimson'];
@@ -124,9 +168,7 @@ test('the brush line names each paint once, and no paint of another hue than the
 });
 
 test('the painter’s lines use curly apostrophes, like the rest of the page', () => {
-  for (const [key, lines] of Object.entries(LINES)) {
-    for (const text of lines) assert.doesNotMatch(text, /'/, `${key}: ${text}`);
-  }
+  for (const text of everyLine()) assert.doesNotMatch(text, /'/, text);
 });
 
 test('an ordinary brown tap on land can be a cabin', () => {
@@ -371,7 +413,7 @@ function outcomeOf(plan) {
   const [first] = plan;
   if (!first) return 'nothing';
   const kinds = plan.map((s) => s.kind);
-  if (first.say === 'tallTree') return 'tall pine';
+  if (plan.some((s) => s.say === 'tallTree')) return 'tall pine';
   switch (first.kind) {
     case 'cloud':
       return first.say === 'stormCloud' ? 'storm cloud' : 'cloud';

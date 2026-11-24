@@ -215,8 +215,9 @@ for (let i = 0; i < 2; i++) {
   await settle();
 }
 const lonely = await S(async () => {
-  const { LINES } = await import('./src/words.js');
-  return { glows: window.happyAccidents.counts.treeGlow || 0, company: window.said.filter((l) => LINES.company.includes(l)) };
+  const { linesFor } = await import('./src/words.js');
+  const company = [...linesFor('company'), ...linesFor('company', { auto: true })];
+  return { glows: window.happyAccidents.counts.treeGlow || 0, company: window.said.filter((l) => company.includes(l)) };
 });
 assert.deepEqual(lonely.company, [], 'the painter said a tree got company, but no friend grew');
 assert.equal(lonely.glows, 1, `light caught a tree with no ground beside it once, not again and again (${lonely.glows})`);

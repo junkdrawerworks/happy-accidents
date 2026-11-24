@@ -50,13 +50,46 @@ export const LINES = {
   merge: ['Those two ran together. Now it’s one big thing.', 'Wet into wet. They’re one splat now.'],
   treeSnow: ['Snow found him. He looks good in it.', 'Little bit of snow on the branches. Just tap it on top.'],
   treeGlow: ['The light’s hitting him just right now.', 'Catch the edges with a little warm light.'],
-  autumn: ['That one turned. Fall came early for him.', 'You hit him with some color, so now it’s autumn over there.'],
-  company: ['You hit him, so now he’s got company.', 'He got bumped, and a friend showed up.'],
+  autumn: {
+    default: {
+      lines: ['That one turned. Fall came early for him.'],
+      you: ['You hit him with some color, so now it’s autumn over there.'],
+      auto: ['Some color found him, so now it’s autumn over there.'],
+    },
+    'autumn-blaze': { lines: ['Even more color over there. He didn’t want to be left out.', 'He was the last one still green. Not anymore.'] },
+    'winter-hush': {
+      lines: ['Frost turned that one. He’d been holding on to his leaves.'],
+      you: ['You hit him with some color, and he turned.'],
+      auto: ['Some color found him, and he turned.'],
+    },
+  },
+  company: {
+    lines: ['He got bumped, and a friend showed up.'],
+    you: ['You hit him, so now he’s got company.'],
+    auto: ['Paint found him, so now he’s got company.'],
+  },
   snowfall: ['Fresh snow up top. It came down overnight.', 'White on the mountain. It snowed.'],
-  waterfall: ['Blue on the mountain? That’s a waterfall now.', 'Water found a way down from right where you hit.'],
-  alpenglow: ['Now the mountain’s catching the last of the light.', 'Warm up the peaks. That’s the evening hitting them.'],
-  sunset: ['Paint on the sun, and the whole sky warms up.', 'You touched the sun. Everything goes a little golden.'],
-  moonGlow: ['Paint on the moon, and the whole sky lights up.', 'You touched the moon. Everything goes a little silver.'],
+  waterfall: {
+    lines: ['Blue on the mountain? That’s a waterfall now.'],
+    you: ['Water found a way down from right where you hit.'],
+    auto: ['Water found a way down from right where the paint hit.'],
+  },
+  alpenglow: {
+    evening: ['Now the mountain’s catching the last of the light.', 'Warm up the peaks. That’s the evening hitting them.'],
+    morning: ['First light found the peaks. Just warm up the tops.', 'The sun’s barely up, and it’s already on that mountain.'],
+    night: ['The moon’s catching the snow up there.', 'A little glow on the peaks. Somebody left the moon on.'],
+    default: ['Warm up the peaks. The light’s right on them now.', 'Now the mountain’s catching the light.'],
+  },
+  sunset: {
+    lines: ['Paint on the sun, and the whole sky warms up.'],
+    you: ['You touched the sun. Everything goes a little golden.'],
+    auto: ['Paint landed on the sun. Everything goes a little golden.'],
+  },
+  moonGlow: {
+    lines: ['Paint on the moon, and the whole sky lights up.'],
+    you: ['You touched the moon. Everything goes a little silver.'],
+    auto: ['Paint landed on the moon. Everything goes a little silver.'],
+  },
   cloudOverSun: ['A little cloud wandered across the sun.'],
   cloudOverMoon: ['A little cloud drifted across the moon.'],
   storm: ['That cloud got heavy. Here comes a little rain.', 'Dark paint on a cloud means weather.'],
@@ -75,15 +108,33 @@ export const LINES = {
   aurora: ['The sky’s doing that shimmery thing tonight.'],
   // What a paint turned into, when the color made the call.
   wisp: ['Just a wisp of cloud. Barely there.', 'A little streak of cloud, thin as you like.'],
-  goldenCloud: ['Yellow up there, so the cloud’s lit from underneath.', 'A cloud with the sun on it. That’s where the yellow went.'],
-  sunsetCloud: ['Red in the sky makes a sunset cloud.', 'A pink cloud. Somebody’s having a nice evening.'],
+  goldenCloud: {
+    lines: ['Yellow up there, so the cloud’s lit from underneath.'],
+    night: ['A cloud with the moon on it. That’s where the yellow went.'],
+    default: ['A cloud with the sun on it. That’s where the yellow went.'],
+  },
+  sunsetCloud: {
+    evening: ['Red in the sky makes a sunset cloud.', 'A pink cloud. Somebody’s having a nice evening.'],
+    morning: ['Red in the sky, first thing. That’s a sunrise cloud.', 'A pink cloud. Somebody’s up early.'],
+    night: ['A rosy cloud, out in the dark. Somebody’s up late.', 'Red up there makes a cloud with a little color left in it.'],
+    default: ['Red in the sky makes a rosy cloud.', 'A pink cloud. The afternoon’s getting on.'],
+  },
   coolCloud: ['A cool blue cloud. Weather might be on the way.', 'Blue in the sky makes a cool, shady cloud.'],
   stormCloud: ['Dark paint up high? That’s a storm cloud.', 'That one’s heavy. Dark clouds carry weather.'],
   snowyMountain: ['All that white is snow. There was a mountain under it.', 'White, low in the sky. That’s a snowy peak.'],
   blueMountain: ['Blue mountains, way off. Distance turns everything blue.', 'A blue ridge. Far away and quiet.'],
   brownMountain: ['Brown, low in the sky. That’s rock. A big old mountain.', 'Van Dyke Brown makes good solid rock.'],
-  redMountain: ['Red rock. It glows like that out west.', 'A red mountain. The evening sun lives in there.'],
-  goldMountain: ['Ochre makes a sunny mountain. Sandstone, maybe.'],
+  redMountain: {
+    lines: ['Red rock. It glows like that out west.'],
+    evening: ['A red mountain. The evening sun lives in there.'],
+    morning: ['A red mountain. Wait till the sun gets on it.'],
+    night: ['Red rock, cooling off in the dark.'],
+    default: ['A red mountain. The sun lives in there.'],
+  },
+  goldMountain: {
+    night: ['Ochre makes a pale mountain. Sandstone, maybe, under the moon.'],
+    default: ['Ochre makes a sunny mountain. Sandstone, maybe.'],
+  },
   greenMountain: ['A green mountain, trees all the way up.', 'Green that high up is a forested hill.'],
   tallTree: ['Green way up there? That’s the top of a tall tree.', 'A tall one. He grew right up to where the paint landed.'],
   snowyTreeline: ['A row of snowy trees, way off.'],
@@ -161,8 +212,24 @@ const TOOLS = {
   rockSnow: ['Palette knife', ['Titanium White']],
 };
 
-export function line(key) {
-  return pickFresh(key, LINES[key] || []);
+// The time of day each mood paints, for lines that only fit some of them.
+const TIME = { 'golden-hour': 'evening', 'violet-dusk': 'evening', 'misty-morning': 'morning', 'winter-hush': 'morning', 'northern-night': 'night', 'autumn-blaze': 'day' };
+
+// Everything the painter might say for a key, in a mood (scheme, a mood's id) and for paint thrown by someone or by the
+// toy itself (auto: Oops, Let it happen and the intro). A key's lines are a list, or { lines, you, auto, and lines for
+// a mood or a time of day, falling back to default }, where each of those is the same again or a list.
+export function linesFor(key, { scheme, auto = false } = {}) {
+  const pool = (v) => {
+    if (!v) return [];
+    if (Array.isArray(v)) return v;
+    const timed = v[scheme] ?? v[TIME[scheme]] ?? v.default;
+    return [...(v.lines || []), ...((auto ? v.auto : v.you) || []), ...pool(timed)];
+  };
+  return pool(LINES[key]);
+}
+
+export function line(key, ctx) {
+  return pickFresh(key, linesFor(key, ctx));
 }
 
 // Paints ran together into a new color. Two are named; three or more are counted, so the line stays short.

@@ -402,7 +402,7 @@ function tallTree(S, b) {
       S.addLand(spec.meta.outline, spec.depth);
       return spec;
     },
-    { say: 'tallTree' },
+    { say: 'bankTree' },
   );
   return [
     land,
@@ -414,7 +414,7 @@ function tallTree(S, b) {
         const spot = spots.reduce((a, s) => (Math.abs(s[0] - b.x) < Math.abs(a[0] - b.x) ? s : a));
         return grow(spot[0], spot[1]);
       },
-      { quiet: true },
+      { say: 'tallTree' },
     ),
   ];
 }

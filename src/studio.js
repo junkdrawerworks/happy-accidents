@@ -318,8 +318,10 @@ export class Studio {
 
   // ——— narration ———
 
-  say(key, kind, pigment) {
-    this.hooks.onNarrate?.({ line: line(key) || line(kind), info: toolInfo(kind, pigment), kind });
+  // In this canvas's mood, and for paint the toy threw itself (auto) or someone threw.
+  say(key, kind, pigment, auto = false) {
+    const ctx = { scheme: this.scheme?.id, auto };
+    this.hooks.onNarrate?.({ line: line(key, ctx) || line(kind, ctx), info: toolInfo(kind, pigment), kind });
   }
 
   // ——— elements ———
@@ -377,6 +379,8 @@ export class Studio {
     const x = clamp(spec.x, 0, W);
     const y = clamp(spec.y, 0, H);
     const sp = makeSplat({ ...spec, x, y });
+    // Thrown by the toy itself (Oops, Let it happen, the intro), not by someone: the painter doesn't say "you hit him".
+    sp.auto = !!spec.auto;
     renderSplat(sp, this.k);
     this.land(sp, spec.delay ?? rand(450, 850));
     return sp;
@@ -402,6 +406,7 @@ export class Studio {
   merge(a, b) {
     b.state = 'merged';
     b.parent = a;
+    if (!b.auto) a.auto = false;
     a.merged = [...(a.merged || []), b];
     const parts = [a, ...a.merged];
     const areas = parts.map((p) => p.R * p.R * p.stretch);
@@ -471,7 +476,7 @@ export class Studio {
       return;
     }
     st.spec = spec;
-    if (!st.quiet) this.say(lineKey(st, spec), spec.kind, sp.mixPigment || sp.pigment);
+    if (!st.quiet) this.say(lineKey(st, spec), spec.kind, sp.mixPigment || sp.pigment, sp.auto);
     const el = spec.onto ? this.paintOnto(spec.onto, spec) : this.addElement(spec);
     spec.el = el;
     el.onProgress = (t) => {
@@ -528,7 +533,7 @@ export class Studio {
     if (!opts.hint && targets.length > 2 && chance(0.28)) {
       const t = pick(targets);
       const spot = this.spotOn(t);
-      if (spot) return this.addSplat({ ...motion, pigment: opts.pigment ?? pick(PIGMENTS), ...spot });
+      if (spot) return this.addSplat({ ...motion, pigment: opts.pigment ?? pick(PIGMENTS), ...spot, auto: true });
     }
 
     const fits = opts.pigment ? fitsFor(opts.pigment) : null;
@@ -544,7 +549,7 @@ export class Studio {
       spot = this.spotFor(hint);
     }
     const pigment = opts.pigment ?? paintFor(hint);
-    return this.addSplat({ ...motion, pigment, ...spot, ...(hint === opts.hint ? opts.spot : null), hint });
+    return this.addSplat({ ...motion, pigment, ...spot, ...(hint === opts.hint ? opts.spot : null), hint, auto: true });
   }
 
   // A point that's actually on an element.

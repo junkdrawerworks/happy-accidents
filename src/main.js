@@ -436,7 +436,7 @@ function finishGesture(e, cancelled = false) {
   threw();
   countGesture(studio.pool ? 'hold' : g.moved >= 10 ? 'flick' : 'tap');
   if (studio.pool) {
-    studio.commitPool();
+    buzz(e, studio.commitPool());
     return;
   }
   if (g.moved >= 10) {
@@ -451,10 +451,21 @@ function finishGesture(e, cancelled = false) {
     const vy = (p.y - q.y) / dt;
     const speed = Math.hypot(vx, vy);
     const R = Math.min(64, Math.max(14, 16 + speed * 9 + rand(-3, 3)));
-    studio.addSplat({ x: p.x, y: p.y, vx, vy, R, pigment: g.pigment, trail: g.drops });
+    buzz(e, studio.addSplat({ x: p.x, y: p.y, vx, vy, R, pigment: g.pigment, trail: g.drops }));
   } else {
-    studio.addSplat({ x: p.x, y: p.y, R: rand(11, 22), pigment: g.pigment });
+    buzz(e, studio.addSplat({ x: p.x, y: p.y, R: rand(11, 22), pigment: g.pigment }));
   }
+}
+
+// Your own finger's splat landing gives the phone a very short buzz, where it can (Android; Safari on an iPhone has no
+// vibration): 8 ms for a tap, up to 14 ms for the biggest flick or puddle. Never for Oops, Let it happen or the intro,
+// and never with a mouse or a pen.
+function buzz(e, sp) {
+  if (e.pointerType !== 'touch' || !sp || typeof navigator.vibrate !== 'function') return;
+  const big = Math.min(1, Math.max(0, (sp.R - 22) / (64 - 22)));
+  try {
+    navigator.vibrate(Math.round(8 + 6 * big));
+  } catch {}
 }
 
 canvas.addEventListener('pointerup', (e) => finishGesture(e));

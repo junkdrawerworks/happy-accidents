@@ -18,7 +18,7 @@
 
 ## How it plays
 
-- **Tap** for a small splat, **flick** (drag and let go) to fling a stretched one with droplets, or **press and hold** to let the paint pool until you let go.
+- **Tap** for a small splat, **flick** (drag and let go) to fling a stretched one with droplets, or **press and hold** to let the paint pool until you let go. On an Android phone your splat lands with a tiny buzz (a longer one for a big flick or puddle).
 - **The paint's color decides what it becomes, and where it lands decides which version** (table below). White high in the sky is a cloud; out on the lake it's a sailboat. Brown up high is a storm cloud; on land it's a cabin or a bare tree. On the horizon, any paint makes a far-off row of trees in its color, and small flecks up high are birds (until there are eight flocks), stars or wisps of cloud. Out on the open lake, a small dark fleck is a pair of loons (three pairs at most), and brown right at the shore is a little dock (one to a canvas).
 - **The shape of the splat carries through.** A mountain's ridge is the top edge of the splat, blown up, so spikes become needle peaks. A cloud has the splat's silhouette, land in the lake takes its outline, and a leafy tree's crown is the splat. The droplets flung off with it become birds, stars, flowers or ripples alongside it.
 - **Paint on something changes it** (second table).

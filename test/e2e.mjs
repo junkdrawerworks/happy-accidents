@@ -368,6 +368,35 @@ await page.waitForTimeout(200);
 const drifted = await S(() => window.happyAccidents.splats.map((s) => Math.round(s.R)));
 assert.ok(drifted.length === 1 && drifted[0] > 40, `a hold that drifted 15 px lost its puddle (splats ${drifted})`);
 await settle();
+// Your own finger's splat landing buzzes the phone very briefly: 8 ms for a tap, more for a fast flick or a long hold
+// (14 ms at most). Oops, Let it happen and a mouse don't.
+await S(() => {
+  window.buzzes = [];
+  Object.defineProperty(navigator, 'vibrate', { configurable: true, value: (ms) => window.buzzes.push(ms) > 0 });
+  window.happyAccidents.newCanvas('golden-hour');
+});
+await touch('touchStart', [finger(0.3, 0.2, 0)]);
+await touch('touchEnd');
+await page.waitForTimeout(150);
+await touch('touchStart', [finger(0.15, 0.35, 0)]);
+for (let i = 1; i <= 4; i++) await touch('touchMove', [finger(0.15 + i * 0.15, 0.35, 0)]);
+await touch('touchEnd');
+await page.waitForTimeout(150);
+await touch('touchStart', [finger(0.5, 0.8, 0)]);
+await page.waitForTimeout(1500);
+await touch('touchEnd');
+await page.waitForTimeout(150);
+await S(() => document.activeElement?.blur());
+await page.keyboard.press(' ');
+await S(() => window.happyAccidents.randomAccident());
+await page.mouse.click(b.x + b.width * 0.7, b.y + b.height * 0.2);
+await page.waitForTimeout(150);
+const buzzes = await S(() => window.buzzes);
+assert.equal(buzzes.length, 3, `a tap, a flick and a hold should buzz, and nothing else (buzzed ${buzzes} ms)`);
+assert.equal(buzzes[0], 8, 'a tap’s buzz');
+assert.ok(buzzes.slice(1).every((ms) => ms > 8 && ms <= 14), `a fast flick and a long hold buzz longer than a tap, up to 14 ms (${buzzes})`);
+await S(() => delete navigator.vibrate);
+await settle();
 // The easel's clamp and ledge, over the canvas's top and bottom edges, let paint through to it, and a tap on a paint or
 // the canvas gets no browser highlight (Chrome on Android flashes a cyan box) over the studio's own.
 assert.deepEqual(await S(() => {

@@ -480,7 +480,7 @@ function openSign() {
   }
   const saved = store.get(KEY.name, '');
   artistName.value = typeof saved === 'string' ? saved : '';
-  artTitle.value = makeTitle(studio.counts, studio.scheme.id);
+  artTitle.value = makeTitle(studio.counts, studio.scheme.id, wallTitles());
   openOverlay($('signSheet'), artistName.value ? artTitle : artistName);
 }
 
@@ -506,8 +506,10 @@ window.visualViewport?.addEventListener('resize', fitSheet);
 window.visualViewport?.addEventListener('scroll', fitSheet);
 new MutationObserver(fitSheet).observe(signSheet, { attributes: true, attributeFilter: ['hidden'] });
 
+// Another title, not the one showing and none already on the wall.
+const wallTitles = () => readGallery().map((r) => r.title);
 $('rerollBtn').addEventListener('click', () => {
-  artTitle.value = makeTitle(studio.counts, studio.scheme.id);
+  artTitle.value = makeTitle(studio.counts, studio.scheme.id, [...wallTitles(), artTitle.value]);
 });
 $('cancelSign').addEventListener('click', () => closeOverlay($('signSheet')));
 
@@ -517,7 +519,7 @@ $('signForm').addEventListener('submit', async (e) => {
   signing = true;
   try {
     const name = artistName.value.trim() || 'Anonymous';
-    const title = artTitle.value.trim() || makeTitle(studio.counts, studio.scheme.id);
+    const title = artTitle.value.trim() || makeTitle(studio.counts, studio.scheme.id, wallTitles());
     store.set(KEY.name, name);
     // The sheet steps aside so you can watch the signature go on; the label takes over from it after.
     $('signSheet').hidden = true;

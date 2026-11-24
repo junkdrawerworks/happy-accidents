@@ -47,8 +47,41 @@ test('the placard lists what is in the painting in plain English', () => {
   assert.equal(featureLine({ mountain: 2, evergreen: 1 }), 'Features two mountains and a happy little tree.');
   assert.equal(featureLine({ mountain: 1, evergreen: 3, sun: 1 }), 'Features a mountain, three happy little trees and the sun.');
   const long = featureLine({ mountain: 2, evergreen: 3, deciduous: 2, bush: 1, cabin: 1, cloud: 2, rock: 1 });
-  assert.match(long, /, and more\.$/);
+  assert.match(long, /[a-z] and more\.$/, 'no comma before “and more”, the same as before the last of a short list');
   assert.doesNotMatch(long, /and more and/);
+  assert.equal(featureLine({ evergreen: 14, birds: 1 }), 'Features fourteen happy little trees and a flock of birds.');
+  assert.equal(featureLine({ cloud: 20 }), 'Features twenty clouds.');
+});
+
+test('titles say plurals only for things there are two or more of', () => {
+  const plural = /\b(Cabins|Hideaways|Homesteads|Moons|Peaks|Ridges|Mountains|Pines|Evergreens)\b/;
+  for (const s of SCHEMES) {
+    for (let i = 0; i < 400; i++) {
+      assert.doesNotMatch(makeTitle({ cabin: 1, moon: 1, mountain: 1, evergreen: 1 }, s.id), plural);
+      assert.doesNotMatch(makeTitle({ stars: 2 }, s.id), /\bMoons?\b/, 'stars alone are no moon');
+      assert.doesNotMatch(makeTitle({ stars: 2 }, s.id), /Starlit Stars/);
+    }
+  }
+  const many = new Set(Array.from({ length: 400 }, () => makeTitle({ mountain: 3 }, 'golden-hour')));
+  assert.ok([...many].some((t) => /Peaks|Ridges|Mountains/.test(t)), 'three mountains can still be Peaks');
+});
+
+test('titles name the time of day the mood paints', () => {
+  const wrong = { 'golden-hour': /Morning|Night/, 'violet-dusk': /Morning|Afternoon/, 'northern-night': /Morning|Afternoon|Evening/, 'autumn-blaze': /Morning|Evening Night/, 'misty-morning': /Evening|Night\b/, 'winter-hush': /Evening|Night\b/ };
+  for (const s of SCHEMES) {
+    for (let i = 0; i < 600; i++) {
+      const t = makeTitle({ mountain: 2 }, s.id);
+      assert.doesNotMatch(t, wrong[s.id], `${s.name}: ${t}`);
+      assert.doesNotMatch(t, /\b(\w+) \1\b/, `${s.name}: ${t}`);
+    }
+  }
+});
+
+test('a new title steers clear of the titles already on the wall', () => {
+  for (let i = 0; i < 200; i++) {
+    const wall = Array.from({ length: 11 }, () => makeTitle({ mountain: 2, evergreen: 3 }, 'golden-hour'));
+    assert.ok(!wall.includes(makeTitle({ mountain: 2, evergreen: 3 }, 'golden-hour', wall)), 'a title already on the wall');
+  }
 });
 
 test('painting time and accident counts read naturally', () => {

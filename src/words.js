@@ -509,46 +509,62 @@ export function toolInfo(kind, pigment) {
 const PLACE_A = ['Hollow', 'Cedar', 'Otter', 'Wren', 'Bramble', 'Silver', 'Miller’s', 'Juniper', 'Heron', 'Quiet', 'Lantern', 'Foxglove', 'Birch', 'Stillwater', 'Old Mill', 'Kestrel'];
 const PLACE_B = ['Creek', 'Lake', 'Cove', 'Pond', 'Hollow', 'Reach', 'Bend', 'Ridge', 'Meadow', 'Crossing', 'Narrows', 'Point'];
 
+// For each mood: words to describe it, times of day to name, and the one word for the time of day it paints.
 const MOOD = {
-  'golden-hour': { adj: ['Golden', 'Late', 'Amber', 'Warm'], time: ['Late Afternoon', 'Sundown', 'Golden Hour'] },
-  'winter-hush': { adj: ['Quiet', 'Frozen', 'Hushed', 'Silver'], time: ['First Snow', 'Deep Winter', 'A Cold Morning'] },
-  'northern-night': { adj: ['Midnight', 'Starlit', 'Northern', 'Sleeping'], time: ['Midnight', 'Moonrise', 'The Long Night'] },
-  'autumn-blaze': { adj: ['October', 'Copper', 'Blazing', 'Russet'], time: ['Early October', 'Harvest Time', 'The Turning'] },
-  'misty-morning': { adj: ['Misty', 'Soft', 'Early', 'Gentle'], time: ['Early Morning', 'First Light', 'Morning Fog'] },
-  'violet-dusk': { adj: ['Violet', 'Evening', 'Dusky', 'Lavender'], time: ['Dusk', 'Last Light', 'Nightfall'] },
+  'golden-hour': { adj: ['Golden', 'Late', 'Amber', 'Warm'], time: ['Late Afternoon', 'Sundown', 'Golden Hour'], hour: 'Evening' },
+  'winter-hush': { adj: ['Quiet', 'Frozen', 'Hushed', 'Silver'], time: ['First Snow', 'Deep Winter', 'A Cold Morning'], hour: 'Morning' },
+  'northern-night': { adj: ['Midnight', 'Starlit', 'Northern', 'Sleeping'], time: ['Midnight', 'Moonrise', 'The Long Night'], hour: 'Night' },
+  'autumn-blaze': { adj: ['October', 'Copper', 'Blazing', 'Russet'], time: ['Early October', 'Harvest Time', 'The Turning'], hour: 'Afternoon' },
+  'misty-morning': { adj: ['Misty', 'Soft', 'Early', 'Gentle'], time: ['Early Morning', 'First Light', 'Morning Fog'], hour: 'Morning' },
+  'violet-dusk': { adj: ['Violet', 'Evening', 'Dusky', 'Lavender'], time: ['Dusk', 'Last Light', 'Nightfall'], hour: 'Evening' },
 };
 
+// What a painting could be named for: [one, many], with many only when there are two or more of it (a canvas has one
+// cabin and one moon at most). Stars are always many.
 function subjects(counts) {
   const s = [];
-  if (counts.cabin) s.push(['Cabin', 'Cabins'], ['Hideaway', 'Hideaways'], ['Homestead', 'Homesteads']);
-  if (counts.mountain) s.push(['Peak', 'Peaks'], ['Ridge', 'Ridges'], ['Mountain', 'Mountains']);
-  if (counts.evergreen) s.push(['Pine', 'Pines'], ['Evergreen', 'Evergreens']);
-  if (counts.deciduous || counts.bush) s.push(['Grove', 'Groves'], ['Thicket', 'Thickets']);
-  if (counts.rock) s.push(['Stone', 'Stones']);
-  if (counts.island) s.push(['Island', 'Islands']);
-  if (counts.waterfall) s.push(['Falls', 'Falls']);
-  if (counts.sailboat) s.push(['Sail', 'Sails']);
-  if (counts.canoe) s.push(['Canoe', 'Canoes']);
-  if (counts.moon || counts.stars) s.push(['Moon', 'Moons']);
+  const add = (kind, ...pairs) => {
+    const n = [].concat(kind).reduce((sum, k) => sum + (counts[k] || 0), 0);
+    if (n) for (const [one, many] of pairs) s.push([one, n >= 2 ? many : null]);
+  };
+  add('cabin', ['Cabin', 'Cabins'], ['Hideaway', 'Hideaways'], ['Homestead', 'Homesteads']);
+  add('mountain', ['Peak', 'Peaks'], ['Ridge', 'Ridges'], ['Mountain', 'Mountains']);
+  add('evergreen', ['Pine', 'Pines'], ['Evergreen', 'Evergreens']);
+  add(['deciduous', 'bush'], ['Grove', 'Groves'], ['Thicket', 'Thickets']);
+  add('rock', ['Stone', 'Stones']);
+  add('island', ['Island', 'Islands']);
+  add('waterfall', ['Falls', 'Falls']);
+  add('sailboat', ['Sail', 'Sails']);
+  add('canoe', ['Canoe', 'Canoes']);
+  add('moon', ['Moon', 'Moons']);
+  if (counts.stars) s.push(['Stars', 'Stars']);
   if (!s.length) s.push(['Water', 'Waters'], ['Sky', 'Skies'], ['Shore', 'Shores']);
   return s;
 }
 
-export function makeTitle(counts, schemeId) {
+function oneTitle(counts, schemeId) {
   const mood = MOOD[schemeId] || MOOD['golden-hour'];
   const place = `${pick(PLACE_A)} ${pick(PLACE_B)}`.replace('Hollow Hollow', 'Hollow Creek');
   const [one, many] = pick(subjects(counts));
-  const adj = pick(mood.adj);
+  const adj = pick(mood.adj.filter((a) => !(one === 'Stars' && a === 'Starlit')));
+  // Midnight Night and Evening Evening say it twice: just Midnight, just Evening.
+  const hour = adj === 'Midnight' || adj === mood.hour ? adj : `${adj} ${mood.hour}`;
   const templates = [
-    () => `${adj} ${many}`,
     () => `${one} at ${place}`,
     () => `${pick(mood.time)} at ${place}`,
     () => `The ${adj} ${one}`,
-    () => `Where the ${many} Are`,
     () => `${place}, ${pick(mood.time)}`,
-    () => `${adj} Morning at ${place}`.replace(/(Midnight|Evening) Morning/, '$1').replace(/(Dusky|Violet|Starlit|Sleeping|Northern) Morning/, '$1 Night'),
+    () => `${hour} at ${place}`,
   ];
-  return pick(templates)();
+  if (many) templates.push(() => `${adj} ${many}`, () => `Where the ${many} Are`);
+  return templates[pickFresh('title', templates.map((_, i) => i))]();
+}
+
+// A title for the painting; avoid is the titles already on the wall, which it tries not to repeat.
+export function makeTitle(counts, schemeId, avoid = []) {
+  let title = oneTitle(counts, schemeId);
+  for (let i = 0; i < 8 && avoid.includes(title); i++) title = oneTitle(counts, schemeId);
+  return title;
 }
 
 // ——— Placard text ———
@@ -561,7 +577,7 @@ const FEATURE_NAMES = [
   ['cabin', 'a cabin', 'cabins'],
   ['cloud', 'a cloud', 'clouds'],
   ['rock', 'a rock', 'rocks'],
-  ['birds', 'a pair of birds', 'flocks of birds'],
+  ['birds', 'a flock of birds', 'flocks of birds'],
   ['flowers', 'some flowers', 'patches of flowers'],
   ['bank', 'a bit of shore', 'stretches of shore'],
   ['island', 'an island', 'islands'],
@@ -572,7 +588,7 @@ const FEATURE_NAMES = [
   ['treeline', 'a distant forest', 'distant forests'],
 ];
 
-const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
 const num = (n) => WORDS[n] || String(n);
 
 // Under the label, when the browser wouldn't keep the painting, or kept it by taking older ones down beyond the usual
@@ -596,7 +612,7 @@ export function featureLine(counts) {
   if (counts.aurora) parts.push('an aurora');
   if (!parts.length) return 'Mostly sky and water, which is plenty.';
   if (parts.length === 1) return `Features ${parts[0]}.`;
-  if (parts.length > 6) return `Features ${parts.slice(0, 5).join(', ')}, and more.`;
+  if (parts.length > 6) return `Features ${parts.slice(0, 5).join(', ')} and more.`;
   const last = parts.pop();
   return `Features ${parts.join(', ')} and ${last}.`;
 }

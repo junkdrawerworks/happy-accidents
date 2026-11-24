@@ -70,7 +70,7 @@ const fitsFor = (pigment) => (earthy(pigment) ? [...FITS.yellow, 'bank', 'rock',
 const SEE_THROUGH = new Set(['sky', 'sunpath', 'signature', 'mist', 'aurora', 'stars', 'birds', 'ripples', 'rain', 'snowShower', 'foothills', 'waterfall', 'flowers']);
 
 // Things floating on the lake, which land laid over them covers.
-const AFLOAT = new Set(['sailboat', 'canoe', 'glints', 'ripples']);
+const AFLOAT = new Set(['sailboat', 'canoe', 'loons', 'glints', 'ripples']);
 
 // What the painter says about a step: its own line if it has one; otherwise the line for what was actually painted, which
 // is usually the step's kind, but a step can fall back to something else (blue too near a mountain's foot for a

@@ -18,6 +18,9 @@ export const MAX_FRIENDS = 2;
 // clouds are raining (or snowing), dark paint still makes storms, but no more rain or snow.
 export const MAX_FLOCKS = 8;
 export const MAX_RAIN = 4;
+// A small dark fleck out on open water is a pair of loons, till there are this many pairs.
+export const MAX_LOONS = 3;
+const LOON_R = 14;
 
 // What falls from a storm cloud: snow in Winter Hush, rain in every other mood. Rain and snow count together toward
 // MAX_RAIN.
@@ -186,6 +189,7 @@ const AFLOAT = {
   rock: { reach: (m) => m.w / 2, tall: (m) => m.hh },
   sailboat: { reach: (m) => m.size * 0.5, tall: (m) => m.size * 1.2 },
   canoe: { reach: (m) => m.size * 0.5, tall: (m) => m.size * 0.12 },
+  loons: { reach: (m) => m.size * 1.5, tall: (m) => m.size * 0.6 },
 };
 // And on land: how far a cabin or a tree reaches either side of its middle.
 const STANDING = {
@@ -524,6 +528,12 @@ function water(S, b, c, hint, vertical, dT) {
     const small = step('rock', () => afloat(S, b, c, rock));
     return c.fam === 'green' ? [small, step('moss', () => small.spec?.kind === 'rock' && R.moss(S, small.spec.el, b), { quiet: true })] : [small];
   };
+  // A small dark fleck (a blue or a brown) out on open water is a pair of loons, the way flecks up high are birds.
+  const dark = (c.fam === 'blue' || c.fam === 'brown') && lum(c.rgb) < 0.3;
+  if (dark && openWater && b.R < LOON_R && (!hint || hint === 'water') && S.count('loons') < MAX_LOONS) {
+    const color = birdColor(S.scheme, c.rgb, S.scheme.water);
+    return [step('loons', () => afloat(S, b, c, (p) => P.loons(S, { ...p, color })))];
+  }
   // Aimed at being a rock (by an accident), in a paint that makes ground.
   if (hint === 'rock' && makesLand(c)) return rockSteps();
   if (c.fam === 'brown' && openWater && hint !== 'bank' && hint !== 'tree' && hint !== 'island' && (hint === 'water' || (b.R < 22 && chance(0.6)))) {

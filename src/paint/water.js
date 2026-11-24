@@ -294,3 +294,63 @@ export function glints(S, p) {
   }
   return { kind: 'glints', depth: p.y, reflect: false, bbox: { x: p.x - w * 0.6 - 60, y: p.y - h * 0.6 - 60, w: w * 1.2 + 120, h: h * 1.2 + 120 }, ops, dur: 900, meta: { x: p.x, y: p.y } };
 }
+
+// A small dark fleck out on open water: a pair of loons, low in the water, each with a white fleck on its back and a V of
+// wake behind. Smaller the further off they are. p.color is the birds' dark color, as it shows on the water.
+export function loons(S, p) {
+  const { scheme, hy, H } = S;
+  const dT = clamp((p.y - hy) / (H - hy), 0, 1);
+  const s = clamp((p.y - hy) * 0.09 + p.R * 0.6, 12, 40);
+  const { x, y } = p;
+  const dir = chance(0.5) ? 1 : -1;
+  const body = p.color;
+  const fleck = mix([250, 250, 246], scheme.waterLine, 0.3);
+  // The second bird a little behind the first, and a little further off.
+  const birds = [
+    { x: x - dir * s * 0.8, y, k: 1 },
+    { x: x + dir * s * 0.9 + rand(-0.2, 0.2) * s, y: y - s * rand(0.15, 0.35), k: rand(0.8, 0.92) },
+  ];
+  const bird = (ctx, b) => {
+    const k = s * b.k;
+    ctx.fillStyle = rgba(body);
+    // the body, low and long, sitting in the water
+    ctx.beginPath();
+    ctx.ellipse(b.x, b.y - k * 0.1, k * 0.55, k * 0.2, 0, Math.PI, 0);
+    ctx.lineTo(b.x - k * 0.55, b.y - k * 0.12);
+    ctx.fill();
+    // the neck and head, at the front, and the bill
+    ctx.beginPath();
+    ctx.ellipse(b.x + dir * k * 0.42, b.y - k * 0.36, k * 0.1, k * 0.2, dir * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(b.x + dir * k * 0.48, b.y - k * 0.52, k * 0.14, k * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(b.x + dir * k * 0.58, b.y - k * 0.55);
+    ctx.lineTo(b.x + dir * k * 0.8, b.y - k * 0.5);
+    ctx.lineTo(b.x + dir * k * 0.58, b.y - k * 0.47);
+    ctx.fill();
+    // the white fleck on its back
+    ctx.fillStyle = rgba(fleck, 0.9);
+    for (let i = 0; i < 3; i++) ctx.fillRect(b.x - dir * k * (0.05 + i * 0.12) - k * 0.04, b.y - k * 0.24 + (i % 2) * k * 0.05, k * 0.08, Math.max(0.8, k * 0.05));
+  };
+  const draw = (ctx) => birds.forEach((b) => bird(ctx, b));
+  const ops = [
+    // the V of wake behind each, opening out away from where it's swimming
+    (ctx) => {
+      for (const b of birds) {
+        const k = s * b.k;
+        for (const side of [-1, 1]) {
+          const len = k * rand(1.3, 1.9);
+          bristle(ctx, linePts(b.x + dir * k * 0.3, b.y + 0.5, b.x + dir * k * 0.3 - dir * len, b.y + 0.5 + side * len * 0.22 + len * 0.04, 8), { width: 1.2, count: 2, color: scheme.waterLine, alpha: 0.5, taper: 0.7 });
+        }
+      }
+    },
+    (ctx) => withReflection(ctx, y, s * 0.6, draw),
+    (ctx) => {
+      for (const b of birds) tap(ctx, b.x - s * 0.3, b.y + 1, s * b.k * 0.7, 0, scheme.waterLine, 0.6, 1);
+    },
+  ];
+  const w = s * 4.6;
+  return { kind: 'loons', depth: y, reflect: false, bbox: { x: x - w, y: y - s * 1.2, w: w * 2, h: s * 2 }, ops, dur: 700 + dT * 300, meta: { x, y, size: s } };
+}

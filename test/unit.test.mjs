@@ -729,8 +729,8 @@ const CELLS = {
     },
     red: { text: 'a canoe, or glints once there are three', allows: [may('canoe'), may('glints', { counts: { canoe: 3 } })] },
     green: { text: 'land, an island or a mossy rock', allows: [may('land'), may('island'), may('mossy rock')] },
-    blue: { text: 'ripples', allows: [may('ripples')] },
-    brown: { text: 'land, or a rock', allows: [may(['land', 'island']), may('rock')] },
+    blue: { text: 'ripples, or a pair of loons from a small fleck out in the open', allows: [may('ripples'), may('loons'), may('ripples', { counts: { loons: 3 } })] },
+    brown: { text: 'land or a rock, or a pair of loons from a small fleck out in the open', allows: [may(['land', 'island']), may('rock'), may('loons'), may(['land', 'island'], { counts: { loons: 3 } }), may('rock', { counts: { loons: 3 } })] },
   },
   'on land': {
     white: { text: 'a snowy pine, a birch or a white cabin, or flowers from a small splat', allows: [may('snowy pine'), may('birch'), may('cabin'), may('flowers')] },
@@ -1567,6 +1567,41 @@ test('in Winter Hush a storm cloud snows instead of raining, and at night light 
     assert.ok(linesFor('treeGlow', { scheme: 'northern-night' }).includes('The moon found his edges.'));
     assert.ok(!linesFor('treeGlow', { scheme: 'northern-night' }).some((t) => /warm/i.test(t)), 'warm light at night');
   }, 76));
+
+test('a small dark fleck out on open water is a pair of loons, three pairs at most', () =>
+  sameDice(() => {
+    const openAt = (S) => ({ x: rand(380, 820), y: rand(S.hy + 40, S.hy + (S.H - S.hy) * 0.7) });
+    for (const id of [...PAINTS.blue, ...PAINTS.brown]) {
+      for (let i = 0; i < 60; i++) {
+        const mood = pick(SCHEMES).id;
+        const S = bareStudio(mood, { land: leftBank });
+        const plan = decide(S, makeSplat({ ...openAt(S), R: rand(8, 13.9), pigment: paintOf(id) }));
+        assert.equal(plan[0].kind, 'loons', `a small ${id} fleck on open water in ${mood} made ${outcomeOf(plan)}`);
+        const loons = plan[0].make();
+        assert.equal(loons.kind, 'loons');
+        assert.ok(loons.meta.size >= 7, 'too small to see');
+        // Bigger than a fleck, or near the shore, or with three pairs out already: what it was before.
+        const big = decide(S, makeSplat({ ...openAt(S), R: rand(16, 50), pigment: paintOf(id) }));
+        assert.notEqual(big[0].kind, 'loons', `a big ${id} splat made loons`);
+        const edge = decide(S, makeSplat({ x: rand(900, 1170), y: rand(S.hy + 40, S.H - 10), R: rand(8, 13.9), pigment: paintOf(id) }));
+        assert.notEqual(edge[0].kind, 'loons', `a ${id} fleck near the edge of the lake made loons`);
+        const full = bareStudio(mood, { land: leftBank, counts: { loons: 3 } });
+        assert.notEqual(decide(full, makeSplat({ ...openAt(full), R: rand(8, 13.9), pigment: paintOf(id) }))[0].kind, 'loons', 'a fourth pair of loons');
+      }
+    }
+    // Bright paint on the water never makes loons; nor does a pale blue mixed with white.
+    for (const id of [...PAINTS.white, ...PAINTS.yellow, ...PAINTS.red, ...PAINTS.green]) {
+      const S = bareStudio('golden-hour', { land: leftBank });
+      assert.notEqual(decide(S, makeSplat({ ...openAt(S), R: 10, pigment: paintOf(id) }))[0].kind, 'loons', `${id} made loons`);
+    }
+    const pale = { ...paintOf('phthalo-blue'), rgb: mix(paintOf('phthalo-blue').rgb, [255, 255, 255], 0.6) };
+    const S = bareStudio('golden-hour', { land: leftBank });
+    assert.notEqual(decide(S, makeSplat({ ...openAt(S), R: 10, pigment: pale }))[0].kind, 'loons', 'a pale blue made loons');
+    // The label and the titles know them.
+    assert.equal(featureLine({ loons: 1, cloud: 1 }), 'Features a pair of loons and a cloud.');
+    assert.equal(featureLine({ loons: 2 }), 'Features two pairs of loons.');
+    assert.ok(Array.from({ length: 300 }, () => makeTitle({ loons: 1, mountain: 1 }, 'golden-hour')).some((t) => /\bLoons\b/.test(t)), 'no title named for the loons');
+  }, 77));
 
 test('birds and rain thin out once there are plenty: past eight flocks dark flecks are wisps, past four rain clouds storms stay dry', () =>
   sameDice(() => {

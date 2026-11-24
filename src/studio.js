@@ -1175,7 +1175,10 @@ export class Studio {
     const c = document.createElement('canvas');
     c.width = FRAME_WIDTH;
     c.height = Math.round((FRAME_WIDTH * H) / W);
-    c.getContext('2d').drawImage(this.canvas, 0, 0, c.width, c.height);
+    const cx = c.getContext('2d');
+    // Shrunk smoothly: the quick way leaves the canvas's weave as a grid over the sky, which shows on the label's frame.
+    cx.imageSmoothingQuality = 'high';
+    cx.drawImage(this.canvas, 0, 0, c.width, c.height);
     if (wet) this.render(performance.now());
     c.toBlob((blob) => (frame.pic = blob), 'image/jpeg', FRAME_QUALITY);
   }

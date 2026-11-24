@@ -1584,7 +1584,9 @@ await page.waitForTimeout(300);
 {
   await page.click('#keepBtn');
   const before = await wallIds();
-  await page.click('#oopsBtn');
+  // (Not Oops: after the reload above, a first Oops of your own would have the painter's "Your turn" waiting for the
+  // first quiet moment, and it would talk over the line checked after the signings below.)
+  await S(() => window.happyAccidents.randomAccident());
   await page.waitForTimeout(200);
   await settle();
   await page.keyboard.press('s');

@@ -67,7 +67,7 @@ const FITS = {
 const fitsFor = (pigment) => (earthy(pigment) ? [...FITS.yellow, 'bank', 'rock', 'island'] : FITS[pigment.family]);
 
 // Things a splat can land on without touching them: the sky itself, light, weather and small marks.
-const SEE_THROUGH = new Set(['sky', 'sunpath', 'signature', 'mist', 'aurora', 'stars', 'birds', 'ripples', 'rain', 'foothills', 'waterfall', 'flowers']);
+const SEE_THROUGH = new Set(['sky', 'sunpath', 'signature', 'mist', 'aurora', 'stars', 'birds', 'ripples', 'rain', 'snowShower', 'foothills', 'waterfall', 'flowers']);
 
 // Things floating on the lake, which land laid over them covers.
 const AFLOAT = new Set(['sailboat', 'canoe', 'glints', 'ripples']);

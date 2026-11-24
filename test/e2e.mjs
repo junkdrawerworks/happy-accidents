@@ -829,7 +829,7 @@ const stillPalette = () => S(async () => {
   const lines = flat(LINES);
   for (let i = 0; i < 6; i++) for (const n of [2, 3, 4]) lines.push(mixLine(names.slice(0, n), 'nearly black'), mixLine(names.slice(0, n), 'pale yellow', names[n - 1]));
   const tools = ['', toolInfo('wash')];
-  for (const kind of [...Object.keys(LINES), 'rain']) for (const p of [undefined, ...PIGMENTS]) tools.push(toolInfo(kind, p));
+  for (const kind of [...Object.keys(LINES), 'rain', 'snowShower']) for (const p of [undefined, ...PIGMENTS]) tools.push(toolInfo(kind, p));
   const lineEl = document.getElementById('line');
   const toolEl = document.getElementById('tool');
   const was = [lineEl.textContent, toolEl.textContent];

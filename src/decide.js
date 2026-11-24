@@ -15,9 +15,15 @@ const step = (kind, make, extra = {}) => ({ kind, make, ...extra });
 // How many friends paint on one tree grows, at most.
 export const MAX_FRIENDS = 2;
 // Once the sky has this many flocks of birds, small dark flecks up high are wisps of cloud instead; and once this many
-// clouds are raining, dark paint still makes storms, but no more rain.
+// clouds are raining (or snowing), dark paint still makes storms, but no more rain or snow.
 export const MAX_FLOCKS = 8;
 export const MAX_RAIN = 4;
+
+// What falls from a storm cloud: snow in Winter Hush, rain in every other mood. Rain and snow count together toward
+// MAX_RAIN.
+const snows = (S) => S.scheme.id === 'winter-hush';
+const falling = (S) => S.count('rain') + S.count('snowShower');
+const fallStep = (S, cloud) => (snows(S) ? step('snowShower', (prev) => R.snowShower(S, cloud ?? prev), { quiet: true }) : step('rain', (prev) => R.rain(S, cloud ?? prev), { quiet: true }));
 
 // Earthy yellows (ochre) make ground, the way greens and browns do; brighter yellows don't.
 export const earthy = (pigment) => pigment.family === 'yellow' && hsl(pigment.rgb).s < 0.7;
@@ -146,7 +152,7 @@ function react(S, t, b, c) {
       if (warm) return first(t, 'lit') ? [step('sunlitCloud', () => R.sunlitCloud(S, t, b))] : null;
       if (lum(b.tint) < 0.3 && first(t, 'storm')) {
         const storm = step('storm', () => R.storm(S, t, b));
-        return S.count('rain') < MAX_RAIN ? [storm, step('rain', () => R.rain(S, t, b), { quiet: true })] : [storm];
+        return falling(S) < MAX_RAIN ? [storm, fallStep(S, t)] : [storm];
       }
       return null;
 
@@ -346,7 +352,7 @@ function stormLook(S, c) {
 
 function stormSteps(S, b, c, rainChance) {
   const steps = [step('cloud', () => P.cloud(S, { ...b, ...stormLook(S, c) }), { say: 'stormCloud' })];
-  if (S.count('rain') < MAX_RAIN && chance(rainChance)) steps.push(step('rain', (prev) => R.rain(S, prev), { quiet: true }));
+  if (falling(S) < MAX_RAIN && chance(rainChance)) steps.push(fallStep(S));
   return steps;
 }
 

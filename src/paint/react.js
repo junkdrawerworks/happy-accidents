@@ -61,7 +61,9 @@ export function treeSnow(S, t, p) {
 export function treeGlow(S, t, p) {
   const m = t.meta;
   const L = S.lightDir;
-  const warm = dim(S, lighten(mix(p.tint, hex('#ffd27a'), 0.45), 0.25));
+  // Late light, warm with a little of the paint; at night, the moon's pale light instead, whatever the paint.
+  const { night, sun, mtn } = S.scheme;
+  const warm = night ? mix(mtn.light, sun, 0.3) : dim(S, lighten(mix(p.tint, hex('#ffd27a'), 0.45), 0.25));
   const ops = [];
   if (m.tiers) {
     for (let i = 0; i < m.tiers.length; i += 3) {
@@ -334,6 +336,50 @@ export function rain(S, t) {
   }
   const spread = Math.abs(slant) * (bottom - top);
   return { kind: 'rain', depth: t.depth + 0.1, reflect: true, bbox: { x: x0 - spread - 10, y: top - 4, w: x1 - x0 + spread * 2 + 20, h: bottom - top + 8 }, ops, dur: 1500 };
+}
+
+// Snow falling from a heavy cloud, in a mood that snows (Winter Hush): soft white flakes drifting down to the horizon,
+// thinning as they go, over a pale veil.
+export function snowShower(S, t) {
+  const m = t.meta;
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  for (const pf of m.puffs) {
+    x0 = Math.min(x0, pf.x - pf.r * 0.6);
+    x1 = Math.max(x1, pf.x + pf.r * 0.6);
+  }
+  const top = m.baseY - m.h * 0.15;
+  const bottom = S.hy - 2;
+  if (bottom - top < 20) return null;
+  const drift = rand(-0.18, 0.18);
+  const flake = mix(WHITE, S.scheme.cloud.light, 0.3);
+  const veil = mix(S.scheme.cloud.light, S.haze, 0.4);
+  const ops = [];
+  for (let k = 0; k < 3; k++) {
+    ops.push((ctx) => {
+      for (let j = 0; j < 6; j++) {
+        const x = rand(x0, x1);
+        const y = top + rand(0, 20);
+        const len = (bottom - y) * rand(0.6, 1);
+        bristle(ctx, linePts(x, y, x + drift * len, y + len, 20), { width: rand(18, 40), color: veil, alpha: 0.06, count: 7, taper: 0.4 });
+      }
+    });
+  }
+  for (let k = 0; k < 14; k++) {
+    ops.push((ctx) => {
+      for (let j = 0; j < 40; j++) {
+        const f = Math.pow(Math.random(), 1.3);
+        const y = top + f * (bottom - top - 6);
+        const x = rand(x0, x1) + drift * (y - top) + Math.sin(y * 0.05 + j) * 4;
+        ctx.fillStyle = rgba(jitter(flake, 0.02), rand(0.45, 0.9) * (1 - f * 0.6));
+        ctx.beginPath();
+        ctx.arc(x, y, rand(0.8, 2) * (1 - f * 0.3), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+  }
+  const spread = Math.abs(drift) * (bottom - top) + 6;
+  return { kind: 'snowShower', depth: t.depth + 0.1, reflect: true, bbox: { x: x0 - spread - 10, y: top - 4, w: x1 - x0 + spread * 2 + 20, h: bottom - top + 8 }, ops, dur: 1500 };
 }
 
 // Warm paint on a cloud: its edges catch the light. At night and dusk that light is toned down toward the cloud's own

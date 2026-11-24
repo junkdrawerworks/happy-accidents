@@ -44,14 +44,14 @@ Paint that lands on something already there changes it instead:
 | Hit | With | And |
 | --- | --- | --- |
 | a tree | white | snow settles on it |
-| an evergreen | yellow or red | late light catches its side |
+| an evergreen | yellow or red | late light (moonlight at night) catches its side |
 | a leafy tree or bush | yellow or red | it turns to autumn |
 | a tree | anything else | a friend grows next to it, two at most (after that, or with no ground beside it, light catches it once) |
 | a mountain | white / blue / yellow or red / green | fresh snow / a waterfall (or mist, right at its foot) / alpenglow / trees up the slope |
 | a mountain | anything else | trees up the slope, or a drift of mist |
 | the sun or moon | warm or white | the whole sky warms into a sunset, or lights up around the moon |
 | the sun or moon | anything else | a cloud drifts across it |
-| a cloud | something dark | it turns stormy and rains (once four clouds are raining, only stormy) |
+| a cloud | something dark | it turns stormy and rains, or snows in Winter Hush (once four clouds are raining or snowing, only stormy) |
 | a cloud | yellow or red | its edges catch the light |
 | the cabin | white / warm / anything | snow on the roof / the lights come on (if they aren't on already) / the lights come on, or a garden |
 | a rock | green / white | moss / snow |

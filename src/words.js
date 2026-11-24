@@ -125,12 +125,21 @@ export const LINES = {
     'White on a tree? That’s snow on the branches.',
     'He caught some snow. Let it sit on top.',
   ],
-  treeGlow: [
-    'The light’s hitting him just right now.',
-    'Catch the edges with a little warm light.',
-    'Warm light on one side. He’s facing the right way.',
-    'Just touch the edges. The light does the rest.',
-  ],
+  treeGlow: {
+    default: [
+      'The light’s hitting him just right now.',
+      'Catch the edges with a little warm light.',
+      'Warm light on one side. He’s facing the right way.',
+      'Just touch the edges. The light does the rest.',
+    ],
+    // At night it's the moon's light.
+    night: [
+      'The moon found his edges.',
+      'A little moonlight down one side of him.',
+      'Pale light on his branches. The moon’s up there somewhere.',
+      'Just touch the edges. The moon does the rest.',
+    ],
+  },
   autumn: {
     default: {
       lines: ['That one turned. Fall came early for him.', 'Red and gold on that one now. He turned overnight.'],
@@ -202,12 +211,21 @@ export const LINES = {
     'A cloud in front of the moon. Just passing through.',
     'Some cloud over the moon. The night got a little softer.',
   ],
-  storm: [
-    'That cloud got heavy. Here comes a little rain.',
-    'Dark paint on a cloud means weather.',
-    'Weather’s coming. That cloud is full.',
-    'It got dark, so now it’s raining over there.',
-  ],
+  storm: {
+    default: [
+      'That cloud got heavy. Here comes a little rain.',
+      'Dark paint on a cloud means weather.',
+      'Weather’s coming. That cloud is full.',
+      'It got dark, so now it’s raining over there.',
+    ],
+    // In Winter Hush, it snows.
+    'winter-hush': [
+      'That cloud got heavy. Here comes a little snow.',
+      'Dark paint on a cloud, and down comes the snow.',
+      'That cloud was full of snow. It’s letting a little go.',
+      'It got dark, so now it’s snowing over there.',
+    ],
+  },
   sunlitCloud: [
     'The edges of that cloud caught the light.',
     'Warm paint on a cloud. Now its edges glow.',
@@ -528,6 +546,7 @@ const TOOLS = {
   sunset: ['2-inch brush', ['Cadmium Yellow', 'Alizarin Crimson']],
   storm: ['1-inch brush', ['Midnight Black', 'Prussian Blue']],
   rain: ['Fan brush', ['Liquid White']],
+  snowShower: ['Fan brush', ['Titanium White']],
   sunlitCloud: ['1-inch brush', ['Cadmium Yellow', 'Titanium White']],
   lights: ['Liner brush', ['Cadmium Yellow', 'Indian Yellow']],
   roofSnow: ['Palette knife', ['Titanium White']],
@@ -726,6 +745,7 @@ const FEATURE_NAMES = [
   ['island', 'an island', 'islands'],
   ['stars', 'a sky full of stars'],
   ['rain', 'a passing rainstorm', 'passing rainstorms'],
+  ['snowShower', 'a passing snow shower', 'passing snow showers'],
   ['rock', 'a rock', 'rocks'],
   ['mountain', 'a mountain', 'mountains'],
   ['evergreen', 'a happy little tree', 'happy little trees'],

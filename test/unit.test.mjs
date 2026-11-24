@@ -407,7 +407,7 @@ test('the brush line names each paint once, and no paint of another hue than the
     }
   }
   const hue = { 'Cadmium Yellow': 'yellow', 'Yellow Ochre': 'yellow', 'Indian Yellow': 'yellow', 'Bright Red': 'red', 'Alizarin Crimson': 'red', 'Sap Green': 'green', 'Phthalo Green': 'green', 'Phthalo Blue': 'blue', 'Prussian Blue': 'blue' };
-  for (const kind of [...Object.keys(LINES), 'rain']) {
+  for (const kind of [...Object.keys(LINES), 'rain', 'snowShower']) {
     for (const p of PIGMENTS) {
       const text = toolInfo(kind, p);
       if (!text) continue;
@@ -499,7 +499,8 @@ test('at night and dusk, what paint adds sits in the shade like everything else'
     const dark = S.scheme.tree.dark;
     const touches = {
       'autumn leaves': [(s) => autumn(s, leafy, hit('bright-red')), dark],
-      'late light on a pine': [(s) => treeGlow(s, pine, hit('cadmium-yellow')), dark],
+      // (At night it's moonlight, whatever the paint: the test for Winter Hush's snow checks that.)
+      ...(S.scheme.night ? {} : { 'late light on a pine': [(s) => treeGlow(s, pine, hit('cadmium-yellow')), dark] }),
       'a cloud’s lit edges': [(s) => sunlitCloud(s, cloud, hit('cadmium-yellow')), cloud.meta.light],
       flowers: [(s) => flowers(s, { x: 700, y: ground, R: 10, tint: paint('cadmium-yellow') }), dark],
       'a canoe': [(s) => canoe(s, { x: 600, y: S.hy + 100, R: 20, tint: paint('bright-red') }), dark],
@@ -897,7 +898,7 @@ const hitOn = (name, t) => (HIT[name] || (t.meta.peak ? HIT.mountain : t.meta.pu
 
 const REACTIONS = [
   { row: ['a tree', 'white', 'snow settles on it'], targets: ['evergreen', 'deciduous', 'bush'], paints: PAINTS.white, first: () => ['treeSnow'] },
-  { row: ['an evergreen', 'yellow or red', 'late light catches its side'], targets: ['evergreen'], paints: YELLOW_RED, first: () => ['treeGlow'] },
+  { row: ['an evergreen', 'yellow or red', 'late light (moonlight at night) catches its side'], targets: ['evergreen'], paints: YELLOW_RED, first: () => ['treeGlow'] },
   { row: ['a leafy tree or bush', 'yellow or red', 'it turns to autumn'], targets: ['deciduous', 'bush'], paints: YELLOW_RED, first: () => ['autumn'] },
   {
     row: ['a tree', 'anything else', 'a friend grows next to it, two at most (after that, or with no ground beside it, light catches it once)'],
@@ -914,7 +915,7 @@ const REACTIONS = [
   { row: ['a mountain', 'anything else', 'trees up the slope, or a drift of mist'], targets: ['mountain'], paints: PAINTS.brown, first: () => ['foothills', 'mist'] },
   { row: ['the sun or moon', 'warm or white', 'the whole sky warms into a sunset, or lights up around the moon'], targets: ['sun'], paints: [...PAINTS.white, ...YELLOW_RED], first: () => ['sunset'] },
   { row: ['the sun or moon', 'anything else', 'a cloud drifts across it'], targets: ['sun'], paints: [...PAINTS.green, ...PAINTS.blue, ...PAINTS.brown], first: () => ['cloudOverSun'] },
-  { row: ['a cloud', 'something dark', 'it turns stormy and rains (once four clouds are raining, only stormy)'], targets: ['cloud'], paints: [...PAINTS.blue, ...PAINTS.brown], first: () => ['storm'] },
+  { row: ['a cloud', 'something dark', 'it turns stormy and rains, or snows in Winter Hush (once four clouds are raining or snowing, only stormy)'], targets: ['cloud'], paints: [...PAINTS.blue, ...PAINTS.brown], first: () => ['storm'] },
   { row: ['a cloud', 'yellow or red', 'its edges catch the light'], targets: ['cloud'], paints: YELLOW_RED, first: () => ['sunlitCloud'] },
   {
     row: ['the cabin', 'white / warm / anything', 'snow on the roof / the lights come on (if they aren\'t on already) / the lights come on, or a garden'],
@@ -1514,6 +1515,58 @@ test('a tall pine never stands in front of another: there, green high in the sky
       assert.equal(decide(T, makeSplat({ x: 150, y: T.hy * 0.2, R: 30, pigment: paintOf('sap-green') }))[0].kind, 'treeline');
     }
   }, 74));
+
+test('in Winter Hush a storm cloud snows instead of raining, and at night light on a pine is moonlight', () =>
+  sameDice(() => {
+    const darkOn = (mood, counts, id) => {
+      const el = { ...TARGETS.cloud(bareStudio(mood)) };
+      const S = bareStudio(mood, { land: leftBank, target: el, counts });
+      const plan = decide(S, makeSplat({ ...hitOn('cloud', el), R: rand(12, 26), pigment: paintOf(id) }));
+      return { kinds: plan.map((s) => s.kind), made: plan[1]?.make(), say: plan[0].say };
+    };
+    for (const id of [...PAINTS.blue, ...PAINTS.brown]) {
+      for (const mood of SCHEMES.map((s) => s.id)) {
+        const { kinds, made } = darkOn(mood, {}, id);
+        const want = mood === 'winter-hush' ? 'snowShower' : 'rain';
+        assert.deepEqual(kinds, ['storm', want], `${id} on a cloud in ${mood}`);
+        assert.equal(made.kind, want);
+      }
+      // Rain and snow count together: four of either, or both, and storms stay dry.
+      assert.deepEqual(darkOn('winter-hush', { snowShower: 3 }, id).kinds, ['storm', 'snowShower']);
+      assert.deepEqual(darkOn('winter-hush', { snowShower: 4 }, id).kinds, ['storm'], `${id}: a fifth snow shower`);
+      assert.deepEqual(darkOn('winter-hush', { rain: 2, snowShower: 2 }, id).kinds, ['storm']);
+    }
+    // A storm cloud thrown up high in Winter Hush brings snow, never rain.
+    let snowed = 0;
+    for (let i = 0; i < 200; i++) {
+      const S = bareStudio('winter-hush', { land: leftBank });
+      const kinds = decide(S, makeSplat({ x: rand(30, 1170), y: S.hy * rand(0.05, 0.42), R: rand(20, 50), pigment: paintOf('van-dyke-brown') })).map((s) => s.kind);
+      assert.ok(!kinds.includes('rain'), 'rain in Winter Hush');
+      if (kinds.includes('snowShower')) snowed++;
+    }
+    assert.ok(snowed > 20, `only ${snowed} of 200 storm clouds snowed`);
+    // The painter says snow in Winter Hush, and rain elsewhere.
+    assert.ok(linesFor('storm', { scheme: 'winter-hush' }).includes('That cloud got heavy. Here comes a little snow.'));
+    assert.ok(!linesFor('storm', { scheme: 'winter-hush' }).some((t) => /rain/.test(t)), 'rain in a Winter Hush line');
+    assert.ok(!linesFor('storm', { scheme: 'golden-hour' }).some((t) => /snow/.test(t)), 'snow in a Golden Hour line');
+    // Light on a pine: the moon's pale light at night, whatever the paint; warm light by day.
+    const strokes = (mood, id) => {
+      const S = bareStudio(mood);
+      const tree = P.evergreen(S, { x: 150, baseY: 680, h: 140, tint: [60, 90, 40] });
+      const seen = [];
+      const ctx = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => {}), set: (t, k, v) => (k === 'strokeStyle' && seen.push(String(v).match(/[\d.]+/g).slice(0, 3).map(Number)), (t[k] = v), true) });
+      for (const op of treeGlow(S, tree, { tint: paintOf(id).rgb }).ops) op(ctx);
+      return seen;
+    };
+    // Warm light has much more red than blue; moonlight has as much blue as red, or more.
+    const warmth = (list) => list.reduce((n, [r, , b]) => n + (r - b), 0) / list.length;
+    for (const id of YELLOW_RED) {
+      assert.ok(warmth(strokes('northern-night', id)) < 8, `${id} on a pine at night was warm, not moonlight (${Math.round(warmth(strokes('northern-night', id)))})`);
+      assert.ok(warmth(strokes('golden-hour', id)) > 40, `${id} on a pine in Golden Hour wasn't warm`);
+    }
+    assert.ok(linesFor('treeGlow', { scheme: 'northern-night' }).includes('The moon found his edges.'));
+    assert.ok(!linesFor('treeGlow', { scheme: 'northern-night' }).some((t) => /warm/i.test(t)), 'warm light at night');
+  }, 76));
 
 test('birds and rain thin out once there are plenty: past eight flocks dark flecks are wisps, past four rain clouds storms stay dry', () =>
   sameDice(() => {

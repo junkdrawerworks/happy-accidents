@@ -15,12 +15,15 @@ export const LINES = {
     'Clouds are free. Take as many as you like.',
     'Scrub it in, soft and loose. Clouds don’t really have edges.',
   ],
-  mountain: [
-    'Oh, that’s a mountain. You can tell by the way it sits there.',
-    'See the top of your splat? That’s the ridge now. We just made it bigger.',
-    'Push it up, let it be big. Mountains don’t apologize.',
-    'There was a mountain hiding in that one. Same shape and everything.',
-  ],
+  mountain: {
+    lines: [
+      'Oh, that’s a mountain. You can tell by the way it sits there.',
+      'Push it up, let it be big. Mountains don’t apologize.',
+      'There was a mountain hiding in that one. Same shape and everything.',
+    ],
+    // The intro's mountain, and Oops's and Let it happen's, weren't anybody's splat.
+    you: ['See the top of your splat? That’s the ridge now. We just made it bigger.'],
+  },
   foothills: [
     'A few little trees climbing up the hill.',
     'Some trees wandered up the mountain. That’s allowed.',

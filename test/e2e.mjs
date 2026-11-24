@@ -143,6 +143,33 @@ await page.click('[data-id="surprise"]');
 await page.waitForTimeout(2000);
 await settle();
 
+// Only your own last splat is held, once: browsing the palette while Let it happen runs doesn't leave its splats sitting
+// wet and unpainted on the canvas (each pick used to put off every wet splat again, for as long as the picking went on).
+await S(() => {
+  const st = window.happyAccidents;
+  window.wetFor = [];
+  const resolve = st.resolve.bind(st);
+  st.resolve = (sp) => {
+    if (sp.state === 'wet') window.wetFor.push(Math.round(performance.now() - sp.born));
+    return resolve(sp);
+  };
+});
+await page.click('#autoBtn');
+for (let i = 0; i < 10; i++) {
+  await page.click(`.dab >> nth=${1 + i}`);
+  await page.waitForTimeout(900);
+}
+if ((await page.getAttribute('#autoBtn', 'aria-pressed')) === 'true') await page.click('#autoBtn');
+await page.click('[data-id="surprise"]');
+await page.waitForTimeout(3000);
+await settle();
+const wetFor = await S(() => {
+  delete window.happyAccidents.resolve;
+  return window.wetFor;
+});
+assert.ok(wetFor.length >= 3, `Let it happen threw only ${wetFor.length} splats while the paints were picked`);
+assert.ok(Math.max(...wetFor) <= 3000, `a splat stayed wet ${Math.max(...wetFor)} ms while paints were picked (${wetFor.join(', ')})`);
+
 // One finger paints at a time: a finger that comes down while another is painting is ignored. Two fingers tapped
 // together make one splat, where the first one landed, and a second finger can't move a puddle the first is pouring.
 // And if the canvas loses hold of a finger without hearing it lift, the next touch still paints.

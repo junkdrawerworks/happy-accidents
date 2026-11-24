@@ -116,6 +116,7 @@ export class Studio {
     this.active = [];
     this.splats = [];
     this.pool = null;
+    this.lastHand = null;
     this.drops = [];
     this.counts = {};
     this.reserved = new Set();
@@ -391,6 +392,7 @@ export class Studio {
     const sp = makeSplat({ ...spec, x, y });
     // Thrown by the toy itself (Oops, Let it happen, the intro), not by someone: the painter doesn't say "you hit him".
     sp.auto = !!spec.auto;
+    if (!sp.auto) this.lastHand = sp;
     renderSplat(sp, this.k);
     this.land(sp, spec.delay ?? rand(450, 850));
     return sp;
@@ -399,6 +401,7 @@ export class Studio {
   // A splat hits the canvas. If it lands in paint that's still wet, the two run together.
   land(sp, delay) {
     sp.gen = this.gen;
+    sp.landed = performance.now();
     const wet = this.splats.find(
       (s) => s.state === 'wet' && s.gen === this.gen && Math.hypot(s.x - sp.x, s.y - sp.y) < (s.R * s.stretch + sp.R * sp.stretch) * 0.7,
     );
@@ -408,7 +411,7 @@ export class Studio {
     if (wet) this.merge(wet, sp);
     else {
       sp.state = 'wet';
-      sp.timer = setTimeout(() => this.resolve(sp), delay);
+      this.dryIn(sp, delay);
     }
     this.kick();
   }
@@ -439,20 +442,31 @@ export class Studio {
       p.tintTo = rgb;
       p.tintT0 = t0;
     }
-    clearTimeout(a.timer);
-    a.timer = setTimeout(() => this.resolve(a), rand(800, 1100));
+    this.dryIn(a, rand(800, 1100));
     if (names.length > 1) this.hooks.onNarrate?.({ line: mixLine(names, colorName(rgb)), info: '', kind: 'merge' });
     else this.say('merge', 'merge');
     this.kick();
   }
 
-  // Paint stays wet while you reach for another color, so the next splat can run into it.
+  // A wet splat is read (and painted in) after ms.
+  dryIn(sp, ms) {
+    clearTimeout(sp.timer);
+    sp.due = performance.now() + ms;
+    sp.timer = setTimeout(() => this.resolve(sp), ms);
+  }
+
+  // Your last splat stays wet a moment longer while you reach for another color, so the next one can run into it. Only
+  // your own (never one from Oops, Let it happen or the intro), only once, and never more than a few seconds after it
+  // landed, so browsing the palette can't leave paint sitting unread on the canvas.
   keepWet(ms = 1800) {
-    for (const s of this.splats) {
-      if (s.state !== 'wet' || s.gen !== this.gen) continue;
-      clearTimeout(s.timer);
-      s.timer = setTimeout(() => this.resolve(s), ms);
-    }
+    const hand = this.lastHand;
+    if (!hand || hand.keptWet || hand.gen !== this.gen) return;
+    hand.keptWet = true;
+    const sp = hand.parent ?? hand;
+    if (sp.state !== 'wet') return;
+    const now = performance.now();
+    const until = Math.min(now + ms, hand.landed + 2600);
+    if (until > sp.due) this.dryIn(sp, until - now);
   }
 
   resolve(sp) {
@@ -514,6 +528,7 @@ export class Studio {
     const sp = this.pool;
     if (!sp) return null;
     this.pool = null;
+    this.lastHand = sp;
     this.land(sp, rand(350, 650));
     return sp;
   }

@@ -754,6 +754,17 @@ await page.waitForSelector('#placard:not([hidden])', { timeout: 30000 });
 assert.deepEqual(await S(() => window.framedBusy), [false, false], 'the painting was framed while paint on it was still going on');
 assert.equal(await page.textContent('#plTitle'), 'Test Pattern at Otter Cove');
 assert.equal(await page.textContent('#plArtist'), 'Robin');
+// A title in a right-to-left script keeps the year after it, not pulled round in front of it ("2026 ,title").
+assert.equal(await page.getAttribute('#plTitle', 'dir'), 'auto');
+assert.equal(await S(() => document.getElementById('plArtist').localName), 'bdi', 'the artist’s name on the label isn’t set apart from the text around it');
+assert.ok(await S(() => {
+  const t = document.getElementById('plTitle');
+  const was = t.textContent;
+  t.textContent = 'غروب فوق البحيرة';
+  const after = document.getElementById('plYear').getBoundingClientRect().left > t.getBoundingClientRect().right;
+  t.textContent = was;
+  return after;
+}), 'an Arabic title put the year in front of it on the label');
 assert.match(await page.textContent('#plNote'), new RegExp(`from ${accidentsSigned} happy accidents`));
 assert.equal(await S(() => window.happyAccidents.accidents), accidentsSigned, 'paint went on the canvas while the signature went on');
 assert.equal(await S(() => window.happyAccidents.signed.accidents), accidentsSigned, 'the label and the easel disagree on how many accidents were signed');
@@ -1182,6 +1193,7 @@ await page.waitForTimeout(300);
 assert.ok(!(await pictureIds()).includes(removed), 'Remove left the painting’s full-size picture behind');
 assert.equal(await page.textContent('#galleryCount'), '4');
 assert.equal((await wall()).length, 4);
+assert.deepEqual(await S(() => [document.querySelector('.wall-meta cite').dir, document.querySelectorAll('.wall-meta bdi').length]), ['auto', 4], 'the titles and names on the wall aren’t set apart from the dates beside them');
 await page.locator('.wall-open').first().click();
 const [saved] = await Promise.all([page.waitForEvent('download'), page.click('#downloadBtn')]);
 assert.equal(saved.suggestedFilename(), `${(await wall())[0].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.jpg`, 'the download is named for the painting');

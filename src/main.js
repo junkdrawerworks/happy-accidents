@@ -808,9 +808,14 @@ function renderWall() {
     const meta = document.createElement('div');
     meta.className = 'wall-meta';
     const p = document.createElement('p');
+    // The title and the name are set apart from the text around them (dir="auto", <bdi>), so one in a right-to-left
+    // script doesn't pull the comma and the date over to its side.
     const cite = document.createElement('cite');
+    cite.dir = 'auto';
     cite.textContent = rec.title;
-    p.append(cite, `${rec.artist}, ${new Date(rec.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`);
+    const artist = document.createElement('bdi');
+    artist.textContent = rec.artist;
+    p.append(cite, artist, `, ${new Date(rec.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`);
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'quiet';

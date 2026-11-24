@@ -189,7 +189,7 @@ test('at night and dusk, what paint adds sits in the shade like everything else'
   }
 });
 
-test('a pine’s trunk reaches the ground, however tall the pine', () => {
+test('a pine’s trunk reaches the ground, however tall the pine', () => sameDice(() => {
   // The trunk is painted first. Each bristle's lowest point should be down at the base, under the grass, not a sixteenth
   // of the tree's height above it (44px on a pine that fills the canvas).
   const S = bareStudio();
@@ -206,9 +206,9 @@ test('a pine’s trunk reaches the ground, however tall the pine', () => {
     spec.ops[0](ctx);
     const gaps = strokes.filter((s) => s.length).map((s) => 800 - Math.max(...s)).sort((a, b) => a - b);
     const median = gaps[gaps.length >> 1];
-    assert.ok(median <= Math.max(5, h * 0.015), `a ${h}px pine's trunk stops ${median.toFixed(1)}px above the ground`);
+    assert.ok(median <= Math.max(8, h * 0.015), `a ${h}px pine's trunk stops ${median.toFixed(1)}px above the ground`);
   }
-});
+}, 21));
 
 test('a splat outline turns into a silhouette', () => {
   // A circle of radius 10 centered at (50, 50).

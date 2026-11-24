@@ -34,7 +34,7 @@
 | --- | --- | --- | --- | --- |
 | White | a white cloud, the sun or moon, or stars at night | a snowy mountain or a cloud | a sailboat, or light on the water | a snowy pine, a birch or a white cabin, or flowers from a small splat |
 | Yellow | the sun (or the moon at night), then golden clouds | the sun (or the moon at night), golden clouds, or a golden mountain from Yellow Ochre | glints of light, or land or a rock from Yellow Ochre | a golden tree or bush, or flowers from a small splat |
-| Red | a sunset cloud | a red-rock mountain or a sunset cloud | a canoe | a red tree or bush, or a red cabin, or flowers from a small splat |
+| Red | a sunset cloud | a red-rock mountain or a sunset cloud | a canoe, or glints once there are three | a red tree or bush, or a red cabin, or flowers from a small splat |
 | Green | the top of a tall pine, or an aurora at night | a wooded mountain | land, an island or a mossy rock | pines, leafy trees and bushes |
 | Blue | a cool cloud, or a storm from Prussian Blue | a blue mountain or a cool cloud | ripples | a blue spruce, or flowers from a small splat |
 | Brown | a storm cloud, or birds | a mountain or a storm cloud | land, or a rock | a cabin, a bare tree or a bush |

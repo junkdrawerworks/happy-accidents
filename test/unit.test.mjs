@@ -22,7 +22,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Just enough of a studio to ask decide() what a splat becomes: ground everywhere below the horizon (or where land(x, y)
 // says), nothing painted yet (or only target, which every splat lands on), and the sun or moon already up if sunUp.
-function bareStudio(schemeId = 'golden-hour', { land = (x, y) => y > 480, target = null, sunUp = false } = {}) {
+function bareStudio(schemeId = 'golden-hour', { land = (x, y) => y > 480, target = null, sunUp = false, counts = {} } = {}) {
   const reserved = new Set();
   const scheme = SCHEMES.find((s) => s.id === schemeId);
   if (sunUp) reserved.add(scheme.sunType);
@@ -38,7 +38,7 @@ function bareStudio(schemeId = 'golden-hour', { land = (x, y) => y > 480, target
     isLand: land,
     addLand: () => {},
     has: (kind) => reserved.has(kind),
-    count: () => 0,
+    count: (kind) => counts[kind] || 0,
     reserve: (kind) => reserved.add(kind),
   };
 }
@@ -690,7 +690,8 @@ function outcomeOf(plan) {
 }
 
 // An outcome a cell allows: is (one name, or several that count as one listed outcome), and optionally only at
-// night or by day, or only from some of the family's paints.
+// night or by day, only from some of the family's paints, or only once the canvas has counts of something on it (and
+// then only then: a cell is checked on a fresh canvas, and again with each of those counts).
 const may = (is, more = {}) => ({ is: [].concat(is), ...more });
 const night = { when: 'night' };
 const day = { when: 'day' };
@@ -722,7 +723,7 @@ const CELLS = {
       text: 'glints of light, or land or a rock from Yellow Ochre',
       allows: [may('glints', { only: ['cadmium-yellow', 'indian-yellow'] }), may(['land', 'island'], { only: ['yellow-ochre'] }), may('rock', { only: ['yellow-ochre'] })],
     },
-    red: { text: 'a canoe', allows: [may('canoe')] },
+    red: { text: 'a canoe, or glints once there are three', allows: [may('canoe'), may('glints', { counts: { canoe: 3 } })] },
     green: { text: 'land, an island or a mossy rock', allows: [may('land'), may('island'), may('mossy rock')] },
     blue: { text: 'ripples', allows: [may('ripples')] },
     brown: { text: 'land, or a rock', allows: [may(['land', 'island']), may('rock')] },
@@ -762,14 +763,14 @@ function throwAt(spot, id) {
   return makeSplat({ ...spot, R, pigment: paintOf(id), vx: Math.cos(a) * speed, vy: Math.sin(a) * speed });
 }
 
-// Throws n splats of each paint at a place, and returns each outcome with the paints that made it, and anything
-// allowed() refused.
-function throwMany(place, ids, time, n, allowed) {
+// Throws n splats of each paint at a place (on a canvas that already has counts of things on it), and returns each
+// outcome with the paints that made it, and anything allowed() refused.
+function throwMany(place, ids, time, n, allowed, counts = {}) {
   const made = new Map();
   const wrong = new Map();
   for (const id of ids) {
     for (let i = 0; i < n; i++) {
-      const S = bareStudio(pick(time === 'night' ? NIGHT : DAY), { land: leftBank, sunUp: chance(0.4) });
+      const S = bareStudio(pick(time === 'night' ? NIGHT : DAY), { land: leftBank, sunUp: chance(0.4), counts });
       const sp = throwAt(PLACES[place](S), id);
       const what = outcomeOf(decide(S, sp));
       if (allowed(what, id, sp)) {
@@ -804,17 +805,20 @@ for (const [place, cells] of Object.entries(CELLS)) {
       test(`the rules: ${fam} ${place}, by ${time === 'day' ? 'day' : 'night'}, is ${cell.text}`, { todo }, () =>
         sameDice(() => {
           const sky = place === 'high in the sky';
-          const fits = (a, id) => (!a.when || a.when === time) && (!a.only || a.only.includes(id));
-          const allowed = (what, id, sp) => cell.allows.some((a) => fits(a, id) && a.is.includes(what)) || (sky && fleck(what, sp));
-          const { made, wrong } = throwMany(place, PAINTS[fam], time, 250, allowed);
-          assert.equal(wrong.size, 0, reportWrong(wrong));
-          for (const a of cell.allows) {
-            const ids = PAINTS[fam].filter((id) => fits(a, id));
-            if (!ids.length) continue;
-            assert.ok(
-              a.is.some((what) => [...(made.get(what) || [])].some((id) => ids.includes(id))),
-              `${a.is.join(' or ')} never turned up (made: ${[...made.keys()].join(', ')})`,
-            );
+          const states = [undefined, ...new Set(cell.allows.filter((a) => a.counts).map((a) => JSON.stringify(a.counts)))];
+          for (const state of states) {
+            const fits = (a, id) => (!a.when || a.when === time) && (!a.only || a.only.includes(id)) && JSON.stringify(a.counts) === state;
+            const allowed = (what, id, sp) => cell.allows.some((a) => fits(a, id) && a.is.includes(what)) || (sky && fleck(what, sp));
+            const { made, wrong } = throwMany(place, PAINTS[fam], time, 250, allowed, state ? JSON.parse(state) : {});
+            assert.equal(wrong.size, 0, `${state ? `with ${state} on the canvas: ` : ''}${reportWrong(wrong)}`);
+            for (const a of cell.allows) {
+              const ids = PAINTS[fam].filter((id) => fits(a, id));
+              if (!ids.length) continue;
+              assert.ok(
+                a.is.some((what) => [...(made.get(what) || [])].some((id) => ids.includes(id))),
+                `${a.is.join(' or ')} never turned up${state ? ` with ${state} on the canvas` : ''} (made: ${[...made.keys()].join(', ')})`,
+              );
+            }
           }
         }, dice),
       );

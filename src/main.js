@@ -448,7 +448,7 @@ function setAuto(on) {
   if (on && signing) return;
   clearTimeout(autoTimer);
   autoTimer = null;
-  autoBtn.setAttribute('aria-pressed', String(on));
+  autoBtn.classList.toggle('on', on);
   autoBtn.textContent = on ? 'Stop' : 'Let it happen';
   // A screen reader hears the painter's line as it changes (not the brush line under it), but not while Let it happen
   // runs, when the lines come faster than they can be read out; its "that might be done" at the end is heard.
@@ -522,8 +522,9 @@ const soundBtn = $('soundBtn');
 function setSound(on) {
   sound.setSound(on);
   store.set(KEY.sound, on);
-  soundBtn.setAttribute('aria-pressed', String(on));
-  // Reads as how things are now (a button saying just "Sound off" could be what it does), with aria-pressed to match.
+  soundBtn.classList.toggle('on', on);
+  // Reads as how things are now (a button saying just "Sound off" could be what it does). That's its state, so there's
+  // no pressed state as well for a screen reader to say ("Sound: on, toggle button, pressed").
   soundBtn.textContent = on ? 'Sound: on' : 'Sound: off';
 }
 

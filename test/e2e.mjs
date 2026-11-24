@@ -117,7 +117,9 @@ await settle();
 assert.equal(await S(() => window.happyAccidents.accidents), 3);
 
 // Two wet splats that touch run together into one, and their paints mix like paint: yellow into blue is green,
-// and green in the lake makes land.
+// and green in the lake makes land. (After a quiet spell, so the line about the mix shows at once rather than waiting
+// behind the last one and giving way to the line about the land, as a line that comes in a burst can.)
+await page.waitForTimeout(1500);
 before = await total();
 await S(async () => {
   const { PIGMENTS } = await import('./src/schemes.js');
@@ -163,7 +165,7 @@ for (let i = 0; i < 10; i++) {
   await page.click(`.dab >> nth=${1 + i}`);
   await page.waitForTimeout(900);
 }
-if ((await page.getAttribute('#autoBtn', 'aria-pressed')) === 'true') await page.click('#autoBtn');
+if (await S(() => document.getElementById('autoBtn').classList.contains('on'))) await page.click('#autoBtn');
 await page.click('[data-id="surprise"]');
 await page.waitForTimeout(3000);
 await settle();
@@ -417,7 +419,10 @@ await settle();
 await S(() => (window.happyAccidents.accidents = 29));
 await page.click('#autoBtn');
 await page.waitForFunction(() => window.happyAccidents.accidents > 29, null, { timeout: 5000 }).catch(() => assert.fail('Let it happen added nothing to a canvas with 29 accidents'));
-assert.equal(await page.getAttribute('#autoBtn', 'aria-pressed'), 'true', 'Let it happen stopped straight away on a canvas with 29 accidents');
+assert.equal(await page.textContent('#autoBtn'), 'Stop', 'Let it happen stopped straight away on a canvas with 29 accidents');
+// Its words say whether it's on, so it has no pressed state as well; the dot that shows it's on comes from a class.
+assert.deepEqual(await S(() => ['autoBtn', 'soundBtn'].map((id) => document.getElementById(id).getAttribute('aria-pressed'))), [null, null], 'Sound or Let it happen says its state twice');
+assert.equal(await S(() => getComputedStyle(document.getElementById('autoBtn'), '::before').content), '""', 'Let it happen lost its dot while it runs');
 // A screen reader hears the painter's line, not the brush line under it, and not while Let it happen keeps it changing.
 assert.deepEqual(await S(() => [!!document.getElementById('tool').closest('[aria-live]'), document.getElementById('line').getAttribute('aria-live')]), [false, 'off'], 'the brush line is read out, or the line is while Let it happen runs');
 // The painter says it might be done once everything still going on has been painted in, so the line isn't talked over
@@ -429,10 +434,10 @@ await S(async () => {
   new MutationObserver((_, obs) => {
     obs.disconnect();
     st.addSplat({ x: st.W * 0.3, y: st.hy * 0.3, R: 22, pigment: PIGMENTS.find((p) => p.id === 'titanium-white'), delay: 1500 });
-  }).observe(btn, { attributes: true, attributeFilter: ['aria-pressed'] });
+  }).observe(btn, { attributes: true, attributeFilter: ['class'] });
   st.accidents = 36; // one short of 8 more
 });
-await page.waitForFunction(() => document.getElementById('autoBtn').getAttribute('aria-pressed') === 'false', null, { timeout: 15000 });
+await page.waitForFunction(() => !document.getElementById('autoBtn').classList.contains('on'), null, { timeout: 15000 });
 assert.equal(await S(() => window.happyAccidents.accidents), 38, 'Let it happen should stop once it has added 8 to a busy canvas (and then the slow splat)');
 assert.equal(await page.textContent('#autoBtn'), 'Let it happen');
 assert.equal(await page.getAttribute('#line', 'aria-live'), 'polite', 'the line isn’t read out again once Let it happen stops');
@@ -817,13 +822,13 @@ assert.equal(await page.textContent('#canvasNo'), canvasNo, 'New canvas waits wh
 await page.click('#signBtn');
 assert.equal(await page.isHidden('#signSheet'), true, 'Sign it waits while the painting is being signed');
 await page.click('#autoBtn');
-assert.equal(await page.getAttribute('#autoBtn', 'aria-pressed'), 'false', 'Let it happen waits while the painting is being signed');
+assert.equal(await page.textContent('#autoBtn'), 'Let it happen', 'Let it happen waits while the painting is being signed');
 await page.click('#galleryBtn');
 assert.equal(await page.isHidden('#gallery'), true, 'Gallery waits while the painting is being signed');
 for (const key of ['n', 's', 'a', 'g']) await page.keyboard.press(key);
 assert.equal(await page.textContent('#canvasNo'), canvasNo, 'N waits while the painting is being signed');
 assert.equal(await page.isHidden('#signSheet'), true, 'S waits while the painting is being signed');
-assert.equal(await page.getAttribute('#autoBtn', 'aria-pressed'), 'false', 'A waits while the painting is being signed');
+assert.equal(await page.textContent('#autoBtn'), 'Let it happen', 'A waits while the painting is being signed');
 assert.equal(await page.isHidden('#gallery'), true, 'G waits while the painting is being signed');
 await page.waitForSelector('#placard:not([hidden])', { timeout: 30000 });
 assert.deepEqual(await S(() => window.framedBusy), [false, false], 'the painting was framed while paint on it was still going on');

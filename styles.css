@@ -150,12 +150,13 @@ button.small {
   font-size: 13px;
 }
 
-button[aria-pressed='true'] {
+/* Sound and Let it happen while they're on (their words say so too). */
+button.on {
   border-color: var(--cad);
   color: var(--cad);
 }
 
-button[aria-pressed='true']::before {
+button.on::before {
   content: '';
   width: 7px;
   height: 7px;

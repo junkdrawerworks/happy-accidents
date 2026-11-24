@@ -11,7 +11,7 @@ import { weighted, pickFresh, clamp, rand, chance, pick, TAU, slug } from '../sr
 import { SCHEMES, PIGMENTS, pickScheme, moodsAfter } from '../src/schemes.js';
 import { decide } from '../src/decide.js';
 import { makeSplat, splatShape } from '../src/splat.js';
-import { lineKey } from '../src/studio.js';
+import { lineKey, Studio } from '../src/studio.js';
 import * as P from '../src/paint/index.js';
 import { flowers, canoe, glints } from '../src/paint/index.js';
 import { autumn, treeGlow, sunlitCloud, treeSnow as treeSnowOf } from '../src/paint/react.js';
@@ -235,6 +235,30 @@ test('paints running together are named when there are two and counted when ther
     assert.match(two, /Cadmium Yellow and Phthalo Blue/, two);
   }
   assert.match(mixLine(['A', 'B', 'C'], 'grey'), /three paints/i);
+});
+
+test('a little paint run into a lot of another that stays its color says it’s still that color', () => {
+  // A big yellow and a little blue said "Cadmium Yellow and Phthalo Blue make yellow", like a sum gone wrong.
+  const said = [];
+  const studio = { dryIn() {}, say() {}, kick() {}, hooks: { onNarrate: (n) => said.push(n.line) } };
+  const run = (big, small, R = 46, r = 12) => {
+    said.length = 0;
+    const a = makeSplat({ x: 600, y: 300, R, pigment: paintOf(big) });
+    Studio.prototype.merge.call(studio, a, makeSplat({ x: 610, y: 300, R: r, pigment: paintOf(small) }));
+    return { line: said[0], family: a.mixPigment.family };
+  };
+  for (let i = 0; i < 6; i++) {
+    const still = run('cadmium-yellow', 'phthalo-blue');
+    assert.equal(still.family, 'yellow');
+    assert.match(still.line, /[Ss]till (mostly )?yellow\.$/, still.line);
+    assert.match(still.line, /Phthalo Blue.*Cadmium Yellow|Cadmium Yellow.*Phthalo Blue/, still.line);
+    assert.doesNotMatch(still.line, /make yellow/, still.line);
+    const green = run('cadmium-yellow', 'phthalo-blue', 22, 22);
+    assert.equal(green.family, 'green');
+    assert.match(green.line, /green/, green.line);
+    assert.doesNotMatch(green.line, /[Ss]till/, green.line);
+  }
+  assert.match(mixLine(['Cadmium Yellow', 'Phthalo Blue', 'Sap Green', 'Bright Red'], 'yellow', 'Cadmium Yellow'), /other three paints|of the others/);
 });
 
 test('the brush line names each paint once, and no paint of another hue than the splat’s', () => {

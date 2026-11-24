@@ -630,7 +630,7 @@ const stillPalette = () => S(async () => {
   const flat = (v) => (typeof v === 'string' ? [v] : Array.isArray(v) ? v.flatMap(flat) : v && typeof v === 'object' ? Object.values(v).flatMap(flat) : []);
   const names = PIGMENTS.map((p) => p.name).sort((a, b) => b.length - a.length);
   const lines = flat(LINES);
-  for (let i = 0; i < 6; i++) for (const n of [2, 3, 4]) lines.push(mixLine(names.slice(0, n), 'nearly black'));
+  for (let i = 0; i < 6; i++) for (const n of [2, 3, 4]) lines.push(mixLine(names.slice(0, n), 'nearly black'), mixLine(names.slice(0, n), 'pale yellow', names[n - 1]));
   const tools = ['', toolInfo('wash')];
   for (const kind of [...Object.keys(LINES), 'rain']) for (const p of [undefined, ...PIGMENTS]) tools.push(toolInfo(kind, p));
   const lineEl = document.getElementById('line');

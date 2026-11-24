@@ -451,7 +451,9 @@ export class Studio {
       p.tintT0 = t0;
     }
     this.dryIn(a, rand(800, 1100));
-    if (names.length > 1) this.hooks.onNarrate?.({ line: mixLine(names, colorName(rgb)), info: '', kind: 'merge' });
+    // A lot of one paint and a little of another can stay the first paint's color: the painter says it's still that.
+    const still = familyOf(rgb) === familyOf(main.rgb) && colorName(rgb) === colorName(main.rgb);
+    if (names.length > 1) this.hooks.onNarrate?.({ line: mixLine(names, colorName(rgb), still ? main.name : undefined), info: '', kind: 'merge' });
     else this.say('merge', 'merge');
     this.kick();
   }

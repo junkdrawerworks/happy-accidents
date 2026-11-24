@@ -478,8 +478,20 @@ export function line(key, ctx) {
   return pickFresh(ALSO[key] ?? key, linesFor(key, ctx));
 }
 
-// Paints ran together into a new color. Two are named; three or more are counted, so the line stays short.
-export function mixLine(names, color) {
+// Paints ran together into a new color. Two are named; three or more are counted, so the line stays short. When one paint
+// was so much more of it than the rest that the color didn't change (main, that paint's name), the line says so instead
+// of "yellow and blue make yellow".
+export function mixLine(names, color, main) {
+  if (main) {
+    const rest = names.filter((n) => n !== main);
+    const few = rest.length <= 2;
+    const list = few ? rest.join(' and ') : `the other ${num(rest.length)} paints`;
+    return pickFresh('mixStill', [
+      `${few ? `A little ${list}` : `A little of ${list}`} got into the ${main}. Still mostly ${color}.`,
+      `Not enough ${few ? list : 'of the others'} to turn the ${main}. Still ${color}.`,
+      `The ${main} won out over ${few ? 'the ' : ''}${list}. It’s still ${color}.`,
+    ]);
+  }
   const many = names.length > 2;
   const list = many ? `${num(names.length)} paints` : names.join(' and ');
   const List = list[0].toUpperCase() + list.slice(1);

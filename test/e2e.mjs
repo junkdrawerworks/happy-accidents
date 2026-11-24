@@ -245,6 +245,16 @@ await page.waitForTimeout(200);
 assert.equal(await S(() => window.happyAccidents.accidents), before + 1, 'after the canvas lost hold of a finger, the next touch didn’t paint');
 assert.equal(await S(() => window.happyAccidents.pool), null, 'the lost finger left a puddle on the canvas');
 await settle();
+// A finger that drifts a little while holding (15 px, as a thumb flattening on the glass does) keeps its puddle.
+await S(() => window.happyAccidents.newCanvas('golden-hour'));
+await touch('touchStart', [finger(0.5, 0.3, 0)]);
+await page.waitForTimeout(1500);
+for (let i = 1; i <= 5; i++) await touch('touchMove', [{ ...finger(0.5, 0.3, 0), x: b.x + b.width * 0.5 + i * 3 }]);
+await touch('touchEnd');
+await page.waitForTimeout(200);
+const drifted = await S(() => window.happyAccidents.splats.map((s) => Math.round(s.R)));
+assert.ok(drifted.length === 1 && drifted[0] > 40, `a hold that drifted 15 px lost its puddle (splats ${drifted})`);
+await settle();
 
 // Paint on something that's already there changes it: white on a mountain is fresh snow.
 await S(() => window.happyAccidents.newCanvas('golden-hour'));

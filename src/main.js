@@ -367,7 +367,10 @@ canvas.addEventListener('pointerdown', (e) => {
   // another finger or hand meanwhile), it paints nothing on the new one.
   gesture = { id: e.pointerId, gen: studio.gen, start: p, cx: e.clientX, cy: e.clientY, pts: [p], moved: 0, pigment, drops: [] };
   gesture.poolTimer = setTimeout(() => {
-    if (gesture && gesture.gen === studio.gen && gesture.moved < 10) studio.startPool(gesture.start, gesture.pigment);
+    if (gesture && gesture.gen === studio.gen && gesture.moved < 10) {
+      studio.startPool(gesture.start, gesture.pigment);
+      gesture.pooled = true;
+    }
   }, 220);
 });
 
@@ -378,10 +381,14 @@ canvas.addEventListener('pointermove', (e) => {
   const last = gesture.pts[gesture.pts.length - 1];
   gesture.pts.push(p);
   if (gesture.pts.length > 24) gesture.pts.shift();
-  if (gesture.moved >= 10 && studio.pool) studio.endPool();
+  // Moving 10 px makes it a flick. Once the paint is pooling it takes 24: a finger resting on the glass for a second or
+  // two rolls a few millimetres as it flattens, and that drift shouldn't throw the puddle away for a small splat. The
+  // puddle still lands where it was poured, not where the finger drifted to.
+  const flung = gesture.moved >= (gesture.pooled ? 24 : 10);
+  if (flung && studio.pool) studio.endPool();
   // Paint flying off a fast brush leaves a trail of droplets.
   const speed = Math.hypot(p.x - last.x, p.y - last.y) / Math.max(1, p.t - last.t);
-  if (gesture.moved >= 10 && speed > 1 && gesture.drops.length < 40 && Math.random() < 0.45) {
+  if (flung && speed > 1 && gesture.drops.length < 40 && Math.random() < 0.45) {
     const d = { x: p.x + gauss() * 5, y: p.y + gauss() * 5, r: rand(1, 3.4) };
     gesture.drops.push(d);
     studio.addDrop(d, gesture.pigment);

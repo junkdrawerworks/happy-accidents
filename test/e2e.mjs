@@ -255,6 +255,13 @@ await page.waitForTimeout(200);
 const drifted = await S(() => window.happyAccidents.splats.map((s) => Math.round(s.R)));
 assert.ok(drifted.length === 1 && drifted[0] > 40, `a hold that drifted 15 px lost its puddle (splats ${drifted})`);
 await settle();
+// The easel's clamp and ledge, over the canvas's top and bottom edges, let paint through to it, and a tap on a paint or
+// the canvas gets no browser highlight (Chrome on Android flashes a cyan box) over the studio's own.
+assert.deepEqual(await S(() => {
+  const r = (sel) => document.querySelector(sel).getBoundingClientRect();
+  const [c, clamp] = [r('#canvas'), r('.clamp')];
+  return [document.elementFromPoint(clamp.left + clamp.width / 2, c.top + 4).id, document.elementFromPoint(c.left + c.width / 2, c.bottom - 1).id, ...['.dab', '#canvas'].map((sel) => getComputedStyle(document.querySelector(sel)).webkitTapHighlightColor)];
+}), ['canvas', 'canvas', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)'], 'the clamp or the ledge takes paint meant for the canvas, or a tap flashes the browser’s highlight');
 
 // Paint on something that's already there changes it: white on a mountain is fresh snow.
 await S(() => window.happyAccidents.newCanvas('golden-hour'));

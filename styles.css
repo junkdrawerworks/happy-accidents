@@ -105,6 +105,8 @@ button {
   white-space: nowrap;
   /* No double-tap zoom, so quick taps of Oops in a row are all taps. */
   touch-action: manipulation;
+  /* No browser flash on a tap (Chrome on Android draws a cyan box): every button shows its own press. */
+  -webkit-tap-highlight-color: transparent;
   transition: background-color 0.15s, border-color 0.15s, transform 0.1s;
 }
 
@@ -341,9 +343,12 @@ kbd {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
+/* The clamp and the ledge overlap the canvas's top and bottom edges a little; paint thrown there goes through them. */
 .clamp {
+  pointer-events: none;
   position: absolute;
   left: 50%;
   top: -14px;
@@ -356,6 +361,7 @@ kbd {
 }
 
 .ledge {
+  pointer-events: none;
   position: relative;
   z-index: 2;
   height: 14px;
@@ -646,6 +652,7 @@ kbd {
   color: inherit;
   text-decoration: none;
   border-radius: 2px;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .jd-foot a:hover,

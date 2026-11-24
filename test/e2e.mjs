@@ -477,6 +477,26 @@ const outside = await S(async () => {
 assert.ok(outside.cabins >= 8, `only ${outside.cabins} cabins were built at the edge of a bank`);
 assert.deepEqual(outside.out, [], 'something was painted off the canvas');
 
+// A signature stays small and in the corner: an ordinary name at 44px, a long one lettered smaller to stay under 0.4 of
+// the canvas's width (down to 26px, which 28 W's still don't fit). A right-to-left name writes itself in from the right.
+const signed = await S(async () => {
+  const { signature } = await import('./src/paint/signature.js');
+  await document.fonts.load('44px "Mrs Saint Delafield"');
+  const st = window.happyAccidents;
+  const sign = (name) => {
+    const spec = signature(st, name);
+    const drawn = [];
+    spec.ops[0]({ clearRect() {}, drawImage: (...a) => drawn.push(a[5]) });
+    return { ...spec.bbox, firstAt: drawn[0] };
+  };
+  return { robin: sign('Robin'), arabic: sign('مريم الحسيني عبد الرحمن العلي'), hebrew: sign('דניאל כהן'), w: sign('W'.repeat(28)), W: st.W };
+});
+assert.equal(signed.robin.h, 66, 'an ordinary name is signed at 44px');
+assert.equal(signed.robin.firstAt, signed.robin.x, 'a name in Latin letters writes itself in from the left');
+assert.ok(signed.arabic.w <= signed.W * 0.4, `a long Arabic name signs ${signed.arabic.w}px wide`);
+assert.equal(signed.w.h, 39, 'a name too long to fit is signed no smaller than 26px');
+for (const rtl of [signed.arabic, signed.hebrew]) assert.ok(rtl.firstAt > rtl.x + rtl.w * 0.9, 'a right-to-left name writes itself in from the right');
+
 // A cabin's layer leaves room for its chimney smoke instead of cutting it off flat. At golden hour a cabin has its
 // lights on and smoke going from the start; on a misty morning, yellow on it does that. Nothing reaches the top edge.
 // (The bank goes halfway down the lake. A cabin only fits less than 0.62 of the way down, and the bank's middle spot

@@ -624,6 +624,16 @@ for (const [width, height] of [[844, 390], [667, 375]]) {
   assert.deepEqual(sideways, { canvas: true, offScreen: [], beside: true, scrolls: false }, `held sideways at ${width} × ${height}`);
 }
 
+// A short window under 520 px wide (a laptop's window zoomed to 400% is 320 × 200) stacks instead, as a phone held
+// upright does: the canvas keeps its width and the page scrolls only up and down (WCAG 2.2, 1.4.10 Reflow).
+for (const [width, height] of [[320, 200], [480, 320]]) {
+  await page.setViewportSize({ width, height });
+  await page.waitForTimeout(300);
+  const reflow = await S(() => ({ canvas: Math.round(document.getElementById('canvas').getBoundingClientRect().width), scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
+  assert.ok(reflow.canvas > width - 60, `at ${width} × ${height} the canvas is only ${reflow.canvas} px wide`);
+  assert.equal(reflow.scrollWidth, reflow.clientWidth, `at ${width} × ${height} the page scrolls sideways`);
+}
+
 // With a notch at each side, as on an iPhone held sideways, nothing is drawn under it: not the page, not the gallery wall.
 await page.setViewportSize({ width: 844, height: 390 });
 const notched = await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 0, left: 47, right: 47, bottom: 21 } }).then(() => true, () => false);

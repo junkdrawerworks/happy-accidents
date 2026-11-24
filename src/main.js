@@ -175,7 +175,7 @@ setInterval(() => {
 
 // ——— fitting the canvas to the screen ———
 
-const wide = window.matchMedia('(min-width: 960px), (orientation: landscape) and (max-height: 600px)');
+const wide = window.matchMedia('(min-width: 960px), (orientation: landscape) and (max-height: 600px) and (min-width: 520px)');
 function fit() {
   if (!wide.matches) {
     easel.style.width = '';

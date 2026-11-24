@@ -611,8 +611,10 @@ kbd {
   outline-offset: 2px;
 }
 
-/* Wide screens, and a phone held sideways: canvas on the left, the painter's tray on the right, all in one screen. */
-@media (min-width: 960px), (orientation: landscape) and (max-height: 600px) {
+/* Wide screens, and a phone held sideways: canvas on the left, the painter's tray on the right, all in one screen.
+   Not under 520 px wide (a window zoomed to 400%, the oldest small phones), where the tray's column would leave the
+   canvas no room: that stacks, as on a phone held upright, and scrolls up and down. */
+@media (min-width: 960px), (orientation: landscape) and (max-height: 600px) and (min-width: 520px) {
   .app {
     display: grid;
     height: 100%;
@@ -657,7 +659,7 @@ kbd {
 /* A phone held sideways, or any short window: the same side by side, packed closer so the whole canvas, the palette
    and the buttons fit in one screen. Whatever still doesn't fit (the footer, on the smallest phones) scrolls inside the
    tray, so swiping on the canvas never has to scroll the page. */
-@media (orientation: landscape) and (max-height: 600px) {
+@media (orientation: landscape) and (max-height: 600px) and (min-width: 520px) {
   .app {
     padding-block: 8px;
     padding-inline: max(var(--gutter), env(safe-area-inset-left, 0px)) max(var(--gutter), env(safe-area-inset-right, 0px));
@@ -744,7 +746,7 @@ kbd {
 }
 
 /* No keyboard to go with the key hints on a phone. */
-@media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+@media (orientation: landscape) and (max-height: 600px) and (min-width: 520px) and (pointer: coarse) {
   .keys {
     display: none;
   }
@@ -957,7 +959,7 @@ kbd {
 
 /* A phone held sideways: the framed painting is sized by the screen's height, so all of it (signature too) and the
    label's buttons fit in one screen, side by side. */
-@media (orientation: landscape) and (max-height: 600px) {
+@media (orientation: landscape) and (max-height: 600px) and (min-width: 520px) {
   .placard {
     flex-direction: row;
     align-items: center;

@@ -852,6 +852,86 @@ kbd {
   }
 }
 
+/* A phone held sideways: the framed painting is sized by the screen's height, so all of it (signature too) and the
+   label's buttons fit in one screen, side by side. */
+@media (orientation: landscape) and (max-height: 600px) {
+  .placard {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .frame {
+    flex: 0 1 auto;
+    padding: 12px;
+    box-shadow:
+      inset 0 0 0 2px rgba(255, 220, 170, 0.12),
+      inset 0 0 0 8px #2a1e14,
+      0 30px 60px -20px rgba(0, 0, 0, 0.9);
+  }
+
+  .frame img {
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    max-height: calc(100dvh - max(16px, env(safe-area-inset-top, 0px)) - max(16px, env(safe-area-inset-bottom, 0px)) - 24px);
+  }
+
+  .placard-side {
+    flex: 0 0 260px;
+    gap: 10px;
+  }
+
+  .label {
+    padding: 12px 14px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .label-artist,
+  .label-title {
+    font-size: 14px;
+  }
+
+  .label-title {
+    margin-bottom: 6px !important;
+  }
+
+  .label-medium {
+    margin-bottom: 8px !important;
+  }
+
+  .label-note {
+    margin-bottom: 4px !important;
+  }
+
+  .label-credit {
+    margin-top: 8px !important;
+    padding-top: 6px;
+    font-size: 11px;
+  }
+
+  .placard-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .placard-actions button {
+    min-height: 44px;
+    padding-inline: 8px;
+  }
+
+  .placard-actions button:first-child,
+  .placard-actions:has(#downloadBtn[hidden]) button {
+    grid-column: 1 / -1;
+  }
+
+  .save-hint {
+    font-size: 12px;
+  }
+}
+
 .wall {
   width: min(1100px, 100%);
   margin: auto;

@@ -663,6 +663,29 @@ assert.equal(await S(() => JSON.parse(localStorage.getItem('happy-accidents:gall
 await page.click('#keepBtn');
 assert.equal(await page.textContent('#galleryCount'), '1');
 
+// Held sideways, the label opens showing the whole framed painting, signature corner and all, with its three buttons
+// beside it, in one screen and not scrolled down.
+for (const [width, height] of [[844, 390], [667, 375]]) {
+  await page.setViewportSize({ width, height });
+  await page.waitForTimeout(300);
+  await page.click('#signBtn');
+  await page.waitForSelector('#placard:not([hidden])', { timeout: 5000 });
+  const seen = await S(() => {
+    const inside = (id) => { const r = document.getElementById(id).getBoundingClientRect(); return r.top >= 0 && r.left >= 0 && r.bottom <= innerHeight && r.right <= innerWidth; };
+    const frame = document.querySelector('.frame').getBoundingClientRect();
+    return {
+      scrolled: document.getElementById('placard').scrollTop,
+      frame: frame.top >= 0 && frame.bottom <= innerHeight,
+      offScreen: ['placardImg', 'anotherBtn', 'keepBtn', 'downloadBtn'].filter((id) => !inside(id)),
+      short: ['anotherBtn', 'keepBtn', 'downloadBtn'].filter((id) => document.getElementById(id).getBoundingClientRect().height < 44),
+    };
+  });
+  assert.deepEqual(seen, { scrolled: 0, frame: true, offScreen: [], short: [] }, `the label held sideways at ${width} × ${height}`);
+  await page.click('#keepBtn');
+}
+await page.setViewportSize({ width: 390, height: 844 });
+await page.waitForTimeout(300);
+
 // Paint added after signing isn't on the wall, so New canvas asks first.
 await page.click('#oopsBtn');
 await page.waitForTimeout(200);

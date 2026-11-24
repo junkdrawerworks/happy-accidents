@@ -407,7 +407,9 @@ function openOverlay(el, focusEl) {
   for (const o of overlays) o.hidden = o !== el;
   app.inert = true;
   stepOn();
-  (focusEl || el.querySelector('button, input'))?.focus();
+  // Without scrolling: an overlay taller than the screen (the label, on a phone held sideways) opens at its top, showing
+  // the painting, not scrolled down to the button that has focus.
+  (focusEl || el.querySelector('button, input'))?.focus({ preventScroll: true });
 }
 function closeOverlay(el, focusEl = returnFocus) {
   el.hidden = true;

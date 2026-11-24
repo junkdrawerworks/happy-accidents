@@ -724,6 +724,15 @@ await page.focus('.dab[aria-checked=true]');
 await page.keyboard.press('ArrowRight');
 assert.deepEqual(await S(() => [document.activeElement.matches('.dab:focus-visible'), getComputedStyle(document.activeElement).outlineColor, getComputedStyle(document.activeElement).outlineOffset]), [true, 'rgb(27, 20, 16)', '4px'], 'the focus ring on the palette is hard to see on the wood');
 await page.keyboard.press('ArrowLeft');
+// Home and End go to the first and the last paint on the palette, as in any group of radio buttons, and back.
+await page.keyboard.press('End');
+assert.equal(await S(() => document.activeElement.dataset.id), await S(() => [...document.querySelectorAll('.dab')].at(-1).dataset.id), 'End didn’t go to the last paint');
+assert.equal(await page.getAttribute('.dab:focus', 'aria-checked'), 'true', 'End didn’t load the last paint');
+await page.keyboard.press('Home');
+assert.equal(await S(() => document.activeElement.dataset.id), 'surprise', 'Home didn’t go to the first paint');
+// Every button with a key of its own says which (to a screen reader as well as on hover), and the key hints list them all.
+assert.deepEqual(await S(() => [...document.querySelectorAll('[aria-keyshortcuts]')].map((b) => `${b.id} ${b.getAttribute('aria-keyshortcuts')}`)), ['soundBtn M', 'galleryBtn G', 'oopsBtn Space', 'autoBtn A', 'newBtn N', 'signBtn S']);
+assert.equal(await page.textContent('.keys'), 'Spaceoops Aauto Ssign Nnew Ggallery Msound');
 
 // In forced colours (Windows High Contrast) the paints keep their colours and the paint on the brush has an outline.
 await page.emulateMedia({ forcedColors: 'active' });

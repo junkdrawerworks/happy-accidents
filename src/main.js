@@ -217,6 +217,8 @@ const dabs = OPTIONS.map((o) => {
     let next = null;
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = OPTIONS[(i + 1) % OPTIONS.length];
     if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = OPTIONS[(i - 1 + OPTIONS.length) % OPTIONS.length];
+    if (e.key === 'Home') next = OPTIONS[0];
+    if (e.key === 'End') next = OPTIONS[OPTIONS.length - 1];
     if (next) {
       e.preventDefault();
       load(next.id, true);

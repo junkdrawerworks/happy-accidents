@@ -450,6 +450,9 @@ function setAuto(on) {
   autoTimer = null;
   autoBtn.setAttribute('aria-pressed', String(on));
   autoBtn.textContent = on ? 'Stop' : 'Let it happen';
+  // A screen reader hears the painter's line as it changes (not the brush line under it), but not while Let it happen
+  // runs, when the lines come faster than they can be read out; its "that might be done" at the end is heard.
+  lineEl.setAttribute('aria-live', on ? 'off' : 'polite');
   if (on) {
     cancelDone();
     autoStart = studio.accidents;

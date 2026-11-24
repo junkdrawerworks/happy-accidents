@@ -418,6 +418,8 @@ await S(() => (window.happyAccidents.accidents = 29));
 await page.click('#autoBtn');
 await page.waitForFunction(() => window.happyAccidents.accidents > 29, null, { timeout: 5000 }).catch(() => assert.fail('Let it happen added nothing to a canvas with 29 accidents'));
 assert.equal(await page.getAttribute('#autoBtn', 'aria-pressed'), 'true', 'Let it happen stopped straight away on a canvas with 29 accidents');
+// A screen reader hears the painter's line, not the brush line under it, and not while Let it happen keeps it changing.
+assert.deepEqual(await S(() => [!!document.getElementById('tool').closest('[aria-live]'), document.getElementById('line').getAttribute('aria-live')]), [false, 'off'], 'the brush line is read out, or the line is while Let it happen runs');
 // The painter says it might be done once everything still going on has been painted in, so the line isn't talked over
 // (here by a slow splat that lands just as Let it happen stops).
 await S(async () => {
@@ -433,6 +435,7 @@ await S(async () => {
 await page.waitForFunction(() => document.getElementById('autoBtn').getAttribute('aria-pressed') === 'false', null, { timeout: 15000 });
 assert.equal(await S(() => window.happyAccidents.accidents), 38, 'Let it happen should stop once it has added 8 to a busy canvas (and then the slow splat)');
 assert.equal(await page.textContent('#autoBtn'), 'Let it happen');
+assert.equal(await page.getAttribute('#line', 'aria-live'), 'polite', 'the line isn’t read out again once Let it happen stops');
 await settle();
 await page.waitForTimeout(800);
 const doneLines = await S(async () => (await import('./src/words.js')).LINES.done);

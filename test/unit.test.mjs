@@ -695,3 +695,27 @@ test('paint on something with nothing left to change lands beside it, not inside
     const S = bareStudio('golden-hour', { land: leftBank, target: lonely });
     assert.equal(decide(S, makeSplat({ ...hitOn('tree', lonely), R: 18, pigment: paintOf('bright-red') }))[0].kind, 'flowers');
   }, 51));
+
+test('a friend grown by paint on a tree is the tree that paint grows', () =>
+  sameDice(() => {
+    // The paint's color decides: blue on a birch grows a blue spruce, not a maple in the mood's leaves; white (once the
+    // tree has its snow) a snowy pine or a birch; brown a bare tree or a bush. Green, the plain tree color, grows one of
+    // the tree's own kind.
+    const grows = (target, id, touched = []) => {
+      const el = { ...TARGETS[target](bareStudio('autumn-blaze')), touched: new Set(touched) };
+      const plan = decide(bareStudio('autumn-blaze', { land: leftBank, target: el }), makeSplat({ ...hitOn('tree', el), R: 18, pigment: paintOf(id) }));
+      assert.equal(plan[0].say, 'company', `${id} on a ${target} didn't grow a friend`);
+      const spec = plan[0].make();
+      return { spec, kinds: plan.map((s) => s.kind), say: plan[0].say };
+    };
+    for (let i = 0; i < 20; i++) {
+      for (const target of ['birch', 'deciduous', 'evergreen', 'bush']) {
+        const blue = grows(target, 'phthalo-blue');
+        assert.equal(blue.spec.kind, 'evergreen', `blue on a ${target} grew a ${blue.spec.kind}`);
+        const white = grows(target, 'titanium-white', ['snow']);
+        assert.ok(white.kinds.includes('treeSnow') || white.spec.meta.type === 'deciduous', `white on a ${target} grew a ${white.spec.kind} with no snow`);
+        assert.ok(['deciduous', 'bush'].includes(grows(target, 'van-dyke-brown').spec.kind), `brown on a ${target} grew an evergreen`);
+        assert.equal(grows(target, 'sap-green').spec.kind, target === 'birch' ? 'deciduous' : target, `green on a ${target} grew another kind of tree`);
+      }
+    }
+  }, 61));

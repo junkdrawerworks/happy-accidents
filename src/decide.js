@@ -49,7 +49,7 @@ export function decide(S, sp) {
   // lands beside it instead of inside it.
   const hit = S.elementAt(b.x, b.y, b.R);
   if (hit) {
-    const plan = react(S, hit, b, c.fam) || beside(S, hit, b, c, hint, vertical);
+    const plan = react(S, hit, b, c) || beside(S, hit, b, c, hint, vertical);
     if (plan) return plan;
   }
 
@@ -68,7 +68,8 @@ function first(t, kind) {
   return true;
 }
 
-function react(S, t, b, fam) {
+function react(S, t, b, c) {
+  const { fam } = c;
   const white = fam === 'white';
   const warm = fam === 'yellow' || fam === 'red';
   switch (t.kind) {
@@ -78,10 +79,15 @@ function react(S, t, b, fam) {
       if (white && first(t, 'snow')) return [step('treeSnow', () => R.treeSnow(S, t, b))];
       if (warm && t.kind === 'evergreen' && first(t, 'glow')) return [step('treeGlow', () => R.treeGlow(S, t, b))];
       if (warm && t.kind !== 'evergreen' && first(t, 'autumn')) return [step('autumn', () => R.autumn(S, t, b))];
-      // A friend, if there's ground beside him. With none (an island tree, the tip of a bank), light catches him
-      // instead, once; after that the paint lands as if he weren't there.
-      const buddy = friend(S, t, b.tint, Math.sign(b.x - t.meta.x) || 1);
-      if (buddy) return [step(t.kind, () => buddy, { say: 'company' })];
+      // A friend, if there's ground beside him: the tree this paint grows (blue a blue spruce, white a snowy pine or a
+      // birch), except that green, the plain tree color, grows one of his own kind. With no ground (an island tree, the
+      // tip of a bank), light catches him instead, once.
+      const look = fam === 'green' ? { kind: t.meta.type, p: t.meta.type === 'evergreen' ? { tintAmt: 0.15 } : { leaf: pal(S, LEAF.green) } } : treeLook(S, b, c, false, 'tree');
+      const buddy = friend(S, t, b.tint, Math.sign(b.x - t.meta.x) || 1, look);
+      if (buddy) {
+        const grown = step(buddy.kind, () => buddy, { say: 'company' });
+        return look.snow ? [grown, snowOn(S, grown, b)] : [grown];
+      }
       if (first(t, 'glow')) return [step('treeGlow', () => R.treeGlow(S, t, b))];
       return null;
     }
@@ -601,10 +607,11 @@ function snowOn(S, treeStep, b) {
 }
 
 // A smaller neighbor next to a tree (preferably on the given side), if there's ground for
-// it. It matches the tree's look when there is one.
+// it. It's the kind of tree the look says, or the same kind as the tree with no look.
 function friend(S, prev, tint, preferSide, look) {
   if (!prev?.meta?.type) return null;
-  const { x, baseY, size, type } = prev.meta;
+  const { x, baseY, size } = prev.meta;
+  const type = look?.kind ?? prev.meta.type;
   const sides = preferSide ? [preferSide, -preferSide] : chance(0.5) ? [-1, 1] : [1, -1];
   const extra = look?.p || {};
   for (const side of sides) {

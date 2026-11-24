@@ -953,11 +953,25 @@ kbd {
   border: 1px solid var(--line);
 }
 
+/* The wall's heading and its Close stay at the top while the paintings scroll under them. */
 .wall-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  position: sticky;
+  /* Up to the screen's top edge (or the notch), past the overlay's margin, so nothing shows scrolling by above it. */
+  top: calc(env(safe-area-inset-top, 0px) - max(16px, env(safe-area-inset-top, 0px)));
+  z-index: 1;
+  margin: -12px calc(-1 * clamp(16px, 3vw, 32px)) 0;
+  padding: 12px clamp(16px, 3vw, 32px);
+  transition: background-color 0.15s, box-shadow 0.15s;
+}
+
+/* Only once the paintings scroll under it, so the wall's glow shows through at the top. */
+.scrolled .wall-head {
+  background-color: var(--wall);
+  box-shadow: 0 10px 14px -12px rgba(0, 0, 0, 0.8);
 }
 
 .wall-empty,
@@ -1032,6 +1046,43 @@ kbd {
   flex: none;
   padding: 6px 8px;
   font-size: 12px;
+}
+
+/* A phone: two paintings to a row, the title and date stacked over Remove, so twelve take six rows of scrolling. */
+@media (max-width: 559px) {
+  .wall-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 12px;
+  }
+
+  .wall-item {
+    gap: 6px;
+  }
+
+  .wall-open {
+    padding: 5px;
+  }
+
+  .wall-meta {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .wall-meta p {
+    font-size: 12px;
+  }
+
+  .wall-meta cite {
+    font-size: 13px;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+
+  .wall-meta button {
+    margin-left: -8px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

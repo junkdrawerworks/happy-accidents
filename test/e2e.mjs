@@ -752,6 +752,36 @@ await page.keyboard.press('Shift+G');
 assert.equal(await page.isHidden('#gallery'), false, 'Shift+G opens the gallery');
 await page.keyboard.press('Escape');
 
+// A full wall on a phone: two paintings to a row, long titles kept to two lines, and Close still in reach at the bottom.
+{
+  const wctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
+  const p = await wctx.newPage();
+  await p.goto(base);
+  await p.waitForFunction(() => window.happyAccidents?.skipIntro);
+  await p.evaluate(() => {
+    window.happyAccidents.skipIntro();
+    const img = window.happyAccidents.snapshot(240, 'image/jpeg', 0.8);
+    const list = Array.from({ length: 12 }, (_, i) => ({ id: `w${i}`, title: 'The Midnight Homestead at Stillwater Crossing, Early October', artist: 'Wilhelmina Featherstonehaugh', year: 2026, date: new Date(2026, 10, i + 1).toISOString(), img, accidents: 9, seconds: 80, scheme: 'Golden Hour', number: i + 1, features: 'Features a cabin.' }));
+    localStorage.setItem('happy-accidents:gallery', JSON.stringify(list));
+  });
+  await p.tap('#galleryBtn');
+  const wall = await p.evaluate(() => {
+    const items = [...document.querySelectorAll('.wall-item')].map((li) => li.getBoundingClientRect());
+    const cite = document.querySelector('.wall-meta cite');
+    const o = document.getElementById('gallery');
+    o.scrollTop = o.scrollHeight;
+    const close = document.getElementById('closeGallery').getBoundingClientRect();
+    return {
+      perRow: items.filter((r) => Math.abs(r.top - items[0].top) < 1).length,
+      titleLines: Math.round(cite.getBoundingClientRect().height / parseFloat(getComputedStyle(cite).lineHeight)),
+      closeAtBottom: document.elementFromPoint(close.left + close.width / 2, close.top + close.height / 2)?.id,
+      sideways: document.documentElement.scrollWidth > innerWidth,
+    };
+  });
+  assert.deepEqual(wall, { perRow: 2, titleLines: 2, closeAtBottom: 'closeGallery', sideways: false }, 'twelve paintings on the wall on a phone');
+  await wctx.close();
+}
+
 // The phone's Back button closes the overlay on top instead of leaving the page: the gallery wall, a painting opened
 // from it, and the sign form. Closing one with its own button takes its step off the history again.
 const goBack = async (id) => {

@@ -669,7 +669,13 @@ function openGallery() {
   setAuto(false);
   renderWall();
   openOverlay($('gallery'), $('closeGallery'));
+  markScrolled();
 }
+
+// The wall's heading (with Close) stays at the top as the paintings scroll, and gets a background once they're under it.
+const galleryEl = $('gallery');
+const markScrolled = () => galleryEl.classList.toggle('scrolled', galleryEl.scrollTop > 4);
+galleryEl.addEventListener('scroll', markScrolled, { passive: true });
 
 // The wall takes over from the label again (on the same step in the history), scrolled back to where it was, with
 // focus on the painting that was opened.

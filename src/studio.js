@@ -378,6 +378,8 @@ export class Studio {
     this.elements.sort((a, c) => a.depth - c.depth || a.seq - c.seq);
     this.active.push(el);
     this.counts[spec.kind] = (this.counts[spec.kind] || 0) + 1;
+    // A bare tree or a birch is still a deciduous tree to the titles and to decide(); only the label tells them apart.
+    if (spec.meta?.bare) this.counts[spec.meta.birch ? 'birch' : 'bare'] = (this.counts[spec.meta.birch ? 'birch' : 'bare'] || 0) + 1;
     if (spec.reflect) this.reflDirty = true;
     this.hooks.onBrush?.(spec.kind, el.dur);
     this.kick();

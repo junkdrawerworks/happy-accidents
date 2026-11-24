@@ -247,7 +247,7 @@ export function deciduous(S, p) {
     bbox: { x: x0 - 8, y: y0 - 8, w: x1 - x0 + 16, h: baseY - y0 + 20 },
     ops,
     dur: clamp(900 + h * 3, 1000, 2600),
-    meta: { x, baseY, size: h, type: 'deciduous', clusters, lw },
+    meta: { x, baseY, size: h, type: 'deciduous', clusters, lw, bare: !!p.bare, birch: !!p.birch },
   };
 }
 

@@ -603,22 +603,31 @@ export function makeTitle(counts, schemeId, avoid = []) {
 
 // ——— Placard text ———
 
+// What's in a painting, in the order the label names them: first what makes this painting this one (a cabin, a boat,
+// the moon), then the things nearly every painting has. A bare tree and a birch are counted as deciduous trees too
+// (counts.deciduous, which the titles and decide() read), so the leafy ones are what's left once they're taken off.
 const FEATURE_NAMES = [
+  ['cabin', 'a cabin', 'cabins'],
+  ['waterfall', 'a waterfall', 'waterfalls'],
+  ['sailboat', 'a sailboat', 'sailboats'],
+  ['canoe', 'a canoe', 'canoes'],
+  ['moon', 'the moon'],
+  ['sun', 'the sun'],
+  ['aurora', 'an aurora'],
+  ['island', 'an island', 'islands'],
+  ['stars', 'a sky full of stars'],
+  ['rain', 'a passing rainstorm', 'passing rainstorms'],
+  ['rock', 'a rock', 'rocks'],
   ['mountain', 'a mountain', 'mountains'],
   ['evergreen', 'a happy little tree', 'happy little trees'],
-  ['deciduous', 'a leafy tree', 'leafy trees'],
+  ['leafy', 'a leafy tree', 'leafy trees'],
+  ['bare', 'a bare tree', 'bare trees'],
+  ['birch', 'a birch', 'birches'],
   ['bush', 'a bush', 'bushes'],
-  ['cabin', 'a cabin', 'cabins'],
   ['cloud', 'a cloud', 'clouds'],
-  ['rock', 'a rock', 'rocks'],
   ['birds', 'a flock of birds', 'flocks of birds'],
   ['flowers', 'some flowers', 'patches of flowers'],
   ['bank', 'a bit of shore', 'stretches of shore'],
-  ['island', 'an island', 'islands'],
-  ['sailboat', 'a sailboat', 'sailboats'],
-  ['canoe', 'a canoe', 'canoes'],
-  ['waterfall', 'a waterfall', 'waterfalls'],
-  ['rain', 'a passing rainstorm', 'passing rainstorms'],
   ['treeline', 'a distant forest', 'distant forests'],
 ];
 
@@ -634,33 +643,30 @@ export function keptNote({ kept, dropped }, canSave = true) {
   return '';
 }
 
-function features(counts, { stars = false } = {}) {
+function features(counts) {
+  const n = (key) => (key === 'leafy' ? (counts.deciduous || 0) - (counts.bare || 0) - (counts.birch || 0) : counts[key] || 0);
   const parts = [];
   for (const [key, one, many] of FEATURE_NAMES) {
-    const n = counts[key] || 0;
-    if (!n) continue;
-    parts.push(n === 1 ? one : `${num(n)} ${many}`);
+    const k = n(key);
+    if (k > 0) parts.push(k === 1 || !many ? one : `${num(k)} ${many}`);
   }
-  if (counts.sun) parts.push('the sun');
-  if (counts.moon) parts.push('the moon');
-  if (stars && counts.stars) parts.push('stars');
-  if (counts.aurora) parts.push('an aurora');
   return parts;
 }
 
-// What's on the canvas, for a screen reader: everything, stars too, with no "and more".
+// What's on the canvas, for a screen reader: everything, with no "and more".
 export function canvasContents(counts) {
-  const parts = features(counts, { stars: true });
+  const parts = features(counts);
   if (!parts.length) return 'Nothing on it yet but sky and water.';
   const last = parts.pop();
   return `It has ${parts.length ? `${parts.join(', ')} and ` : ''}${last}.`;
 }
 
+// The label names four things at most, what stands out first.
 export function featureLine(counts) {
   const parts = features(counts);
   if (!parts.length) return 'Mostly sky and water, which is plenty.';
   if (parts.length === 1) return `Features ${parts[0]}.`;
-  if (parts.length > 6) return `Features ${parts.slice(0, 5).join(', ')} and more.`;
+  if (parts.length > 4) return `Features ${parts.slice(0, 4).join(', ')} and more.`;
   const last = parts.pop();
   return `Features ${parts.join(', ')} and ${last}.`;
 }
@@ -681,7 +687,7 @@ export function durationText(seconds) {
 
 export function madeFrom(accidents, seconds) {
   if (!accidents) return `Painted wet-on-wet without a single accident, in ${durationText(seconds)}.`;
-  const a = accidents === 1 ? 'one happy accident' : `${accidents} happy accidents`;
+  const a = accidents === 1 ? 'one happy accident' : `${accidents <= 20 ? num(accidents) : accidents} happy accidents`;
   return `Painted wet-on-wet from ${a} in ${durationText(seconds)}.`;
 }
 

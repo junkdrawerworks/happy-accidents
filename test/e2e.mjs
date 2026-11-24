@@ -937,7 +937,7 @@ assert.ok(await S(() => {
   t.textContent = was;
   return after;
 }), 'an Arabic title put the year in front of it on the label');
-assert.match(await page.textContent('#plNote'), new RegExp(`from ${accidentsSigned} happy accidents`));
+assert.ok((await page.textContent('#plNote')).startsWith((await S(async (n) => (await import('./src/words.js')).madeFrom(n, 1), accidentsSigned)).split(' in ')[0]), 'the label says how many accidents it took');
 assert.equal(await S(() => window.happyAccidents.accidents), accidentsSigned, 'paint went on the canvas while the signature went on');
 assert.equal(await S(() => window.happyAccidents.signed.accidents), accidentsSigned, 'the label and the easel disagree on how many accidents were signed');
 assert.equal(await S(() => window.askedToKeep), 1, 'hanging the first painting didn’t ask the browser to keep the wall');

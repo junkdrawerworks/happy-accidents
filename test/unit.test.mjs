@@ -47,20 +47,57 @@ test('the placard lists what is in the painting in plain English', () => {
   assert.equal(featureLine({}), 'Mostly sky and water, which is plenty.');
   assert.equal(featureLine({ cabin: 1 }), 'Features a cabin.');
   assert.equal(featureLine({ mountain: 2, evergreen: 1 }), 'Features two mountains and a happy little tree.');
-  assert.equal(featureLine({ mountain: 1, evergreen: 3, sun: 1 }), 'Features a mountain, three happy little trees and the sun.');
+  assert.equal(featureLine({ mountain: 1, evergreen: 3, sun: 1 }), 'Features the sun, a mountain and three happy little trees.');
   const long = featureLine({ mountain: 2, evergreen: 3, deciduous: 2, bush: 1, cabin: 1, cloud: 2, rock: 1 });
-  assert.match(long, /[a-z] and more\.$/, 'no comma before “and more”, the same as before the last of a short list');
-  assert.doesNotMatch(long, /and more and/);
+  assert.equal(long, 'Features a cabin, a rock, two mountains, three happy little trees and more.', 'four at most, then “and more”, with no comma before it');
   assert.equal(featureLine({ evergreen: 14, birds: 1 }), 'Features fourteen happy little trees and a flock of birds.');
-  // For a screen reader, the whole of it: no "and more", and the stars too.
+  assert.equal(featureLine({ evergreen: 1, deciduous: 2, bush: 1, cloud: 3 }), 'Features a happy little tree, two leafy trees, a bush and three clouds.', 'four are all named');
+  // For a screen reader, the whole of it: no "and more".
   assert.equal(canvasContents({}), 'Nothing on it yet but sky and water.');
-  assert.equal(canvasContents({ stars: 1 }), 'It has stars.');
+  assert.equal(canvasContents({ stars: 1 }), 'It has a sky full of stars.');
   assert.equal(
     canvasContents({ mountain: 2, evergreen: 3, deciduous: 2, bush: 1, cabin: 1, cloud: 2, rock: 1, moon: 1, stars: 2, aurora: 1 }),
-    'It has two mountains, three happy little trees, two leafy trees, a bush, a cabin, two clouds, a rock, the moon, stars and an aurora.',
+    'It has a cabin, the moon, an aurora, a sky full of stars, a rock, two mountains, three happy little trees, two leafy trees, a bush and two clouds.',
   );
   assert.equal(featureLine({ cloud: 20 }), 'Features twenty clouds.');
 });
+
+test('the label names what makes the painting first: the boat, the cabin, the moon, before the trees and clouds', () => {
+  // Winter Hush, signed with its sailboat out on the lake and the sun up, said “Features a mountain, a happy little
+  // tree, a leafy tree, two bushes, a cabin and more.”
+  const hush = { mountain: 1, evergreen: 1, deciduous: 1, bush: 2, cabin: 1, cloud: 3, sailboat: 1, sun: 1, birds: 1 };
+  assert.equal(featureLine(hush), 'Features a cabin, a sailboat, the sun, a mountain and more.');
+  // Golden Hour with a sailboat, a canoe and a waterfall named only its cabin.
+  const golden = { mountain: 2, evergreen: 4, deciduous: 3, bush: 2, cabin: 1, cloud: 4, sailboat: 1, canoe: 1, waterfall: 1, bank: 2, sun: 1 };
+  assert.equal(featureLine(golden), 'Features a cabin, a waterfall, a sailboat, a canoe and more.');
+  assert.match(featureLine({ stars: 3, moon: 1, mountain: 1 }), /the moon, a sky full of stars and a mountain/, 'the stars are named');
+  for (const counts of [hush, golden, { ...golden, rock: 2, island: 1, aurora: 1 }]) {
+    const named = featureLine(counts).replace(/^Features | and more\.$/g, '').split(', ');
+    assert.ok(named.length <= 4, `more than four named: ${featureLine(counts)}`);
+  }
+});
+
+test('a bare brown tree or a birch is not called a leafy tree on the label, and the titles still count it as a tree', () =>
+  sameDice(() => {
+    assert.equal(featureLine({ deciduous: 1, bare: 1 }), 'Features a bare tree.');
+    assert.equal(featureLine({ deciduous: 4, bare: 2, birch: 1 }), 'Features a leafy tree, two bare trees and a birch.');
+    // A studio's counts, from a real brown tree and a real birch painted onto it.
+    const studio = { counts: {}, elements: [], active: [], seq: 0, k: 1, hooks: {}, kick() {}, clampBox: Studio.prototype.clampBox, layer: () => ({ getContext: () => ({ setTransform() {} }) }) };
+    for (const [id, say] of [['van-dyke-brown', 'bareTree'], ['titanium-white', 'birch']]) {
+      for (let i = 0; i < 200; i++) {
+        const S = bareStudio();
+        const plan = decide(S, makeSplat({ x: 400, y: 700, R: 26, pigment: paintOf(id) }));
+        const st = plan.find((p) => p.say === say);
+        if (!st) continue;
+        Studio.prototype.addElement.call(studio, st.make());
+        break;
+      }
+    }
+    assert.deepEqual([studio.counts.deciduous, studio.counts.bare, studio.counts.birch], [2, 1, 1], 'two deciduous trees: one bare, one birch');
+    assert.equal(featureLine(studio.counts), 'Features a bare tree and a birch.');
+    assert.doesNotMatch(canvasContents(studio.counts), /leafy/);
+    assert.ok(Array.from({ length: 200 }, () => makeTitle(studio.counts, 'golden-hour')).some((t) => /Grove|Thicket/.test(t)), 'still a grove to the titles');
+  }));
 
 test('titles say plurals only for things there are two or more of', () => {
   const plural = /\b(Cabins|Hideaways|Homesteads|Moons|Peaks|Ridges|Mountains|Pines|Evergreens)\b/;
@@ -110,9 +147,10 @@ test('painting time and accident counts read naturally', () => {
   assert.equal(durationText(15 * 3600 + 12 * 60), '15 hours and 10 minutes');
   assert.equal(durationText(24 * 3600), 'about 24 hours');
   assert.equal(madeFrom(1, 20), 'Painted wet-on-wet from one happy accident in 20 seconds.');
-  assert.equal(madeFrom(14, 192), 'Painted wet-on-wet from 14 happy accidents in 3 minutes.');
-  assert.equal(madeFrom(9, 75), 'Painted wet-on-wet from 9 happy accidents in a minute.');
-  assert.equal(madeFrom(3, 1), 'Painted wet-on-wet from 3 happy accidents in 1 second.', 'not 1 seconds');
+  assert.equal(madeFrom(14, 192), 'Painted wet-on-wet from fourteen happy accidents in 3 minutes.', 'in words, like the line above it');
+  assert.equal(madeFrom(9, 75), 'Painted wet-on-wet from nine happy accidents in a minute.');
+  assert.equal(madeFrom(3, 1), 'Painted wet-on-wet from three happy accidents in 1 second.', 'not 1 seconds');
+  assert.equal(madeFrom(20, 60), 'Painted wet-on-wet from twenty happy accidents in a minute.');
   assert.equal(madeFrom(40, 2 * 3600 + 5 * 60), 'Painted wet-on-wet from 40 happy accidents in 2 hours and 5 minutes.');
   assert.equal(madeFrom(0, 2), 'Painted wet-on-wet without a single accident, in 2 seconds.', 'a blank canvas isn’t made from 0 happy accidents');
 });

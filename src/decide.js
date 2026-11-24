@@ -257,6 +257,8 @@ function sky(S, b, c, hint) {
   // being one).
   const mountainy = (p) => room && (hint === 'mountain' || (!hint && lowSky && b.R > 16 && chance(p)));
 
+  // Stars, when an accident aims for them at night with a bright paint.
+  if (hint === 'stars' && (c.fam === 'white' || c.fam === 'yellow')) return [step('stars', () => P.stars(S, b))];
   // A small fleck up high (about a quarter of taps there) is birds, stars or a wisp; anything bigger, or anything low in
   // the sky, is a real thing.
   if (b.R < 14 && !hint && !lowSky) {
@@ -283,7 +285,7 @@ function sky(S, b, c, hint) {
       return [step('cloud', () => P.cloud(S, { ...b, ...cloudLook(S, c) }), { say: 'sunsetCloud' })];
 
     case 'green': {
-      if (night && !S.has('aurora') && hint !== 'mountain' && skyT < 0.7 && b.R > 22 && chance(0.6)) {
+      if (night && !S.has('aurora') && (hint === 'aurora' || (hint !== 'mountain' && skyT < 0.7 && b.R > 22 && chance(0.6)))) {
         S.reserve('aurora');
         return [step('aurora', () => P.aurora(S, b))];
       }
@@ -477,16 +479,21 @@ function water(S, b, c, hint, vertical, dT) {
   const landish = hint === 'bank' || hint === 'tree' || (hint !== 'water' && makesLand(c));
 
   const rock = (p) => P.rock(S, p);
-  if (c.fam === 'brown' && openWater && hint !== 'bank' && hint !== 'tree' && (hint === 'water' || (b.R < 22 && chance(0.6)))) {
+  // A rock, and if it's green, moss on it.
+  const rockSteps = () => {
+    const small = step('rock', () => afloat(S, b, c, rock));
+    return c.fam === 'green' ? [small, step('moss', () => small.spec?.kind === 'rock' && R.moss(S, small.spec.el, b), { quiet: true })] : [small];
+  };
+  // Aimed at being a rock (by an accident), in a paint that makes ground.
+  if (hint === 'rock' && makesLand(c)) return rockSteps();
+  if (c.fam === 'brown' && openWater && hint !== 'bank' && hint !== 'tree' && hint !== 'island' && (hint === 'water' || (b.R < 22 && chance(0.6)))) {
     return [step('rock', () => afloat(S, b, c, rock))];
   }
   if (landish) {
-    if (openWater && b.R < 14 && hint !== 'bank' && hint !== 'tree') {
-      // Too small for an island: a rock, and if it's green, moss on it.
-      const small = step('rock', () => afloat(S, b, c, rock));
-      return c.fam === 'green' ? [small, step('moss', () => small.spec?.kind === 'rock' && R.moss(S, small.spec.el, b), { quiet: true })] : [small];
-    }
-    const connect = hint === 'bank' || !openWater;
+    // Too small for an island: a rock.
+    if (openWater && b.R < 14 && hint !== 'bank' && hint !== 'tree') return rockSteps();
+    // An island out on open water, a bank by the shore, or wherever an accident aimed at one says.
+    const connect = hint === 'bank' || (hint !== 'island' && !openWater);
     const kind = connect ? 'bank' : 'island';
     const ground = GROUND[c.fam === 'yellow' ? 'yellow' : c.fam];
     const base = step(kind, () => {

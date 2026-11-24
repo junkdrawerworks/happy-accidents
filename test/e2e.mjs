@@ -477,6 +477,72 @@ const aimed = await S(async () => {
 assert.ok(aimed.ochre.includes('bank'), `Let it happen never aimed Yellow Ochre at the shore (${aimed.ochre})`);
 assert.ok(!aimed.cadmium.includes('bank'), `Let it happen aimed Cadmium Yellow at the shore (${aimed.cadmium})`);
 
+// Accidents that pick their own paint (Oops and Let it happen on Surprise me) suit the mood, and now and then aim for a
+// rock or an island, stars or an aurora at night, or the cabin, so everything in the rules can turn up. Thirty accidents
+// on a canvas of each of the six moods, four times over, each played straight through to the end.
+{
+  const moods = await S(() => {
+    const st = window.happyAccidents;
+    // Everything wet painted in, and everything being painted finished, at once (as the frames would, over a while).
+    const finish = () => {
+      for (let guard = 0; guard < 500; guard++) {
+        for (const s of st.splats.filter((s) => s.state === 'wet' && s.gen === st.gen)) {
+          clearTimeout(s.timer);
+          st.resolve(s);
+        }
+        if (!st.active.length) return;
+        const going = st.active;
+        st.active = [];
+        for (const el of going) while (el.i < el.ops.length) el.ops[el.i++](el.ctx);
+        for (const el of going) {
+          el.done = true;
+          el.ops = null;
+          el.onDone?.(el);
+        }
+      }
+    };
+    const runPlan = st.runPlan;
+    const out = {};
+    let plans;
+    st.runPlan = function (sp, plan, i) {
+      if (i === 0) plans.push({ fam: (sp.mixPigment || sp.pigment).family, kinds: plan.map((p) => p.kind), says: plan.map((p) => p.say) });
+      return runPlan.call(this, sp, plan, i);
+    };
+    try {
+      for (const mood of ['golden-hour', 'winter-hush', 'northern-night', 'autumn-blaze', 'misty-morning', 'violet-dusk']) {
+        const o = (out[mood] = { fams: {}, whiteTrees: 0, made: {} });
+        for (let c = 0; c < 4; c++) {
+          st.newCanvas(mood);
+          finish();
+          plans = [];
+          for (let i = 0; i < 30; i++) {
+            st.randomAccident();
+            finish();
+          }
+          for (const p of plans) {
+            o.fams[p.fam] = (o.fams[p.fam] || 0) + 1;
+            if (p.fam === 'white' && p.kinds.some((k) => ['evergreen', 'deciduous', 'treeline', 'treeSnow'].includes(k))) o.whiteTrees++;
+            for (const k of [...p.kinds, ...p.says]) if (k) o.made[k] = (o.made[k] || 0) + 1;
+          }
+        }
+      }
+    } finally {
+      st.runPlan = runPlan;
+      st.newCanvas('golden-hour');
+      st.redrawAll();
+    }
+    return out;
+  });
+  const share = (o, fams) => fams.reduce((n, f) => n + (o.fams[f] || 0), 0) / Object.values(o.fams).reduce((a, b) => a + b, 0);
+  for (const mood of ['golden-hour', 'misty-morning', 'violet-dusk']) assert.equal(moods[mood].whiteTrees, 0, `${mood} has no snow, but accidents picked white for ${moods[mood].whiteTrees} trees`);
+  assert.ok(share(moods['winter-hush'], ['white', 'green', 'blue']) > 0.6, `Winter Hush's accidents were only ${Math.round(100 * share(moods['winter-hush'], ['white', 'green', 'blue']))}% whites, greens and blues`);
+  const warmest = Object.keys(moods).sort((a, b) => share(moods[b], ['red', 'yellow']) - share(moods[a], ['red', 'yellow']))[0];
+  assert.equal(warmest, 'autumn-blaze', 'Autumn Blaze’s accidents weren’t the reddest and yellowest');
+  const made = (k) => Object.values(moods).reduce((n, o) => n + (o.made[k] || 0), 0);
+  for (const k of ['rock', 'island', 'cabin', 'roofSnow', 'lights', 'garden']) assert.ok(made(k) > 0, `in 720 accidents, none made ${k}`);
+  for (const k of ['stars', 'aurora']) assert.ok(moods['northern-night'].made[k] > 0, `in 120 accidents at night, none made ${k}`);
+}
+
 // A thin strip of far shore is still ground a tree can be aimed at: a tree that Oops, Let it happen or the intro aims
 // at the land finds it, instead of turning into a cloud because random tries all missed it.
 const farTrees = await S(() => {

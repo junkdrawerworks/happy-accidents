@@ -26,19 +26,45 @@ const PAINT_FOR = {
   tree: ['sap-green', 'sap-green', 'sap-green', 'phthalo-blue', 'titanium-white', 'bright-red', 'cadmium-yellow', 'indian-yellow', 'van-dyke-brown'],
   cabin: ['van-dyke-brown', 'van-dyke-brown', 'bright-red'],
   water: ['phthalo-blue', 'titanium-white', 'titanium-white', 'bright-red', 'cadmium-yellow'],
+  rock: ['van-dyke-brown', 'van-dyke-brown', 'yellow-ochre', 'sap-green'],
+  island: ['sap-green', 'sap-green', 'van-dyke-brown', 'yellow-ochre'],
+  stars: ['titanium-white', 'titanium-white', 'cadmium-yellow'],
+  aurora: ['sap-green'],
 };
 
-// And the other way round: what a loaded paint can sensibly be aimed at.
-const FITS = {
-  white: ['cloud', 'mountain', 'sun', 'treeline', 'tree', 'water'],
-  yellow: ['sun', 'cloud', 'tree', 'water'],
-  red: ['cloud', 'tree', 'cabin', 'water'],
-  green: ['mountain', 'treeline', 'bank', 'tree'],
-  blue: ['mountain', 'birds', 'treeline', 'tree', 'water', 'cloud'],
-  brown: ['mountain', 'birds', 'bank', 'cabin', 'cloud', 'tree'],
+// How much each mood likes each family of paint, for accidents that pick their own: Winter Hush its whites, greens and
+// blues, Autumn Blaze its reds and yellows. (1 for a family not listed.)
+const MOOD_PAINTS = {
+  'winter-hush': { white: 2, green: 1.5, blue: 1.5, yellow: 0.4, red: 0.4 },
+  'autumn-blaze': { red: 2.5, yellow: 2.5, white: 0.5 },
 };
-// Yellow Ochre makes land, so it can be aimed at the shore as well; the brighter yellows can't.
-const fitsFor = (pigment) => (earthy(pigment) ? [...FITS.yellow, 'bank'] : FITS[pigment.family]);
+// Aims that grow trees: in a mood with no snow, an accident doesn't pick white for them (a snowy pine in Golden Hour).
+const TREE_AIMS = new Set(['tree', 'treeline']);
+const TREES = new Set(['evergreen', 'deciduous', 'bush']);
+
+// A paint for an accident that picks its own, from ids (repeats weight the pick), as the mood likes them. noWhite: here
+// white would only bring snow (to a tree, the cabin or the ground), so a mood with no snow doesn't pick it.
+export function moodPaint(ids, scheme, noWhite = false) {
+  const like = MOOD_PAINTS[scheme.id] || {};
+  const paints = ids.map((id) => PIGMENTS.find((p) => p.id === id)).filter((p) => !(noWhite && p.family === 'white' && !scheme.snow));
+  return weighted(paints.map((p) => [p, like[p.family] ?? 1]));
+}
+
+// The paint for an accident aimed at hint: one that suits it, and the mood.
+export const paintFor = (hint, scheme, noWhite = TREE_AIMS.has(hint)) => moodPaint(PAINT_FOR[hint] || PAINT_FOR.cloud, scheme, noWhite);
+
+// And the other way round: what a loaded paint can sensibly be aimed at.
+// Any paint can be aimed at the cabin, if there is one (onCabin): it changes it.
+const FITS = {
+  white: ['cloud', 'mountain', 'sun', 'treeline', 'tree', 'water', 'stars', 'onCabin'],
+  yellow: ['sun', 'cloud', 'tree', 'water', 'stars', 'onCabin'],
+  red: ['cloud', 'tree', 'cabin', 'water', 'onCabin'],
+  green: ['mountain', 'treeline', 'bank', 'tree', 'rock', 'island', 'aurora', 'onCabin'],
+  blue: ['mountain', 'birds', 'treeline', 'tree', 'water', 'cloud', 'onCabin'],
+  brown: ['mountain', 'birds', 'bank', 'cabin', 'cloud', 'tree', 'rock', 'island', 'onCabin'],
+};
+// Yellow Ochre makes land, so it can be aimed at the shore, a rock or an island as well; the brighter yellows can't.
+const fitsFor = (pigment) => (earthy(pigment) ? [...FITS.yellow, 'bank', 'rock', 'island'] : FITS[pigment.family]);
 
 // Things a splat can land on without touching them: the sky itself, light, weather and small marks.
 const SEE_THROUGH = new Set(['sky', 'sunpath', 'signature', 'mist', 'aurora', 'stars', 'birds', 'ripples', 'rain', 'foothills', 'waterfall', 'flowers']);
@@ -261,11 +287,6 @@ const LAKE_STRIPS = 64;
 export const MAX_HITS = 12;
 // And the painter says what a splat's paints made at most once a second, so the lines can be read.
 const MIX_LINE_GAP = 1000;
-
-const paintFor = (hint) => {
-  const id = pick(PAINT_FOR[hint] || PAINT_FOR.cloud);
-  return PIGMENTS.find((p) => p.id === id);
-};
 
 export class Studio {
   constructor(canvas, hooks = {}) {
@@ -562,17 +583,19 @@ export class Studio {
 
   // A random point on the ground. Random tries find a big bank at once; a thin far one (a strip of shore that's 1% of
   // the lake) can slip through all of them, so then it looks over the whole land mask, every second pixel, and picks
-  // one of the spots it finds.
-  findLand() {
-    const y0 = this.hy + (H - this.hy) * 0.08;
+  // one of the spots it finds. Between from and to of the way down from the horizon (0) to the bottom (1), when given;
+  // otherwise anywhere but the strip along the horizon.
+  findLand(from = 0.08, to = null) {
+    const y0 = this.hy + (H - this.hy) * from;
+    const y1 = to === null ? H * 0.97 : this.hy + (H - this.hy) * to;
     for (let i = 0; i < 80; i++) {
       const x = rand(W * 0.03, W * 0.97);
-      const y = rand(y0, H * 0.97);
+      const y = rand(y0, y1);
       if (this.isLand(x, y)) return { x, y };
     }
     const mw = this.mask.width;
     const top = Math.ceil(y0 / 4);
-    const rows = Math.floor((H * 0.97) / 4) - top;
+    const rows = Math.floor(y1 / 4) - top;
     if (rows <= 0) return null;
     const d = this.mctx.getImageData(0, top, mw, rows).data;
     const found = [];
@@ -586,10 +609,11 @@ export class Studio {
     return { x: mx * 4 + 2, y: my * 4 + 2 };
   }
 
-  findWater() {
+  // A spot on open water in the middle of the lake, down to `to` of the way from the horizon (0) to the bottom (1).
+  findWater(to = 0.8) {
     for (let i = 0; i < 60; i++) {
       const x = rand(W * 0.3, W * 0.7);
-      const y = rand(this.hy + (H - this.hy) * 0.1, this.hy + (H - this.hy) * 0.8);
+      const y = rand(this.hy + (H - this.hy) * 0.1, this.hy + (H - this.hy) * to);
       if (!this.isLand(x, y)) return { x, y };
     }
     return null;
@@ -851,11 +875,20 @@ export class Studio {
     if (!opts.hint && targets.length > 2 && chance(0.28)) {
       const t = pick(targets);
       const spot = this.spotOn(t);
-      if (spot) return this.addSplat({ ...motion, pigment: opts.pigment ?? pick(PIGMENTS), ...spot, auto: true });
+      const ids = PIGMENTS.map((p) => p.id);
+      if (spot) return this.addSplat({ ...motion, pigment: opts.pigment ?? moodPaint(ids, this.scheme, TREES.has(t.kind) || t.kind === 'cabin'), ...spot, auto: true });
     }
 
     const fits = opts.pigment ? fitsFor(opts.pigment) : null;
     let hint = opts.hint ?? this.pickHint(fits);
+    // The cabin, if there is one, with paint for something it hasn't had yet: snow on the roof, its lights, a garden.
+    if (hint === 'onCabin') {
+      const cabin = this.elements.find((e) => e.kind === 'cabin');
+      if (cabin) return this.addSplat({ ...motion, pigment: opts.pigment ?? this.paintForCabin(cabin), ...this.spotOn(cabin), auto: true });
+      hint = 'cloud';
+    }
+    // A cabin is painted from a round splat, not a flung one.
+    if (hint === 'cabin') motion.vx = motion.vy = 0;
     let spot = null;
     // Otherwise look for open space, so the painting keeps growing.
     for (let i = 0; i < 8 && !spot; i++) {
@@ -866,7 +899,10 @@ export class Studio {
       hint = fits && !fits.includes('cloud') ? 'mountain' : 'cloud';
       spot = this.spotFor(hint);
     }
-    const pigment = opts.pigment ?? paintFor(hint);
+    // In a mood with no snow, white that would land on a tree (the top of a tall pine, up in the sky), the cabin or the
+    // ground would only bring snow, so the accident picks another paint.
+    const noWhite = TREE_AIMS.has(hint) || (!opts.pigment && !this.scheme.snow && this.onTreeOrGround({ ...spot, ...(hint === opts.hint ? opts.spot : null) }));
+    const pigment = opts.pigment ?? paintFor(hint, this.scheme, noWhite);
     return this.addSplat({ ...motion, pigment, ...spot, ...(hint === opts.hint ? opts.spot : null), hint, auto: true });
   }
 
@@ -891,9 +927,32 @@ export class Studio {
     }
   }
 
+  // Whether paint at this spot would land on a tree, the cabin or the ground.
+  onTreeOrGround({ x, y, R }) {
+    const hit = this.elementAt(x, y, R);
+    return TREES.has(hit?.kind) || hit?.kind === 'cabin' || (y > this.hy && this.isLand(x, Math.min(H - 4, y + R * 0.3)));
+  }
+
+  // What the cabin hasn't had yet, and a paint that gives it: snow on the roof (white, in a mood with snow), its lights
+  // (warm paint), or once they're on, a garden (in a paint that makes bright flowers).
+  cabinLeft(t) {
+    const left = [];
+    if (this.scheme.snow && !t.touched?.has('snow')) left.push(['titanium-white']);
+    if (!t.meta.glow) left.push(['cadmium-yellow', 'indian-yellow', 'bright-red']);
+    else if (!t.touched?.has('garden')) left.push(['bright-red', 'cadmium-yellow', 'phthalo-blue']);
+    return left;
+  }
+
+  paintForCabin(t) {
+    const left = this.cabinLeft(t);
+    return moodPaint(left.length ? pick(left) : PIGMENTS.map((p) => p.id), this.scheme);
+  }
+
   pickHint(fits) {
     const c = (k) => this.count(k);
     const land = this.findLand() !== null;
+    const { night } = this.scheme;
+    const cabin = this.elements.find((e) => e.kind === 'cabin');
     const ok = ([hint]) => !fits || fits.includes(hint);
     return weighted([
       ['cloud', c('cloud') < 3 ? 2.2 : 0.7],
@@ -904,7 +963,12 @@ export class Studio {
       ['bank', c('bank') < 2 ? 2.8 : c('bank') < 4 ? 1 : 0.25],
       ['tree', land ? 3.2 + c('bank') * 0.3 : 0],
       ['cabin', land && !this.has('cabin') ? 0.5 : 0],
+      ['onCabin', cabin?.meta && this.cabinLeft(cabin).length ? 0.8 : 0],
       ['water', 0.6],
+      ['rock', c('rock') < 3 ? 0.35 : 0],
+      ['island', c('island') < 2 ? 0.3 : 0],
+      ['stars', night && c('stars') < 3 ? 0.5 : 0],
+      ['aurora', night && !this.has('aurora') ? 0.6 : 0],
     ].map((e) => (ok(e) ? e : [e[0], 0])));
   }
 
@@ -925,15 +989,37 @@ export class Studio {
         const left = chance(0.5);
         return { x: left ? rand(W * 0.03, W * 0.26) : rand(W * 0.74, W * 0.97), y: hy + rand(0.12, 0.85) * (H - hy), R: rand(26, 48) };
       }
-      case 'tree':
-      case 'cabin': {
+      case 'tree': {
         const p = this.findLand();
         return p && { ...p, R: rand(20, 46) };
+      }
+      case 'cabin': {
+        // On land where a cabin fits (not right up front, where it would be huge), clear of the trees if it can be.
+        let p = null;
+        for (let i = 0; i < 12 && !p; i++) {
+          const q = this.findLand(0.1, 0.52);
+          if (!q) break;
+          const there = this.elementAt(q.x, q.y, 20);
+          if (!there || !REACTIVE.has(there.kind) || i === 11) p = q;
+        }
+        return p && { ...p, R: rand(18, 32) };
       }
       case 'water': {
         const p = this.findWater();
         return p && { ...p, R: rand(12, 30) };
       }
+      case 'rock': {
+        const p = this.findWater(0.72);
+        return p && { ...p, R: rand(10, 18) };
+      }
+      case 'island': {
+        const p = this.findWater(0.6);
+        return p && { ...p, R: rand(30, 44) };
+      }
+      case 'stars':
+        return { x: rand(W * 0.08, W * 0.92), y: rand(0.06, 0.4) * hy, R: rand(10, 13) };
+      case 'aurora':
+        return { x: rand(W * 0.15, W * 0.85), y: rand(0.15, 0.5) * hy, R: rand(28, 42) };
       default:
         return null;
     }

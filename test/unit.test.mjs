@@ -11,7 +11,7 @@ import { weighted, pickFresh, clamp, rand, chance, pick, TAU, slug } from '../sr
 import { SCHEMES, PIGMENTS, pickScheme, moodsAfter } from '../src/schemes.js';
 import { decide, birdColor } from '../src/decide.js';
 import { makeSplat, splatShape } from '../src/splat.js';
-import { lineKey, Studio, landInside } from '../src/studio.js';
+import { lineKey, Studio, landInside, paintFor } from '../src/studio.js';
 import * as P from '../src/paint/index.js';
 import { flowers, canoe, glints } from '../src/paint/index.js';
 import { autumn, treeGlow, sunlitCloud, treeSnow as treeSnowOf } from '../src/paint/react.js';
@@ -1371,3 +1371,48 @@ test('the signature goes in a bottom corner it can be read in', () => {
   const long = signSpot(S, 500, 66, fake(autumn, grass));
   assert.ok(long.x >= 0 && long.x + 500 <= 1200);
 });
+
+test('accidents that pick their own paint pick one that suits the mood', () =>
+  sameDice(() => {
+    const share = (mood, hints, fams, n = 600) => {
+      const scheme = SCHEMES.find((s) => s.id === mood);
+      let hit = 0;
+      for (let i = 0; i < n; i++) if (fams.includes(paintFor(hints[i % hints.length], scheme).family)) hit++;
+      return hit / n;
+    };
+    // A snowy pine or a birch in Golden Hour, Misty Morning or Violet Dusk came from an accident picking white for a tree.
+    for (const s of SCHEMES.filter((m) => !m.snow)) {
+      for (const hint of ['tree', 'treeline']) assert.equal(share(s.id, [hint], ['white'], 300), 0, `${s.name} picked white for a ${hint}`);
+    }
+    for (const s of SCHEMES.filter((m) => m.snow)) assert.ok(share(s.id, ['tree'], ['white'], 600) > 0, `${s.name} never picked white for a tree`);
+    // Winter Hush leans to its whites, greens and blues, and Autumn Blaze to its reds and yellows, for every kind of aim.
+    const all = ['cloud', 'mountain', 'sun', 'birds', 'treeline', 'bank', 'tree', 'cabin', 'water', 'rock', 'island', 'stars', 'aurora'];
+    const cold = ['white', 'green', 'blue'];
+    const warm = ['red', 'yellow'];
+    assert.ok(share('winter-hush', all, cold) > share('golden-hour', all, cold) + 0.1, 'Winter Hush doesn’t favor whites, greens and blues');
+    assert.ok(share('autumn-blaze', all, warm) > share('golden-hour', all, warm) + 0.1, 'Autumn Blaze doesn’t favor reds and yellows');
+    assert.ok(share('autumn-blaze', ['tree'], warm) > share('winter-hush', ['tree'], warm) * 2, 'Autumn Blaze grows no more red and yellow trees than Winter Hush');
+  }, 71));
+
+test('an accident aimed at a rock, an island, stars or an aurora makes one', () =>
+  sameDice(() => {
+    const throwAim = (mood, hint, id, spot) => {
+      const S = bareStudio(mood, { land: leftBank });
+      return decide(S, makeSplat({ ...spot(S), pigment: paintOf(id), hint }));
+    };
+    for (let i = 0; i < 30; i++) {
+      const day = pick(DAY);
+      for (const id of ['van-dyke-brown', 'yellow-ochre', 'sap-green']) {
+        const rock = outcomeOf(throwAim(day, 'rock', id, (S) => ({ x: rand(400, 800), y: S.hy + rand(40, 300), R: rand(10, 18) })));
+        assert.equal(rock, id === 'sap-green' ? 'mossy rock' : 'rock', `${id} aimed at a rock made ${rock}`);
+        const island = throwAim(day, 'island', id, (S) => ({ x: rand(450, 750), y: S.hy + rand(60, 250), R: rand(30, 44) }));
+        assert.equal(island[0].kind, 'island', `${id} aimed at an island made ${island[0].kind}`);
+      }
+      for (const id of ['titanium-white', 'cadmium-yellow']) {
+        const stars = outcomeOf(throwAim('northern-night', 'stars', id, (S) => ({ x: rand(100, 1100), y: S.hy * rand(0.06, 0.4), R: rand(10, 13) })));
+        assert.equal(stars, 'stars', `${id} aimed at stars made ${stars}`);
+      }
+      const aurora = outcomeOf(throwAim('northern-night', 'aurora', 'sap-green', (S) => ({ x: rand(180, 1020), y: S.hy * rand(0.15, 0.5), R: rand(28, 42) })));
+      assert.equal(aurora, 'aurora', `green aimed at an aurora made ${aurora}`);
+    }
+  }, 72));

@@ -288,7 +288,7 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 // it was. The guard adds an extra history entry of its own only while a finger is on the canvas and for a second
 // after, so at any other time a deliberate Back leaves in one press; the overlays' own steps (see stepOn() below) close
 // the overlay on Back as before. Not inside another page's frame, for the same reason as the overlays.
-guardEdges({ surfaces: [canvas], history: !inFrame });
+const edgeGuard = guardEdges({ surfaces: [canvas], history: !inFrame });
 
 // ——— actions ———
 
@@ -441,7 +441,10 @@ let steppingOff = false;
 function stepOn() {
   if (inFrame || steppingOff || onStep()) return;
   try {
-    history.pushState({ [STEP]: true }, '');
+    // Opened within a second of a tap on the canvas, while the edge guard's entry is still on: the overlay takes that
+    // entry over, so closing it doesn't leave an extra Back that does nothing.
+    if (history.state?.__edgeGuard && edgeGuard.adopt()) history.replaceState({ [STEP]: true }, '');
+    else history.pushState({ [STEP]: true }, '');
   } catch {
     /* a frame that can't keep history: Back just leaves */
   }

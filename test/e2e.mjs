@@ -896,8 +896,8 @@ await page.waitForFunction(() => history.state === null, null, { timeout: 5000 }
   assert.equal(await painting(), was, 'the painting should be as it was');
   await p.waitForTimeout(1300);
   assert.equal(await guarded(), false, 'and the entry goes once the second after the taken touch is up');
-  // The gallery opened within a second of a flick, while the guard's entry is still on: it stays open when the
-  // second is up, and Back closes it.
+  // The gallery opened within a second of a flick, while the guard's entry is still on, takes that entry over as its
+  // own step: it stays open when the second is up, Back closes it, and no extra entry is left under it.
   await p.mouse.move(at.x, at.y); await p.mouse.down(); await p.mouse.move(at.x + 60, at.y + 15, { steps: 3 }); await p.mouse.up();
   await p.tap('#galleryBtn');
   assert.deepEqual(await gallery(), [true, true], 'the gallery opens just after a flick, with its own step');
@@ -906,10 +906,7 @@ await page.waitForFunction(() => history.state === null, null, { timeout: 5000 }
   await p.goBack();
   await p.waitForFunction(() => document.getElementById('gallery').hidden, null, { timeout: 5000 });
   await inStudio('Back from the gallery wall opened just after a flick should close it');
-  // The guard's entry it was opened over is a plain one now: it takes one Back, once, and the studio stays.
-  assert.equal(await guarded(), false, 'the entry under the gallery is plain now');
-  await p.goBack();
-  await inStudio('the one plain entry left under the gallery takes a Back and the studio stays');
+  assert.equal(await p.evaluate(() => history.state), null, 'no entry is left under the gallery opened just after a flick');
   await quiet();
   // An overlay opened with no flick going on still closes on Back, and then Back with none open leaves in one press.
   await p.waitForTimeout(1300);
@@ -921,6 +918,19 @@ await page.waitForFunction(() => history.state === null, null, { timeout: 5000 }
   assert.equal(await p.evaluate(() => history.state), null, 'with the gallery shut and no flick going on, no extra entry is left');
   await p.goBack();
   await p.waitForURL(/icon\.svg$/, { timeout: 5000 }).catch(() => assert.fail('Back a while after a touch was taken should leave in one press'));
+  // A tap on the canvas, the wall opened within the second and closed with its button: one Back leaves, as it would
+  // have without the tap.
+  await p.goForward();
+  await p.waitForFunction(() => window.happyAccidents?.skipIntro);
+  await p.evaluate(() => window.happyAccidents.skipIntro());
+  await p.tap('#line');
+  await p.tap('#canvas', { position: { x: b.width * 0.5, y: b.height * 0.3 } });
+  await p.tap('#galleryBtn');
+  assert.deepEqual(await gallery(), [true, true], 'the gallery opens just after a tap on the canvas, on its own step');
+  await p.tap('#closeGallery');
+  await p.waitForFunction(() => history.state === null, null, { timeout: 5000 });
+  await p.goBack();
+  await p.waitForURL(/icon\.svg$/, { timeout: 5000 }).catch(() => assert.fail('after a tap and the wall opened and closed, one Back should leave'));
   assert.deepEqual(errors, []);
   await gctx.close();
 }

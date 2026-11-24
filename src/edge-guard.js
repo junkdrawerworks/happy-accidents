@@ -25,6 +25,11 @@
 //   const guard = guardEdges({ surfaces: [board], history: false });
 //   addEventListener('popstate', () => { if (guard.slip()) { history.pushState(state, ''); return; } ... });
 // (Crosstown does this.)
+//
+// A page that adds a history entry of its own (a sheet, a menu) while the guard's entry is current, with no finger down,
+// can take that entry over instead of stacking one on top, so it isn't left behind as an extra Back:
+//   if (history.state?.__edgeGuard && guard.adopt()) history.replaceState(mine, ''); else history.pushState(mine, '');
+// adopt() says whether the entry is the page's now (false while a finger is down or a slip could still come).
 export function guardEdges({ surfaces = [], history: own = true, onBack = null, slipMs = 1000 } = {}) {
   const STATE = '__edgeGuard';
   const H = window.history;
@@ -106,5 +111,13 @@ export function guardEdges({ surfaces = [], history: own = true, onBack = null, 
     });
   }
 
-  return { slip, watch };
+  // The page takes our entry over (see above): it stops being ours, and the timer that would take it off is cleared.
+  const adopt = () => {
+    if (!own || !armed || removing || leaving || slip() || !H.state?.[STATE]) return false;
+    clearTimeout(timer);
+    settle();
+    return true;
+  };
+
+  return { slip, watch, adopt };
 }

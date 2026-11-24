@@ -142,12 +142,20 @@ function swapLine() {
 
 // ——— the studio ———
 
+// How many times paint has been thrown at this canvas (a tap, a flick, a hold, Oops, Let it happen; not the intro's)
+// since it was started or last signed. While there's any, leaving the page asks first.
+let thrown = 0;
+function threw() {
+  thrown++;
+}
+
 const bigScreen = Math.min(window.innerWidth, window.innerHeight) >= 600;
 const scale = (window.devicePixelRatio || 1) >= 1.5 && bigScreen ? 1.5 : 1;
 const studio = new Studio(canvas, {
   scale,
   onNarrate: narrate,
   onCanvas(s) {
+    thrown = 0;
     store.set(KEY.canvases, s.number);
     store.set(KEY.moods, s.moodsUsed);
     $('canvasNo').textContent = `Canvas No. ${s.number}`;
@@ -409,6 +417,7 @@ function finishGesture(e, cancelled = false) {
   }
   const p = toCanvas(e);
   ownSplats++;
+  threw();
   countGesture(studio.pool ? 'hold' : g.moved >= 10 ? 'flick' : 'tap');
   if (studio.pool) {
     studio.commitPool();
@@ -459,6 +468,7 @@ function oops() {
   userActed();
   cancelDone();
   ownSplats++;
+  threw();
   studio.randomAccident({ pigment: accidentPigment() });
 }
 
@@ -497,7 +507,10 @@ function tickAuto(delay) {
       sayDone();
       return;
     }
-    if (studio.active.length < 2) studio.randomAccident({ pigment: accidentPigment() });
+    if (studio.active.length < 2) {
+      threw();
+      studio.randomAccident({ pigment: accidentPigment() });
+    }
     tickAuto(rand(1300, 2400));
   }, delay);
 }
@@ -737,6 +750,7 @@ $('signForm').addEventListener('submit', async (e) => {
     };
     // What's on the wall from this canvas, and how many accidents it had then.
     Object.assign(studio.signed, { id: record.id, full, accidents: s.accidents });
+    thrown = 0;
     const hung = hang(record, full);
     showPlacard(record, full, 'signing', hung);
   } finally {
@@ -1106,6 +1120,14 @@ window.addEventListener('keydown', (e) => {
     held.add(e.code);
     shortcut();
   }
+});
+
+// Leaving the page (a reload, closing the tab, a link) with paint you threw that isn't on the wall yet asks first, the
+// way New canvas does: the browser says "Leave site?" (phones mostly don't, and leave as before).
+window.addEventListener('beforeunload', (e) => {
+  if (!thrown) return;
+  e.preventDefault();
+  e.returnValue = '';
 });
 
 // ——— start ———

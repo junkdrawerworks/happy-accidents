@@ -1569,6 +1569,34 @@ await ctx.setOffline(false);
   await dctx.close();
 }
 
+// Leaving the page with paint you threw on the canvas asks first (the browser's own "Leave site?"), as New canvas does,
+// but not once it's signed, nor with only the intro's paint on it. The links under the studio open in a new tab.
+{
+  const lctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
+  const p = await lctx.newPage();
+  const dialogs = [];
+  p.on('dialog', (d) => { dialogs.push(d.type()); d.accept(); });
+  const asks = () => p.evaluate(() => { const e = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(e); return e.defaultPrevented; });
+  await p.goto(base);
+  await p.waitForFunction(() => window.happyAccidents?.accidents > 0, null, { timeout: 10000 });
+  assert.equal(await asks(), false, 'leaving with only the intro’s paint on the canvas asks first');
+  await p.evaluate(() => window.happyAccidents.skipIntro());
+  await p.keyboard.press(' ');
+  assert.equal(await asks(), true, 'leaving with paint you threw doesn’t ask first');
+  await p.waitForFunction(() => !window.happyAccidents.busy, null, { timeout: 20000 });
+  await p.keyboard.press('s');
+  await p.click('#signForm button[type=submit]');
+  await p.waitForSelector('#placard:not([hidden])', { timeout: 30000 });
+  assert.equal(await asks(), false, 'leaving right after signing asks first');
+  await p.click('#keepBtn');
+  await p.keyboard.press(' ');
+  await p.reload();
+  await p.waitForFunction(() => window.happyAccidents);
+  assert.deepEqual(dialogs, ['beforeunload'], 'reloading with paint added after signing didn’t ask first');
+  assert.deepEqual(await p.evaluate(() => [...document.querySelectorAll('.jd-foot a')].map((a) => `${a.target} ${a.rel}`)), ['_blank noopener', '_blank noopener'], 'a link under the studio replaces it');
+  await lctx.close();
+}
+
 // The first minute. Left alone, the intro paints in and then the painter says "Your turn" (the only line that says you
 // can flick and hold), with the hint under the canvas, and nothing the intro paints talks over it.
 // Touching the canvas before the intro is over cuts it short but doesn't skip that: it comes once your first splat has

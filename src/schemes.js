@@ -154,7 +154,13 @@ export const SCHEMES = RAW.map((raw) => {
   return s;
 });
 
-export function pickScheme(avoidId) {
-  const pool = SCHEMES.filter((s) => s.id !== avoidId);
+// The moods come round like a shuffled deck: each canvas gets one not yet used this round (used, a list of mood ids), and
+// once all six have been, a new round starts. Never the one just painted (avoidId), even across the start of a round.
+export function pickScheme(avoidId, used = []) {
+  const fresh = SCHEMES.filter((s) => s.id !== avoidId && !used.includes(s.id));
+  const pool = fresh.length ? fresh : SCHEMES.filter((s) => s.id !== avoidId);
   return pick(pool.length ? pool : SCHEMES);
 }
+
+// The round after a canvas got mood id: one more used, or, if id had already been used (a new round started), only id.
+export const moodsAfter = (used, id) => (used.includes(id) ? [id] : [...used, id]);

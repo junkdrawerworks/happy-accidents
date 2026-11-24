@@ -8,7 +8,7 @@ import { featureLine, madeFrom, durationText, makeTitle, toolInfo, keptNote, mix
 import { topEdge, heights, at, span, sideProfile } from '../src/shape.js';
 import { ramp, mix, hex, mixPaint, familyOf, colorName } from '../src/color.js';
 import { weighted, pickFresh, clamp, rand, chance, pick, TAU, slug } from '../src/util.js';
-import { SCHEMES, PIGMENTS } from '../src/schemes.js';
+import { SCHEMES, PIGMENTS, pickScheme, moodsAfter } from '../src/schemes.js';
 import { decide } from '../src/decide.js';
 import { makeSplat, splatShape } from '../src/splat.js';
 import { lineKey } from '../src/studio.js';
@@ -1078,3 +1078,28 @@ test('snow on a leafy tree rests on the tops of its clumps, and the leaves show 
     assert.ok(snow > 0, 'no snow at all');
     assert.ok(snow / leaves < 0.15, `the snow is ${Math.round((100 * snow) / leaves)}% of the leaves`);
   }, 131));
+
+test('the moods come round like a shuffled deck: all six in every six canvases, and never the same twice running', () =>
+  sameDice(() => {
+    // Picked at random, avoiding only the last, a given mood was missing from the first five canvases a third of the time.
+    for (let run = 0; run < 200; run++) {
+      let used = [];
+      let last;
+      const seen = [];
+      for (let i = 0; i < 18; i++) {
+        const s = pickScheme(last, used);
+        assert.notEqual(s.id, last, `${s.name} twice running`);
+        used = moodsAfter(used, s.id);
+        last = s.id;
+        seen.push(s.id);
+      }
+      for (let at = 0; at < 18; at += 6) assert.equal(new Set(seen.slice(at, at + 6)).size, 6, `canvases ${at + 1} to ${at + 6} were ${seen.slice(at, at + 6).join(', ')}`);
+    }
+    // A round already started on an earlier visit carries on; a mood asked for by name left one mood out of the bag.
+    assert.deepEqual(moodsAfter(['golden-hour'], 'violet-dusk'), ['golden-hour', 'violet-dusk']);
+    const five = SCHEMES.slice(0, 5).map((s) => s.id);
+    assert.equal(pickScheme(five[4], five).id, SCHEMES[5].id, 'the last mood left in the round');
+    const next = pickScheme(SCHEMES[5].id, five);
+    assert.notEqual(next.id, SCHEMES[5].id, 'a new round still avoids the mood just painted');
+    assert.deepEqual(moodsAfter(five, next.id), [next.id], 'a new round starts with the mood it picked');
+  }, 141));

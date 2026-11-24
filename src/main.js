@@ -1,5 +1,5 @@
 import { Studio } from './studio.js';
-import { PIGMENTS } from './schemes.js';
+import { PIGMENTS, SCHEMES } from './schemes.js';
 import { makeTitle, featureLine, madeFrom, line, keptNote } from './words.js';
 import { pick, rand, gauss, slug } from './util.js';
 import * as sound from './sound.js';
@@ -32,6 +32,7 @@ const KEY = {
   sound: 'happy-accidents:sound',
   gallery: 'happy-accidents:gallery',
   canvases: 'happy-accidents:canvases',
+  moods: 'happy-accidents:moods',
 };
 
 const canvas = $('canvas');
@@ -135,6 +136,7 @@ const studio = new Studio(canvas, {
   onNarrate: narrate,
   onCanvas(s) {
     store.set(KEY.canvases, s.number);
+    store.set(KEY.moods, s.moodsUsed);
     $('canvasNo').textContent = `Canvas No. ${s.number}`;
     $('schemeName').textContent = s.scheme.name;
   },
@@ -934,6 +936,9 @@ updateCount();
 // Canvas numbers carry on from the last visit, so no two paintings on the wall share one.
 const lastCanvas = store.get(KEY.canvases, 0);
 studio.number = Number.isInteger(lastCanvas) && lastCanvas > 0 ? lastCanvas : 0;
+// And so does the round of moods, so every mood comes round in your first six canvases, visits or not.
+const moodsUsed = store.get(KEY.moods, []);
+studio.moodsUsed = Array.isArray(moodsUsed) ? moodsUsed.filter((id) => SCHEMES.some((s) => s.id === id)) : [];
 studio.newCanvas();
 runDemo();
 

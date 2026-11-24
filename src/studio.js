@@ -1,6 +1,6 @@
 // The studio owns the canvas: the scene, the painted elements, the splats waiting
 // to be turned into something, the lake reflection, and the animation loop.
-import { SCHEMES, PIGMENTS, pickScheme } from './schemes.js';
+import { SCHEMES, PIGMENTS, pickScheme, moodsAfter } from './schemes.js';
 import { TAU, rand, clamp, chance, pick, weighted } from './util.js';
 import { rgba, darken, mix, mixPaint, familyOf, colorName } from './color.js';
 import { makeSplat, renderSplat } from './splat.js';
@@ -77,6 +77,8 @@ export class Studio {
     this.paper = this.makePaper();
     this.weave = this.ctx.createPattern(this.makeWeave(), 'repeat');
     this.number = 0;
+    // The moods used so far this round (see pickScheme).
+    this.moodsUsed = [];
     this.gen = 0;
     this.elements = [];
     this.active = [];
@@ -108,7 +110,13 @@ export class Studio {
 
   newCanvas(schemeId) {
     this.gen += 1;
-    this.scheme = (schemeId && SCHEMES.find((s) => s.id === schemeId)) || pickScheme(this.scheme?.id);
+    // A mood asked for by name (from the console, or a test) leaves the round of moods as it was.
+    const asked = schemeId && SCHEMES.find((s) => s.id === schemeId);
+    if (asked) this.scheme = asked;
+    else {
+      this.scheme = pickScheme(this.scheme?.id ?? this.moodsUsed.at(-1), this.moodsUsed);
+      this.moodsUsed = moodsAfter(this.moodsUsed, this.scheme.id);
+    }
     this.hy = Math.round(H * rand(0.5, 0.6));
     this.lightDir = chance(0.5) ? -1 : 1;
     this.haze = this.scheme.haze;

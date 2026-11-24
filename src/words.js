@@ -80,12 +80,12 @@ export const LINES = {
   ],
   bank: {
     lines: [
-      'Some ground to stand on. Hit it again and see what grows.',
       'Let’s give the lake an edge over here.',
       'A little shore. Somewhere for things to stand.',
       'Land, the same shape as the paint. Pull it right down to the water.',
     ],
-    you: ['Pull a little land in from the side. It’s the same shape as your splat.'],
+    // Only for your own bank: the intro's comes before anyone has had a turn.
+    you: ['Pull a little land in from the side. It’s the same shape as your splat.', 'Some ground to stand on. Hit it again and see what grows.'],
     auto: ['Pull a little land in from the side. Something might come up on it.'],
   },
   bankTree: ['He needs somewhere to stand. Land first, then the tree.'],

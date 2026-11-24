@@ -193,7 +193,7 @@ test('paint the toy threw itself doesn’t get “you hit him”', () => {
   assert.ok(linesFor('company').some((t) => /You hit him/.test(t)), 'your own splat still gets “you hit him”');
   for (let i = 0; i < 10; i++) assert.ok(linesFor('company', { auto: true }).includes(line('company', { auto: true })));
   // The intro always paints a bank, before anyone has thrown anything.
-  for (const key of ['bank', 'bankTree']) for (const text of linesFor(key, { auto: true })) assert.doesNotMatch(text, /\byour?\b/i, `${key}: ${text}`);
+  for (const key of ['bank', 'bankTree']) for (const text of linesFor(key, { auto: true })) assert.doesNotMatch(text, /\byour?\b|\bhit it\b/i, `${key}: ${text}`);
   assert.ok(linesFor('bank').some((t) => /your splat/.test(t)), 'your own bank can still be the shape of your splat');
   assert.ok(!linesFor('bank').some((t) => /land under it/.test(t)), 'a plain bank doesn’t promise something to stand on it');
 });

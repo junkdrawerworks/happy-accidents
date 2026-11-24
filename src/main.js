@@ -150,6 +150,14 @@ let thrown = 0;
 function threw() {
   if (thrown++ === 0) store.set(KEY.canvases, studio.number);
 }
+// Starting over from a canvas nobody painted on (trying the moods with New canvas, say) gives the next one the same
+// number, so the first painting signed is still Canvas No. 1.
+function startCanvas() {
+  const kept = store.get(KEY.canvases, 0);
+  const last = Number.isInteger(kept) && kept > 0 ? kept : 0;
+  if (last < studio.number) studio.number = last;
+  studio.newCanvas();
+}
 
 const bigScreen = Math.min(window.innerWidth, window.innerHeight) >= 600;
 const scale = (window.devicePixelRatio || 1) >= 1.5 && bigScreen ? 1.5 : 1;
@@ -578,7 +586,7 @@ function newCanvas() {
   setAuto(false);
   cancelDone();
   userActed();
-  studio.newCanvas();
+  startCanvas();
 }
 
 const soundBtn = $('soundBtn');
@@ -911,7 +919,7 @@ anotherBtn.addEventListener('click', () => {
   if (!askFirst(anotherBtn, 'Paint another')) return;
   setAuto(false);
   placardFrom = null;
-  studio.newCanvas();
+  startCanvas();
   closeOverlay($('placard'), canvas);
 });
 $('keepBtn').addEventListener('click', leavePlacard);

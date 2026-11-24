@@ -1617,7 +1617,8 @@ await ctx.setOffline(false);
   await p.waitForTimeout(500);
   await p.keyboard.press('Enter');
   assert.notEqual(await p.textContent('#canvasNo'), no, 'a second press half a second later didn’t start over');
-  await paint(1);
+  await p.focus('#canvas');
+  await p.keyboard.press('Enter');
   await p.evaluate(() => document.activeElement.blur());
   await keyHeld('s');
   assert.equal(await p.inputValue('#artistName'), '', 'holding S typed into the name');
@@ -1673,6 +1674,13 @@ await ctx.setOffline(false);
     assert.deepEqual(await numbers(), first, 'a reload without painting used up a canvas number');
   }
   await p.evaluate(() => window.happyAccidents.skipIntro());
+  // Nor does starting over, again and again, from a canvas nobody has painted on (trying the moods).
+  for (let i = 0; i < 3; i++) {
+    await p.keyboard.press('n');
+    await p.waitForTimeout(450);
+    if ((await p.textContent('#newBtn')) === 'Start over?') await p.keyboard.press('n');
+  }
+  assert.deepEqual(await numbers(), first, 'New canvas on a canvas nobody painted on used up a canvas number');
   await p.keyboard.press(' ');
   assert.equal(await asks(), true, 'leaving with paint you threw doesn’t ask first');
   await p.waitForFunction(() => !window.happyAccidents.busy, null, { timeout: 20000 });

@@ -77,13 +77,16 @@ export function rock(S, p) {
   return { kind: 'rock', depth: y, reflect: false, bbox: { x: x - w * 0.75, y: y - hh * 1.3, w: w * 1.5, h: hh * 2.6 }, ops, dur: 1000, meta: { top, x, y, w, hh, path } };
 }
 
+// Ripples on the water. Bold ones (blue paint) are longer, thicker and darker, with a light edge above each, so a single
+// tap shows on a phone at arm's length.
 export function ripples(S, p) {
   const { scheme, hy, H } = S;
   const dT = clamp((p.y - hy) / (H - hy), 0, 1);
-  const spread = clamp(p.R * (p.wide ? 5 : 3), 20, 200) * (0.4 + dT);
+  const bold = p.bold ? 1 : 0;
+  const spread = clamp(p.R * (p.wide ? 5 : 3 + bold), 20, 200) * (0.4 + dT);
   // A ring of ripples where the splat landed, and a little one wherever a droplet hit the water.
-  const spots = [{ x: p.x, y: p.y, n: p.wide ? randi(9, 14) : randi(3, 5), s: 1 }];
-  for (const d of (p.shape?.drops || []).slice(0, 10)) if (d.y > hy + 3) spots.push({ x: d.x, y: d.y, n: 1, s: clamp(d.r / 3, 0.3, 0.8) });
+  const spots = [{ x: p.x, y: p.y, n: p.wide ? randi(9, 14) : bold ? randi(6, 8) : randi(3, 5), s: 1 + bold * 0.7 }];
+  for (const d of (p.shape?.drops || []).slice(0, 10)) if (d.y > hy + 3) spots.push({ x: d.x, y: d.y, n: 1, s: clamp(d.r / 3, 0.3, 0.8) * (1 + bold * 0.5) });
   const ops = [];
   for (const sp of spots) {
     ops.push((ctx) => {
@@ -91,8 +94,9 @@ export function ripples(S, p) {
         const y = sp.y + (sp.n > 1 ? rand(-spread * 0.2, spread * 0.2) : 0);
         const len = rand(6, 30) * (0.4 + dT * 1.2) * sp.s;
         const x = sp.x + (sp.n > 1 ? rand(-spread * 0.6, spread * 0.6) : 0);
-        bristle(ctx, linePts(x - len / 2, y, x + len / 2, y, 8), { width: 1.6, count: 2, color: p.color ?? scheme.waterLine, alpha: 0.6, taper: 0.3 });
-        bristle(ctx, linePts(x - len / 2, y + 2, x + len / 2, y + 2, 8), { width: 1.4, count: 2, color: darken(scheme.water, 0.3), alpha: 0.25, taper: 0.3 });
+        if (bold) bristle(ctx, linePts(x - len * 0.4, y - 1.8, x + len * 0.4, y - 1.8, 8), { width: 1.4, count: 2, color: scheme.waterLine, alpha: 0.55, taper: 0.3 });
+        bristle(ctx, linePts(x - len / 2, y, x + len / 2, y, 8), { width: bold ? 3 : 1.6, count: bold ? 3 : 2, color: p.color ?? scheme.waterLine, alpha: bold ? 0.85 : 0.6, taper: 0.3 });
+        bristle(ctx, linePts(x - len / 2, y + 2, x + len / 2, y + 2, 8), { width: 1.4, count: 2, color: darken(scheme.water, 0.3), alpha: bold ? 0.4 : 0.25, taper: 0.3 });
       }
     });
   }
@@ -247,20 +251,20 @@ export function canoe(S, p) {
   return { kind: 'canoe', depth: y, reflect: false, bbox: { x: x - s * 0.9, y: y - s * 0.3, w: s * 1.8, h: s * 0.7 }, ops, dur: 800, meta: { x, y, size: s } };
 }
 
-// Yellow paint on the water: light glinting off it.
+// Yellow paint on the water: light glinting off it, wide and bright enough to see from a single tap.
 export function glints(S, p) {
   const { hy, H } = S;
   const dT = clamp((p.y - hy) / (H - hy), 0, 1);
-  const w = clamp(p.R * 5, 40, 260) * (0.5 + dT);
+  const w = clamp(p.R * 6.5, 60, 300) * (0.5 + dT);
   const h = w * 0.25;
-  const col = dim(S, lighten(p.tint, 0.45));
+  const col = dim(S, lighten(p.tint, 0.3));
   const ops = [];
   ops.push((ctx) => {
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.scale(1, 0.25);
     const g = ctx.createRadialGradient(0, 0, 0, 0, 0, w * 0.55);
-    g.addColorStop(0, rgba(col, 0.28));
+    g.addColorStop(0, rgba(col, 0.4));
     g.addColorStop(1, rgba(col, 0));
     ctx.fillStyle = g;
     ctx.beginPath();
@@ -271,14 +275,14 @@ export function glints(S, p) {
   const drops = (p.shape?.drops || []).filter((d) => d.y > hy + 3);
   for (let k = 0; k < 6; k++) {
     ops.push((ctx) => {
-      for (let i = 0; i < 14; i++) {
+      for (let i = 0; i < 18; i++) {
         const a = Math.random() * Math.PI * 2;
         const r = Math.sqrt(Math.random());
         const gx = p.x + Math.cos(a) * r * w * 0.5;
         const gy = p.y + Math.sin(a) * r * h * 0.5;
-        const len = rand(3, 14) * (0.5 + dT) * (1 - r * 0.5);
-        ctx.fillStyle = rgba(col, rand(0.45, 0.95) * (1 - r * 0.5));
-        ctx.fillRect(gx - len / 2, gy, len, rand(0.8, 1.8));
+        const len = rand(4, 18) * (0.5 + dT) * (1 - r * 0.5);
+        ctx.fillStyle = rgba(col, rand(0.6, 1) * (1 - r * 0.4));
+        ctx.fillRect(gx - len / 2, gy, len, rand(1.2, 2.6));
       }
       for (const d of drops.slice(k * 2, k * 2 + 2)) {
         ctx.fillStyle = rgba(col, 0.9);

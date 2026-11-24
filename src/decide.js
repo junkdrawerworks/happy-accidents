@@ -157,7 +157,8 @@ function sky(S, b, c, hint) {
   // A mountain, if there's room for one and the splat is big and low enough (or was aimed at being one).
   const mountainy = (p) => room && (hint === 'mountain' || (!hint && lowSky && b.R > 20 && chance(p)));
 
-  if (b.R < 17 && !hint) {
+  // A small fleck (about a quarter of taps) is birds, stars or a wisp; anything bigger is a real thing.
+  if (b.R < 14 && !hint) {
     const bright = c.fam === 'white' || c.fam === 'yellow';
     if (bright && (night || (S.scheme.stars && chance(0.5)))) return [step('stars', () => P.stars(S, b))];
     if (bright || c.fam === 'red') return [step('cloud', () => P.cloud(S, { ...b, elong: Math.max(b.elong, 2.6), ...cloudLook(S, c) }), { say: 'wisp' })];
@@ -192,13 +193,12 @@ function sky(S, b, c, hint) {
     case 'blue':
       if (c.stormy && hint !== 'mountain' && (hint === 'cloud' || !lowSky) && chance(0.5)) return stormSteps(S, b, c, 1);
       if (mountainy(0.7)) return [mountainStep(S, b, { tintAmt: 0.4 }, 'blueMountain')];
-      if (!hint && b.R < 24 && chance(0.25)) return [birdsStep(S, b, c)];
       return [step('cloud', () => P.cloud(S, { ...b, ...cloudLook(S, c) }), { say: 'coolCloud' })];
 
     case 'brown':
     default:
       if (mountainy(0.75)) return [mountainStep(S, b, { tintAmt: 0.45 }, 'brownMountain')];
-      if (!hint && b.R < 26 && chance(0.35)) return [birdsStep(S, b, c)];
+      if (!hint && !lowSky && b.R < 18 && chance(0.15)) return [birdsStep(S, b, c)];
       return stormSteps(S, b, c, 0.4);
   }
 }
@@ -236,7 +236,7 @@ function stormSteps(S, b, c, rainChance) {
 }
 
 function birdsStep(S, b, c) {
-  return step('birds', () => P.birds(S, { ...b, color: mix(S.scheme.bird, c.rgb, 0.5) }));
+  return step('birds', () => P.birds(S, { ...b, color: mix(S.scheme.bird, c.rgb, 0.7) }));
 }
 
 function sunSteps(S, b, c) {
@@ -396,7 +396,7 @@ function water(S, b, c, hint, vertical, dT) {
     case 'yellow':
       return [step('glints', () => P.glints(S, b))];
     case 'blue':
-      return [step('ripples', () => P.ripples(S, { ...b, color: mix(S.scheme.waterLine, c.rgb, 0.35), wide: b.R > 24 }), { say: 'blueRipples' })];
+      return [step('ripples', () => P.ripples(S, { ...b, color: mix(S.scheme.waterLine, c.rgb, 0.6), wide: b.R > 24, bold: true }), { say: 'blueRipples' })];
     default:
       return [step('ripples', () => P.ripples(S, b))];
   }

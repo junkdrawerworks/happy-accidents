@@ -370,7 +370,7 @@ const CELLS = {
     yellow: { text: 'the sun, then golden clouds', allows: [may('sun', day), may('cloud')], todo: { night: 'yellow at night makes the moon' } },
     red: { text: 'a sunset cloud', allows: [may('cloud')] },
     green: { text: 'the top of a tall pine, or an aurora at night', allows: [may('tall pine'), may('aurora', night)] },
-    blue: { text: 'a cool cloud, or a storm from Prussian Blue', allows: [may('cloud'), may('storm cloud', { only: ['prussian-blue'] })], todo: 'blue taps up to R 24 make birds a quarter of the time' },
+    blue: { text: 'a cool cloud, or a storm from Prussian Blue', allows: [may('cloud'), may('storm cloud', { only: ['prussian-blue'] })] },
     brown: { text: 'a storm cloud, or birds', allows: [may('storm cloud'), may('birds')] },
   },
   'low in the sky': {
@@ -378,8 +378,8 @@ const CELLS = {
     yellow: { text: 'the sun or golden clouds', allows: [may('sun', day), may('cloud')], todo: 'Yellow Ochre makes a golden mountain, and at night yellow makes the moon' },
     red: { text: 'a red-rock mountain or a sunset cloud', allows: [may('mountain'), may('cloud')] },
     green: { text: 'a wooded mountain', allows: [may('mountain')] },
-    blue: { text: 'a blue mountain or a cool cloud', allows: [may('mountain'), may('cloud')], todo: 'blue taps up to R 24 make birds a quarter of the time' },
-    brown: { text: 'a mountain', allows: [may('mountain')], todo: 'brown low in the sky also makes storm clouds and birds' },
+    blue: { text: 'a blue mountain or a cool cloud', allows: [may('mountain'), may('cloud')] },
+    brown: { text: 'a mountain', allows: [may('mountain')], todo: 'brown low in the sky also makes storm clouds' },
   },
   'on the lake': {
     white: { text: 'a sailboat, or light on the water', allows: [may('sailboat'), may(['glints', 'ripples'])] },
@@ -410,8 +410,9 @@ const PLACES = {
   horizon: (S) => ({ x: rand(30, S.W - 30), y: S.hy + rand(-0.03, 0.03) * S.H }),
 };
 
-// Small flecks up high are birds, stars or wisps of cloud, whatever the paint (How it plays).
-const FLECK_R = 17;
+// Small flecks up high are birds, stars or wisps of cloud, whatever the paint (How it plays): splats under R 14, about a
+// quarter of taps.
+const FLECK_R = 14;
 const FLECKS = ['birds', 'stars', 'cloud'];
 
 // A splat of any size the page makes: half of them taps (R 11 to 22), half bigger flicks and pours, some stretched.

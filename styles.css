@@ -548,6 +548,13 @@ kbd {
   transform: translateY(-2px);
 }
 
+/* The yellow focus ring is Cadmium Yellow itself and barely shows on the light wood, so on the palette it's dark, and
+   outside the white and dark ring round the paint on the brush. */
+.dab:focus-visible {
+  outline: 2px solid #1b1410;
+  outline-offset: 4px;
+}
+
 .dab.surprise {
   background:
     radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.6) 0 7%, transparent 20%),

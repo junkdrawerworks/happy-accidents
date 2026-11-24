@@ -719,6 +719,12 @@ await page.keyboard.press('s');
 assert.deepEqual(await S(() => [...document.querySelectorAll('#signSheet button')].filter((b) => b.getBoundingClientRect().height < 44).map((b) => b.textContent)), [], 'the sign form’s buttons are 44 px tall');
 await page.keyboard.press('Escape');
 
+// The keyboard's focus ring on the palette is dark, not the yellow of Cadmium Yellow that barely shows on the wood.
+await page.focus('.dab[aria-checked=true]');
+await page.keyboard.press('ArrowRight');
+assert.deepEqual(await S(() => [document.activeElement.matches('.dab:focus-visible'), getComputedStyle(document.activeElement).outlineColor, getComputedStyle(document.activeElement).outlineOffset]), [true, 'rgb(27, 20, 16)', '4px'], 'the focus ring on the palette is hard to see on the wood');
+await page.keyboard.press('ArrowLeft');
+
 // In forced colours (Windows High Contrast) the paints keep their colours and the paint on the brush has an outline.
 await page.emulateMedia({ forcedColors: 'active' });
 assert.deepEqual(await S(() => {

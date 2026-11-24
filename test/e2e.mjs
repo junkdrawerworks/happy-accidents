@@ -34,6 +34,23 @@ page.on('requestfailed', (r) => problems.push('failed: ' + r.url()));
 page.on('request', (r) => { if (!r.url().startsWith(base) && !r.url().startsWith('data:')) problems.push('left the site: ' + r.url()); });
 
 const S = (fn, arg) => page.evaluate(fn, arg);
+// The width of a JPEG, from its frame header.
+const jpegWidth = (buf) => {
+  for (let i = 2; i + 9 < buf.length && buf[i] === 0xff; i += 2 + buf.readUInt16BE(i + 2)) {
+    if (buf[i + 1] >= 0xc0 && buf[i + 1] <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(buf[i + 1])) return buf.readUInt16BE(i + 7);
+  }
+  return 0;
+};
+// The ids of the paintings whose full-size pictures are kept (in IndexedDB), once the page has kept one.
+const pictureIds = (p = page) => p.evaluate(() => new Promise((resolve, reject) => {
+  const req = indexedDB.open('happy-accidents');
+  req.onerror = () => reject(req.error);
+  req.onsuccess = () => {
+    const keys = req.result.transaction('pictures').objectStore('pictures').getAllKeys();
+    keys.onsuccess = () => { req.result.close(); resolve(keys.result); };
+  };
+}));
+const wallIds = () => S(() => JSON.parse(localStorage.getItem('happy-accidents:gallery')).map((r) => r.id));
 const settle = () => page.waitForFunction(() => !window.happyAccidents.busy && !window.happyAccidents.active.length, null, { timeout: 20000 });
 const total = () => S(() => Object.entries(window.happyAccidents.counts).filter(([k]) => k !== 'sky').reduce((a, [, n]) => a + n, 0));
 const box = async () => page.locator('#canvas').boundingBox();
@@ -802,7 +819,44 @@ assert.equal(await page.textContent('#galleryCount'), '1', 'the signed painting 
 assert.equal(await page.textContent('#canvasNo'), `Canvas No. ${lastNo + 1}`, 'the canvas numbers started over after a reload');
 await page.keyboard.press('g');
 assert.equal(await page.locator('.wall-item').count(), 1);
+// Opened from the wall after the reload, the painting is its full-size picture (the canvas's 1200 px at this screen's
+// scale), not the wall's 720 px copy, and that's what Download saves.
+await page.click('.wall-open');
+await page.waitForFunction(() => document.getElementById('placardImg').naturalWidth === 1200, null, { timeout: 5000 }).catch(async () => assert.fail(`a painting opened from the wall after a reload is ${await S(() => document.getElementById('placardImg').naturalWidth)} px wide, not 1200`));
+{
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#downloadBtn')]);
+  assert.equal(jpegWidth(await readFile(await dl.path())), 1200, 'Download from the wall didn’t save the full-size picture');
+}
 await page.keyboard.press('Escape');
+await page.keyboard.press('Escape');
+
+// Where IndexedDB is refused (a private window, a page opened from disk in some browsers), the painting still hangs,
+// and opened from the wall it shows and downloads the wall's 720 px copy.
+{
+  const ictx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, serviceWorkers: 'block' });
+  await ictx.addInitScript(() => Object.defineProperty(window, 'indexedDB', { get() { throw new DOMException('The operation is insecure.', 'SecurityError'); } }));
+  const p = await ictx.newPage();
+  const errors = [];
+  p.on('pageerror', (e) => errors.push(e.message));
+  p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  await p.goto(base);
+  await p.evaluate(() => window.happyAccidents.skipIntro());
+  await p.evaluate(() => window.happyAccidents.randomAccident());
+  await p.waitForTimeout(200);
+  await p.waitForFunction(() => !window.happyAccidents.busy && !window.happyAccidents.active.length, null, { timeout: 20000 });
+  await p.keyboard.press('s');
+  await p.click('#signForm button[type=submit]');
+  await p.waitForSelector('#placard:not([hidden])', { timeout: 30000 });
+  await p.reload();
+  await p.keyboard.press('g');
+  await p.click('.wall-open');
+  await p.waitForFunction(() => document.getElementById('placardImg').complete, null, { timeout: 5000 });
+  assert.equal(await p.evaluate(() => document.getElementById('placardImg').naturalWidth), 720, 'with IndexedDB refused, the painting from the wall didn’t show its wall copy');
+  const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#downloadBtn')]);
+  assert.equal(jpegWidth(await readFile(await dl.path())), 720);
+  assert.deepEqual(errors, [], 'problems with IndexedDB refused');
+  await ictx.close();
+}
 
 // Shift (or Caps Lock) doesn't stop the letter keys: the key hints show them as capitals.
 await page.keyboard.press('Shift+G');
@@ -1040,6 +1094,13 @@ assert.equal(hungNow[0], await page.textContent('#plTitle'), 'the new painting g
 assert.ok(!hungNow.includes('Painting 1') && hungNow.includes('Painting 2'), `the 13th signing should take the oldest down (${hungNow})`);
 assert.equal(await page.isHidden('#keptNote'), true, 'a usual 13th signing has nothing to say under the label');
 assert.equal(await page.textContent('#galleryCount'), '12');
+// Only the paintings on the wall keep a full-size picture: the new one does, and the ones that came down don't.
+await page.waitForTimeout(300);
+{
+  const [ids, kept] = [await wallIds(), await pictureIds()];
+  assert.ok(kept.includes(ids[0]), 'the new painting’s full-size picture wasn’t kept');
+  assert.deepEqual(kept.filter((id) => !ids.includes(id)), [], 'pictures of paintings that came down were kept');
+}
 await page.click('#keepBtn');
 // A painting opened from far down the wall goes back to the wall, scrolled to where it was, from its button or Back,
 // and the after-signing button is back to the easel again.
@@ -1097,8 +1158,12 @@ await page.keyboard.press('g');
 await page.locator('.wall-item .quiet').first().click();
 assert.equal(await page.locator('.wall-item .quiet').first().textContent(), 'Remove it?');
 assert.equal(await page.locator('.wall-item').count(), 5, 'the first tap of Remove took the painting down');
+const removed = await page.locator('.wall-open').first().getAttribute('data-id');
+assert.ok((await pictureIds()).includes(removed), 'the painting about to be removed had no full-size picture kept');
 await page.locator('.wall-item .quiet').first().click();
 assert.equal(await page.locator('.wall-item').count(), 4, 'the second tap of Remove didn’t take the painting down');
+await page.waitForTimeout(300);
+assert.ok(!(await pictureIds()).includes(removed), 'Remove left the painting’s full-size picture behind');
 assert.equal(await page.textContent('#galleryCount'), '4');
 assert.equal((await wall()).length, 4);
 await page.locator('.wall-open').first().click();

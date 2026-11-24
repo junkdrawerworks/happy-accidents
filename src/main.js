@@ -65,6 +65,53 @@ function dataUrlBytes(url) {
   return bytes;
 }
 
+// The full-size pictures of the paintings on the wall, in IndexedDB under each painting's id. The wall's list and a
+// 720 px copy of each painting stay in localStorage, where twelve full-size pictures wouldn't fit. Nothing here ever
+// throws or holds anything up: where IndexedDB is missing or refuses (a private window, a page opened from disk), a
+// read gives null and the painting shows its 720 px copy, as before.
+const pictures = (() => {
+  let db = null;
+  const open = () =>
+    (db ??= new Promise((resolve) => {
+      try {
+        const req = indexedDB.open('happy-accidents', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('pictures');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = req.onblocked = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    }));
+  // One transaction on the store; settles with what fn's request gave, or null.
+  const run = async (mode, fn) => {
+    const d = await open();
+    if (!d) return null;
+    return new Promise((resolve) => {
+      try {
+        const tx = d.transaction('pictures', mode);
+        const req = fn(tx.objectStore('pictures'));
+        tx.oncomplete = () => resolve(req?.result ?? null);
+        tx.onerror = tx.onabort = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
+  };
+  return {
+    get: (id) => run('readonly', (s) => s.get(id)),
+    // Keeps the pictures of the paintings in ids and nothing else; with a new picture, puts that in first.
+    keep(ids, add = null) {
+      return run('readwrite', (s) => {
+        if (add) s.put(add.picture, add.id);
+        const req = s.getAllKeys();
+        req.onsuccess = () => {
+          for (const key of req.result) if (!ids.includes(key)) s.delete(key);
+        };
+      });
+    },
+  };
+})();
+
 // ——— narration ———
 
 let lineTimer = 0;
@@ -551,10 +598,9 @@ $('signForm').addEventListener('submit', async (e) => {
       number: s.number,
       features: featureLine(s.counts),
     };
-    const hung = hang(record);
-    // What's on the wall from this canvas, and how many accidents it had then (any that landed while it was being
-    // signed are in the picture too).
+    // What's on the wall from this canvas, and how many accidents it had then.
     Object.assign(studio.signed, { id: record.id, full, accidents: s.accidents });
+    const hung = hang(record, full);
     showPlacard(record, full, 'signing', hung);
   } finally {
     signing = false;
@@ -575,6 +621,7 @@ function slug(text) {
 let placardFrom = null;
 let wallAt = { scroll: 0, id: null };
 // hung is what hang() said, right after a signing.
+let onShow = null;
 function showPlacard(record, src, from = null, hung = null) {
   if (!from && !$('gallery').hidden) {
     from = 'wall';
@@ -583,7 +630,26 @@ function showPlacard(record, src, from = null, hung = null) {
   placardFrom = from === 'signing' && hung && !hung.kept ? 'unkept' : from;
   $('keepBtn').textContent = from === 'wall' ? 'Back to the wall' : 'Back to the easel';
   const img = $('placardImg');
-  img.src = src || record.img;
+  // A painting from the wall shows its 720 px copy at once, and its full-size picture once that has been read (the one
+  // just signed on the easel has it to hand). Download takes whichever is showing when it's pressed.
+  onShow = record;
+  let best = src || (studio.signed?.id === record.id && studio.signed.full) || record.img;
+  img.src = best;
+  if (best === record.img) {
+    pictures.get(record.id).then((full) => {
+      if (typeof full !== 'string' || !full.startsWith('data:image/')) return;
+      const pre = new Image();
+      pre.src = full;
+      pre.decode().then(
+        () => {
+          if (onShow !== record) return;
+          best = full;
+          img.src = full;
+        },
+        () => {},
+      );
+    });
+  }
   img.alt = `${record.title}, a landscape painting by ${record.artist}`;
   $('plArtist').textContent = record.artist;
   $('plTitle').textContent = record.title;
@@ -595,7 +661,7 @@ function showPlacard(record, src, from = null, hung = null) {
   const saveBtn = $('downloadBtn');
   saveBtn.hidden = !canSave;
   saveBtn.textContent = 'Download image';
-  saveBtn.onclick = () => saveImage(src || record.img, `${slug(record.title)}.jpg`);
+  saveBtn.onclick = () => saveImage(best, `${slug(record.title)}.jpg`);
   $('saveHint').hidden = canSave;
   const note = hung ? keptNote(hung, canSave) : '';
   $('keptNote').textContent = note;
@@ -661,12 +727,14 @@ function readGallery() {
 
 // Hangs a newly signed painting, newest first, keeping the 12 newest. When the browser won't take that many, the
 // oldest come down until it does, and when it won't keep any, the wall stays as it was. Says whether the new painting
-// was kept, and how many older ones came down beyond the usual 12th.
-function hang(record) {
+// was kept, and how many older ones came down beyond the usual 12th. The full-size picture goes in with it, and the
+// pictures of any that came down go with them.
+function hang(record, picture) {
   const list = [record, ...readGallery()].slice(0, 12);
   const room = list.length;
   while (list.length && !store.set(KEY.gallery, list)) list.pop();
   updateCount();
+  if (list.length) pictures.keep(list.map((r) => r.id), { id: record.id, picture });
   return { kept: list.length > 0, dropped: list.length ? room - list.length : 0 };
 }
 
@@ -729,10 +797,8 @@ function renderWall() {
     remove.textContent = 'Remove';
     remove.addEventListener('click', () => {
       if (remove.dataset.armed) {
-        store.set(
-          KEY.gallery,
-          readGallery().filter((r) => r.id !== rec.id),
-        );
+        const rest = readGallery().filter((r) => r.id !== rec.id);
+        if (store.set(KEY.gallery, rest)) pictures.keep(rest.map((r) => r.id));
         updateCount();
         renderWall();
         $('closeGallery').focus();

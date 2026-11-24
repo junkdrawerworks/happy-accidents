@@ -145,6 +145,9 @@ await page.mouse.up();
 await page.waitForTimeout(200);
 await settle();
 assert.equal(await S(() => window.happyAccidents.accidents), 4);
+// Once painted in, a thing on the canvas lets go of the splat it came from (its callbacks held the splat, its rendered
+// canvas and its trail, a few megabytes a flick, until New canvas).
+assert.deepEqual(await S(() => window.happyAccidents.elements.filter((e) => e.onProgress || e.onDone).map((e) => e.kind)), [], 'painted things still hold on to their splats');
 
 // Two wet splats that touch run together into one, and their paints mix like paint: yellow into blue is green,
 // and green in the lake makes land. (After a quiet spell, so the line about the mix shows at once rather than waiting

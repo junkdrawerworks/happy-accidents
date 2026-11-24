@@ -718,9 +718,13 @@ export class Studio {
     }
     const finished = this.active.filter((e) => e.done);
     this.active = this.active.filter((e) => !e.done);
+    // A finished element lets go of its callbacks before the next step runs: they hold the splat it came from (its
+    // rendered canvas, any parts that ran into it and the flick's trail), and the element stays on the canvas.
     for (const el of finished) {
       el.ops = null;
-      el.onDone?.(el);
+      const done = el.onDone;
+      el.onDone = el.onProgress = null;
+      done?.(el);
     }
 
     const dt = Math.min(64, now - (this.lastFrame ?? now));

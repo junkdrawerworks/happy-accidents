@@ -651,3 +651,47 @@ test('blue at the foot of a mountain still makes a waterfall, and the painter sa
     assert.equal(lineKey({ kind: 'garden', say: 'garden' }, { kind: 'flowers' }), 'garden');
     assert.equal(lineKey({ kind: 'cloudOverSun', say: 'cloudOverMoon' }, { kind: 'cloud' }), 'cloudOverMoon');
   }, 41));
+
+test('paint on something with nothing left to change lands beside it, not inside it', () =>
+  sameDice(() => {
+    // A rock that already has its moss and snow: whatever the paint makes on the water is next to it, never a sail
+    // growing out of it or a canoe hidden behind it. Red on the lake is still a canoe.
+    const reachOf = (spec) => (spec.kind === 'rock' ? spec.meta.w / 2 : spec.meta.size * 0.5);
+    for (const id of PIGMENTS.map((p) => p.id)) {
+      for (let i = 0; i < 30; i++) {
+        const rock = { ...TARGETS.rock(bareStudio()), touched: new Set(['moss', 'snow']) };
+        const S = bareStudio(pick(DAY), { land: leftBank, target: rock });
+        S.elements.push(rock);
+        const plan = decide(S, makeSplat({ ...hitOn('rock', rock), R: rand(12, 26), pigment: paintOf(id) }));
+        const spec = plan[0].make();
+        if (id === 'bright-red' || id === 'alizarin-crimson') assert.equal(spec.kind, 'canoe', `red on a rock made ${spec.kind}`);
+        if (!['rock', 'sailboat', 'canoe'].includes(spec.kind)) continue;
+        const gap = Math.abs(spec.meta.x - rock.meta.x) - reachOf(spec) - rock.meta.w / 2;
+        assert.ok(gap >= 0, `${paintOf(id).name} on a rock made a ${spec.kind} overlapping it by ${(-gap).toFixed(0)}px`);
+      }
+    }
+    // With no room beside it (a rock in a narrow channel), paint on it is ripples or glints at its waterline.
+    for (const id of ['bright-red', 'titanium-white', 'phthalo-blue']) {
+      const rock = { ...TARGETS.rock(bareStudio()), touched: new Set(['moss', 'snow']) };
+      const S = bareStudio('golden-hour', { land: (x, y) => y > 480 && Math.abs(x - 600) > 30, target: rock });
+      S.elements.push(rock);
+      const spec = decide(S, makeSplat({ ...hitOn('rock', rock), R: 20, pigment: paintOf(id) }))[0].make();
+      assert.ok(['ripples', 'glints'].includes(spec.kind), `${paintOf(id).name} on a rock with no room beside it made ${spec.kind}`);
+    }
+    // A cabin with its snow, lights and garden: a tree from more paint stands beside it, not behind its middle.
+    for (const id of ['sap-green', 'phthalo-blue', 'van-dyke-brown', 'bright-red']) {
+      for (let i = 0; i < 20; i++) {
+        const cabin = { ...TARGETS.cabin(bareStudio()), touched: new Set(['snow', 'garden']) };
+        cabin.meta.glow = true;
+        const S = bareStudio(pick(DAY), { land: leftBank, target: cabin });
+        S.reserve('cabin');
+        const spec = decide(S, makeSplat({ ...hitOn('cabin', cabin), R: rand(14, 24), pigment: paintOf(id) }))[0].make();
+        if (!spec.meta?.type) continue;
+        assert.ok(spec.meta.x < cabin.meta.x0 || spec.meta.x > cabin.meta.x1, `${paintOf(id).name} on a finished cabin planted a ${spec.kind} inside it`);
+      }
+    }
+    // A tree out on an island with nothing left to change: red is flowers at its foot, not a canoe hidden behind it.
+    const lonely = { ...TARGETS['island tree'](bareStudio()), touched: new Set(['snow', 'glow']) };
+    const S = bareStudio('golden-hour', { land: leftBank, target: lonely });
+    assert.equal(decide(S, makeSplat({ ...hitOn('tree', lonely), R: 18, pigment: paintOf('bright-red') }))[0].kind, 'flowers');
+  }, 51));

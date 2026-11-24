@@ -201,9 +201,10 @@ export class Studio {
     return this.mctx.getImageData(mx, my, 1, 1).data[3] > 100;
   }
 
-  // New ground, outlined by pts. Anything floating where there's ground now (a boat, glints, ripples) moves to just
-  // behind the land's layer, at depth, so the land covers it instead of it sitting on the grass; a tall sail still
-  // shows over the top.
+  // New ground, outlined by pts. Anything floating where there's ground now (a canoe, glints, ripples) moves to just
+  // behind the land's layer, at depth, so the land covers it instead of it sitting on the grass. A sailboat would
+  // still show its sail over the top, as if it stood on the land, so it sails out to the nearest open water instead,
+  // or, with none near, it's gone.
   addLand(pts, depth) {
     const m = this.mctx;
     m.save();
@@ -215,9 +216,25 @@ export class Studio {
     m.fill();
     m.restore();
     if (depth === undefined) return;
-    for (const el of this.elements) {
-      if (AFLOAT.has(el.kind) && el.depth >= depth && el.meta && this.isLand(el.meta.x, el.meta.y - 2)) el.depth = depth - 0.5;
+    for (const el of [...this.elements]) {
+      if (!AFLOAT.has(el.kind) || el.depth < depth || !el.meta || !this.isLand(el.meta.x, el.meta.y - 2)) continue;
+      if (el.kind === 'sailboat') this.sailAside(el);
+      else el.depth = depth - 0.5;
     }
+  }
+
+  sailAside(el) {
+    const { x, y, size } = el.meta;
+    const open = (nx) => nx > size && nx < W - size && [-0.9, -0.45, 0, 0.45, 0.9].every((f) => !this.isLand(nx + f * size, y - 2));
+    for (let d = size * 0.6; d < size * 5; d += size * 0.3) {
+      const dx = [d, -d].find((v) => open(x + v));
+      if (dx === undefined) continue;
+      el.bbox = { ...el.bbox, x: el.bbox.x + dx };
+      el.meta.x += dx;
+      return;
+    }
+    this.elements = this.elements.filter((e) => e !== el);
+    this.counts.sailboat -= 1;
   }
 
   // What's painted at a point: the frontmost element whose paint is actually there.

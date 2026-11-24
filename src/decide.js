@@ -45,10 +45,11 @@ export function decide(S, sp) {
   const hint = sp.hint;
   const vertical = Math.abs(Math.sin(sp.ang)) > 0.7 && sp.stretch > 1.35;
 
-  // Paint that lands on something already there changes it.
+  // Paint that lands on something already there changes it. If this paint has nothing left to do to it, the paint
+  // lands beside it instead of inside it.
   const hit = S.elementAt(b.x, b.y, b.R);
   if (hit) {
-    const plan = react(S, hit, b, c.fam);
+    const plan = react(S, hit, b, c.fam) || beside(S, hit, b, c, hint, vertical);
     if (plan) return plan;
   }
 
@@ -144,6 +145,90 @@ function react(S, t, b, fam) {
     default:
       return null;
   }
+}
+
+// ——— beside something ———
+
+// Things afloat that take up room on the water: how far each reaches either side of its middle, and how tall it stands.
+const AFLOAT = {
+  rock: { reach: (m) => m.w / 2, tall: (m) => m.hh },
+  sailboat: { reach: (m) => m.size * 0.5, tall: (m) => m.size * 1.2 },
+  canoe: { reach: (m) => m.size * 0.5, tall: (m) => m.size * 0.12 },
+};
+// And on land: how far a cabin or a tree reaches either side of its middle.
+const STANDING = {
+  cabin: (m) => [(m.x0 + m.x1) / 2, (m.x1 - m.x0) / 2],
+  evergreen: (m) => [m.x, m.size * 0.22],
+  deciduous: (m) => [m.x, m.size * 0.3],
+  bush: (m) => [m.x, m.size * 0.45],
+};
+
+// Paint on a boat, a rock, the cabin or a tree that has nothing left to change there: what the paint would have been,
+// painted next to it. On the water that's at its waterline, a little to the side the paint landed on (the thing itself
+// is then placed clear of it by afloat()). On land it's on the ground beside it; with no ground on either side, a few
+// flowers at its foot.
+function beside(S, t, b, c, hint, vertical) {
+  const m = t.meta;
+  if (!m) return null;
+  const side = Math.sign(b.x - (m.x ?? b.x)) || (chance(0.5) ? 1 : -1);
+  const dT = (y) => (y - S.hy) / (S.H - S.hy);
+  if (AFLOAT[t.kind]) {
+    const y = m.y + rand(1, 3);
+    const spot = { ...b, x: clamp(m.x + side * (AFLOAT[t.kind].reach(m) + b.R), 10, S.W - 10), y };
+    return S.isLand(spot.x, y) ? [calmWater(S, { ...b, x: m.x, y }, c)] : water(S, spot, c, hint, vertical, dT(y));
+  }
+  if (STANDING[t.kind]) {
+    const [cx, half] = STANDING[t.kind](m);
+    // On the ground level with its foot, or a little further back where a thin bank's ground is.
+    const groundAt = (x) => {
+      for (let y = Math.min(m.baseY + 2, S.H - 3); y > m.baseY - 18; y -= 4) if (S.isLand(x, y)) return y;
+      return null;
+    };
+    for (const s of [side, -side]) {
+      // Past anything else already standing there (the trees from the last few splats).
+      let x = cx + s * (half + b.R * 0.5 + rand(8, 16));
+      for (let k = 0; k < 4 && x > 10 && x < S.W - 10; k++, x += s * (b.R + rand(10, 20))) {
+        const y = groundAt(x);
+        if (y === null) break;
+        const there = S.elementAt(x, y - 10, 4);
+        if (there && STANDING[there.kind]) continue;
+        return land(S, { ...b, x, y }, c, hint, vertical, dT(y));
+      }
+    }
+    const onLand = (x, y) => S.isLand(x, y);
+    return [step('flowers', () => P.flowers(S, { x: cx + rand(-0.5, 0.5) * half, y: m.baseY + 2, R: 10, tint: bloomColor(b.tint), onLand }))];
+  }
+  return null;
+}
+
+// Ripples, or glints from warm paint, on the water: what paint becomes when there's no room for anything else there.
+function calmWater(S, b, c) {
+  if (c.fam === 'yellow' || c.fam === 'red') return step('glints', () => P.glints(S, b));
+  return step('ripples', () => P.ripples(S, { ...b, color: c.fam === 'blue' ? mix(S.scheme.waterLine, c.rgb, 0.6) : S.scheme.waterLine, bold: c.fam === 'blue' }));
+}
+
+// A boat or a rock (made by paint(spot)), clear of the other boats and rocks: moved along the water past whatever it would
+// overlap, as long as that keeps it on open water and on the canvas. With no room, it's calm water instead.
+function afloat(S, b, c, paint) {
+  const boxOf = (kind, m) => {
+    const a = AFLOAT[kind];
+    const r = a.reach(m);
+    return { x0: m.x - r, x1: m.x + r, y0: m.y - a.tall(m), y1: m.y + 2, r };
+  };
+  const others = (S.elements || []).filter((e) => AFLOAT[e.kind] && e.meta).map((e) => ({ m: e.meta, box: boxOf(e.kind, e.meta) }));
+  let spec = paint(b);
+  for (let tries = 0; tries < 4; tries++) {
+    const box = boxOf(spec.kind, spec.meta);
+    const near = others.find((o) => o.box.x0 < box.x1 + 4 && o.box.x1 > box.x0 - 4 && o.box.y0 < box.y1 && o.box.y1 > box.y0);
+    if (!near) return spec;
+    const first = Math.sign(spec.meta.x - near.m.x) || (chance(0.5) ? 1 : -1);
+    const x = [first, -first]
+      .map((s) => near.m.x + s * (near.box.r + box.r + rand(6, 12)))
+      .find((x) => x > box.r && x < S.W - box.r && !S.isLand(x, spec.meta.y - 2) && !S.isLand(x - box.r, spec.meta.y - 2) && !S.isLand(x + box.r, spec.meta.y - 2));
+    if (x === undefined) break;
+    spec = paint({ ...b, x });
+  }
+  return calmWater(S, b, c).make();
 }
 
 // ——— the sky ———
@@ -349,14 +434,15 @@ function water(S, b, c, hint, vertical, dT) {
   const openWater = !nearEdge && dT <= 0.72;
   const landish = hint === 'bank' || hint === 'tree' || (hint !== 'water' && makesLand(c));
 
+  const rock = (p) => P.rock(S, p);
   if (c.fam === 'brown' && openWater && hint !== 'bank' && hint !== 'tree' && (hint === 'water' || (b.R < 22 && chance(0.6)))) {
-    return [step('rock', () => P.rock(S, b))];
+    return [step('rock', () => afloat(S, b, c, rock))];
   }
   if (landish) {
     if (openWater && b.R < 14 && hint !== 'bank' && hint !== 'tree') {
       // Too small for an island: a rock, and if it's green, moss on it.
-      const rock = step('rock', () => P.rock(S, b));
-      return c.fam === 'green' ? [rock, step('moss', () => rock.spec?.el && R.moss(S, rock.spec.el, b), { quiet: true })] : [rock];
+      const small = step('rock', () => afloat(S, b, c, rock));
+      return c.fam === 'green' ? [small, step('moss', () => small.spec?.kind === 'rock' && R.moss(S, small.spec.el, b), { quiet: true })] : [small];
     }
     const connect = hint === 'bank' || !openWater;
     const kind = connect ? 'bank' : 'island';
@@ -388,10 +474,10 @@ function water(S, b, c, hint, vertical, dT) {
 
   switch (c.fam) {
     case 'white':
-      if (b.R >= 15 && S.count('sailboat') < 3) return [step('sailboat', () => P.sailboat(S, b))];
+      if (b.R >= 15 && S.count('sailboat') < 3) return [step('sailboat', () => afloat(S, b, c, (p) => P.sailboat(S, p)))];
       return chance(0.5) ? [step('glints', () => P.glints(S, b))] : [step('ripples', () => P.ripples(S, { ...b, color: S.scheme.waterLine }))];
     case 'red':
-      if (S.count('canoe') < 3) return [step('canoe', () => P.canoe(S, b))];
+      if (S.count('canoe') < 3) return [step('canoe', () => afloat(S, b, c, (p) => P.canoe(S, p)))];
       return [step('glints', () => P.glints(S, b))];
     case 'yellow':
       return [step('glints', () => P.glints(S, b))];

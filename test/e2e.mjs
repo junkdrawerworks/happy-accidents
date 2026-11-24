@@ -246,8 +246,9 @@ const night = await S(() => ({ said: window.said, glow: window.happyAccidents.co
 assert.equal(night.glow, 1, 'warm paint on the moon lit up the sky');
 assert.ok(night.said.length >= 2 && night.said.every((l) => !/\bsun\b/.test(l)), `the painter called the moon the sun (${night.said.join(' / ')})`);
 
-// Land laid over the lake covers whatever was floating there: a sailboat under the new ground goes behind it (the tip
-// of its sail can still show over the top) instead of sitting on the grass.
+// Land laid over the lake covers whatever was floating there. A sailboat under the new ground can't go behind it (its
+// sail would stand up out of the land), so it sails out to open water nearby, or with none near, it's gone; either way
+// it never sits on the grass.
 await S(() => window.happyAccidents.newCanvas('golden-hour'));
 await settle();
 await S(async () => {
@@ -257,22 +258,23 @@ await S(async () => {
 });
 await page.waitForTimeout(200);
 await settle();
-await S(async () => {
+const sailedFrom = await S(async () => {
   const { PIGMENTS } = await import('./src/schemes.js');
   const st = window.happyAccidents;
   const { meta } = st.elements.find((e) => e.kind === 'sailboat');
   st.addSplat({ x: meta.x, y: meta.y, R: 44, pigment: PIGMENTS.find((p) => p.id === 'sap-green'), hint: 'bank', delay: 50 });
+  return { x: meta.x, y: meta.y };
 });
 await page.waitForTimeout(200);
 await settle();
-const ashore = await S(() => {
+const ashore = await S((was) => {
   const st = window.happyAccidents;
   const boat = st.elements.find((e) => e.kind === 'sailboat');
-  const land = st.elements.find((e) => e.kind === 'bank');
-  return { underLand: st.isLand(boat.meta.x, boat.meta.y - 2), inFront: st.elements.indexOf(boat) > st.elements.indexOf(land) };
-});
-assert.ok(ashore.underLand, 'the land was laid over the sailboat');
-assert.equal(ashore.inFront, false, 'the sailboat sat on the grass, in front of the land laid over it');
+  return { covered: st.isLand(was.x, was.y - 2), onLand: boat ? st.isLand(boat.meta.x, boat.meta.y - 2) : null, count: st.counts.sailboat };
+}, sailedFrom);
+assert.ok(ashore.covered, 'the land was laid over the sailboat');
+assert.notEqual(ashore.onLand, true, 'the sailboat sat on the land laid over it');
+if (ashore.onLand === null) assert.equal(ashore.count, 0, 'a sailboat that was taken away still counts');
 
 // The paint's color decides what a splat becomes. Each check starts on a clean canvas and reports what got painted.
 // where: { sky: 0..1 } is from the top of the canvas down to the horizon; { lake: 0..1 } from the horizon down;

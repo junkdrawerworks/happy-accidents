@@ -1014,12 +1014,13 @@ await page.click('#anotherBtn');
 assert.notEqual(await page.textContent('#canvasNo'), canvasNo, 'a second tap of Paint another starts over');
 assert.equal(await page.isHidden('#placard'), true);
 
-// The gallery survives a reload, and the canvas numbers carry on from where they were.
+// The gallery survives a reload, and the canvas numbers carry on from where they were (the fresh canvas Paint another
+// put up hasn't been painted on, so it keeps its number).
 const lastNo = Number((await page.textContent('#canvasNo')).match(/\d+/)[0]);
 await page.reload();
 await page.evaluate(() => document.fonts.ready);
 assert.equal(await page.textContent('#galleryCount'), '1', 'the signed painting is still in the gallery after a reload');
-assert.equal(await page.textContent('#canvasNo'), `Canvas No. ${lastNo + 1}`, 'the canvas numbers started over after a reload');
+assert.equal(await page.textContent('#canvasNo'), `Canvas No. ${lastNo}`, 'the canvas numbers didn’t carry on after a reload');
 await page.keyboard.press('g');
 assert.equal(await page.locator('.wall-item').count(), 1);
 // Opened from the wall after the reload, the painting is its full-size picture (the canvas's 1200 px at this screen's
@@ -1570,16 +1571,24 @@ await ctx.setOffline(false);
 }
 
 // Leaving the page with paint you threw on the canvas asks first (the browser's own "Leave site?"), as New canvas does,
-// but not once it's signed, nor with only the intro's paint on it. The links under the studio open in a new tab.
+// but not once it's signed, nor with only the intro's paint on it. The links under the studio open in a new tab. A
+// canvas nobody has painted on keeps its number through a reload, so opening the page doesn't use numbers up.
 {
   const lctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
   const p = await lctx.newPage();
   const dialogs = [];
   p.on('dialog', (d) => { dialogs.push(d.type()); d.accept(); });
   const asks = () => p.evaluate(() => { const e = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(e); return e.defaultPrevented; });
+  const numbers = () => p.evaluate(() => [document.getElementById('canvasNo').textContent, localStorage.getItem('happy-accidents:canvases')]);
   await p.goto(base);
   await p.waitForFunction(() => window.happyAccidents?.accidents > 0, null, { timeout: 10000 });
   assert.equal(await asks(), false, 'leaving with only the intro’s paint on the canvas asks first');
+  const first = await numbers();
+  for (let i = 0; i < 2; i++) {
+    await p.reload();
+    await p.waitForFunction(() => window.happyAccidents);
+    assert.deepEqual(await numbers(), first, 'a reload without painting used up a canvas number');
+  }
   await p.evaluate(() => window.happyAccidents.skipIntro());
   await p.keyboard.press(' ');
   assert.equal(await asks(), true, 'leaving with paint you threw doesn’t ask first');
@@ -1593,6 +1602,8 @@ await ctx.setOffline(false);
   await p.reload();
   await p.waitForFunction(() => window.happyAccidents);
   assert.deepEqual(dialogs, ['beforeunload'], 'reloading with paint added after signing didn’t ask first');
+  const n = Number(first[0].match(/\d+/)[0]);
+  assert.deepEqual(await numbers(), [`Canvas No. ${n + 1}`, String(n)], 'a reload after painting didn’t move on to the next canvas number');
   assert.deepEqual(await p.evaluate(() => [...document.querySelectorAll('.jd-foot a')].map((a) => `${a.target} ${a.rel}`)), ['_blank noopener', '_blank noopener'], 'a link under the studio replaces it');
   await lctx.close();
 }

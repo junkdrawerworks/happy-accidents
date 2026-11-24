@@ -85,6 +85,16 @@ export class Studio {
     this.drops = [];
     this.running = false;
     this.frame = this.frame.bind(this);
+    // The painting time on the label counts only while the page is showing: time spent hidden (another tab, the phone
+    // locked, the canvas left overnight) moves the start along by as much.
+    this.hiddenAt = document.hidden ? Date.now() : null;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) this.hiddenAt = Date.now();
+      else if (this.hiddenAt !== null) {
+        this.startedAt += Date.now() - Math.max(this.hiddenAt, this.startedAt);
+        this.hiddenAt = null;
+      }
+    });
   }
 
   layer(w, h) {
@@ -647,7 +657,7 @@ export class Studio {
     return {
       counts: { ...this.counts },
       accidents: this.accidents,
-      seconds: Math.max(1, Math.round((Date.now() - this.startedAt) / 1000)),
+      seconds: Math.max(1, Math.round(((this.hiddenAt === null ? Date.now() : Math.max(this.hiddenAt, this.startedAt)) - this.startedAt) / 1000)),
       scheme: this.scheme,
       number: this.number,
     };

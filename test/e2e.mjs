@@ -811,6 +811,31 @@ for (const [width, height] of [[844, 390], [667, 375], [390, 844]]) {
 await page.setViewportSize({ width: 390, height: 844 });
 await page.waitForTimeout(300);
 
+// The painting time on the label counts only while the page is showing: time spent on another tab doesn't go on it.
+// (Here the canvas has been showing 10 seconds, then the page is hidden for 3.)
+{
+  const [whileHidden, after] = await S(async () => {
+    const st = window.happyAccidents;
+    const show = (on) => {
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => !on });
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (on ? 'visible' : 'hidden') });
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+    const startedAt = st.startedAt;
+    st.startedAt = Date.now() - 10000;
+    show(false);
+    await new Promise((r) => setTimeout(r, 3000));
+    const hidden = st.summary().seconds;
+    show(true);
+    delete document.hidden;
+    delete document.visibilityState;
+    const shown = st.summary().seconds;
+    st.startedAt = startedAt;
+    return [hidden, shown];
+  });
+  assert.ok(whileHidden <= 11 && after <= 11, `time the page was hidden went on the label (${whileHidden} s while hidden, ${after} s after)`);
+}
+
 // Paint added after signing isn't on the wall, so New canvas asks first.
 await page.click('#oopsBtn');
 await page.waitForTimeout(200);

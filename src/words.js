@@ -619,11 +619,18 @@ export function featureLine(counts) {
   return `Features ${parts.join(', ')} and ${last}.`;
 }
 
+// How long a painting took, as the label says it: under a minute to the second, under an hour to the nearest minute,
+// and from an hour on to the nearest five minutes ("about" when that comes to whole hours).
 export function durationText(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  if (!m) return `${s} seconds`;
-  return `${m} min ${s} s`;
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return s === 1 ? '1 second' : `${s} seconds`;
+  const minutes = Math.round(s / 60);
+  if (minutes < 60) return minutes === 1 ? 'a minute' : `${minutes} minutes`;
+  const five = Math.round(minutes / 5) * 5;
+  const h = Math.floor(five / 60);
+  const m = five % 60;
+  const hours = h === 1 ? 'an hour' : `${h} hours`;
+  return m ? `${hours} and ${m} minutes` : `about ${hours}`;
 }
 
 export function madeFrom(accidents, seconds) {

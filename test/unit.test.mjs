@@ -85,10 +85,26 @@ test('a new title steers clear of the titles already on the wall', () => {
 });
 
 test('painting time and accident counts read naturally', () => {
+  assert.equal(durationText(1), '1 second');
   assert.equal(durationText(42), '42 seconds');
-  assert.equal(durationText(192), '3 min 12 s');
+  assert.equal(durationText(59), '59 seconds');
+  assert.equal(durationText(60), 'a minute');
+  assert.equal(durationText(89), 'a minute');
+  assert.equal(durationText(90), '2 minutes');
+  assert.equal(durationText(192), '3 minutes');
+  assert.equal(durationText(12 * 60 + 20), '12 minutes');
+  assert.equal(durationText(59 * 60 + 40), 'about an hour', 'not 60 minutes');
+  assert.equal(durationText(3600), 'about an hour');
+  assert.equal(durationText(3600 + 2 * 60), 'about an hour');
+  assert.equal(durationText(3600 + 23 * 60), 'an hour and 25 minutes');
+  assert.equal(durationText(2 * 3600 + 5 * 60), '2 hours and 5 minutes');
+  assert.equal(durationText(15 * 3600 + 12 * 60), '15 hours and 10 minutes');
+  assert.equal(durationText(24 * 3600), 'about 24 hours');
   assert.equal(madeFrom(1, 20), 'Painted wet-on-wet from one happy accident in 20 seconds.');
-  assert.equal(madeFrom(14, 192), 'Painted wet-on-wet from 14 happy accidents in 3 min 12 s.');
+  assert.equal(madeFrom(14, 192), 'Painted wet-on-wet from 14 happy accidents in 3 minutes.');
+  assert.equal(madeFrom(9, 75), 'Painted wet-on-wet from 9 happy accidents in a minute.');
+  assert.equal(madeFrom(3, 1), 'Painted wet-on-wet from 3 happy accidents in 1 second.', 'not 1 seconds');
+  assert.equal(madeFrom(40, 2 * 3600 + 5 * 60), 'Painted wet-on-wet from 40 happy accidents in 2 hours and 5 minutes.');
   assert.equal(madeFrom(0, 2), 'Painted wet-on-wet without a single accident, in 2 seconds.', 'a blank canvas isn’t made from 0 happy accidents');
 });
 

@@ -11,7 +11,7 @@ import { weighted, pickFresh, clamp, rand, chance, pick, TAU, slug } from '../sr
 import { SCHEMES, PIGMENTS, pickScheme, moodsAfter } from '../src/schemes.js';
 import { decide } from '../src/decide.js';
 import { makeSplat, splatShape } from '../src/splat.js';
-import { lineKey, Studio } from '../src/studio.js';
+import { lineKey, Studio, landInside } from '../src/studio.js';
 import * as P from '../src/paint/index.js';
 import { flowers, canoe, glints } from '../src/paint/index.js';
 import { autumn, treeGlow, sunlitCloud, treeSnow as treeSnowOf } from '../src/paint/react.js';
@@ -1174,3 +1174,19 @@ test('blue too near a mountain’s foot paints mist, and the mountain can still 
       assert.notEqual(blue({ x: m.peak[0], y: m.peak[1] + m.hgt * 0.3 })[0].kind, 'waterfall', 'only one waterfall');
     }
   }, 151));
+
+test('paint flung off the picture lands just inside its edge, and paint well inside stays where it landed', () => {
+  const white = PIGMENTS[0];
+  for (let i = 0; i < 200; i++) {
+    const R = rand(14, 64);
+    const fast = makeSplat({ x: 1250, y: 940, R, vx: rand(0.3, 3.2), vy: 0.2, pigment: white });
+    const margin = Math.min(fast.R * fast.stretch * 0.6, 1200 * 0.2);
+    landInside(fast);
+    assert.ok(Math.abs(fast.x - (1200 - margin)) < 1e-9 && fast.x > 1200 * 0.75, `off the right edge it landed at x ${fast.x.toFixed(1)}`);
+    assert.ok(Math.abs(fast.y - (900 - Math.min(fast.R * fast.stretch * 0.6, 900 * 0.2))) < 1e-9, `off the bottom it landed at y ${fast.y.toFixed(1)}`);
+    const left = landInside(makeSplat({ x: -80, y: -30, R, vx: -1, pigment: white }));
+    assert.ok(left.x > 0 && left.y > 0 && left.x < 1200 * 0.25, 'off the top left it lands just inside the corner');
+    const inside = landInside(makeSplat({ x: 600, y: 450, R, vx: 1, pigment: white }));
+    assert.deepEqual([inside.x, inside.y], [600, 450], 'paint landing well inside the picture moved');
+  }
+});

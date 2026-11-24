@@ -51,6 +51,18 @@ const AFLOAT = new Set(['sailboat', 'canoe', 'glints', 'ripples']);
 // waterfall paints mist, and the painter shouldn't announce a waterfall).
 export const lineKey = (st, spec) => st.say ?? (spec.kind !== st.kind && LINES[spec.kind] ? spec.kind : st.kind);
 
+// Paint flung off the picture lands just inside its edge, in by most of its own reach (never more than a fifth of the
+// canvas), so the body of the splat is on the picture and not a sliver cut off at the side or sitting on the ledge.
+// Paint landing well inside doesn't move. The droplets still fly off the way it was flung, and the trail stays put.
+export function landInside(sp) {
+  const reach = sp.R * sp.stretch * 0.6;
+  const mx = Math.min(reach, W * 0.2);
+  const my = Math.min(reach, H * 0.2);
+  sp.x = clamp(sp.x, mx, W - mx);
+  sp.y = clamp(sp.y, my, H - my);
+  return sp;
+}
+
 const paintFor = (hint) => {
   const id = pick(PAINT_FOR[hint] || PAINT_FOR.cloud);
   return PIGMENTS.find((p) => p.id === id);
@@ -395,9 +407,7 @@ export class Studio {
   // ——— splats ———
 
   addSplat(spec) {
-    const x = clamp(spec.x, 0, W);
-    const y = clamp(spec.y, 0, H);
-    const sp = makeSplat({ ...spec, x, y });
+    const sp = landInside(makeSplat(spec));
     // Thrown by the toy itself (Oops, Let it happen, the intro), not by someone: the painter doesn't say "you hit him".
     sp.auto = !!spec.auto;
     if (!sp.auto) this.lastHand = sp;

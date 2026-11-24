@@ -791,11 +791,13 @@ function showPlacard(record, src, from = null, hung = null) {
   openOverlay($('placard'), anotherBtn);
 }
 
-// A browser that can hand a picture to the share sheet (on a phone: Save Image, Photos, Messages and the rest) gets the
-// painting there; elsewhere it downloads.
+// A phone or tablet that can hand a picture to the share sheet (Save Image, Photos, Messages and the rest) gets the
+// painting there; elsewhere it downloads. Only where touch is the main way in: Safari on a Mac and Chrome on Windows can
+// share too, but their share sheets have no way to save the file, and there a download is what's wanted.
+const touchFirst = window.matchMedia('(pointer: coarse)');
 function shareable(file) {
   try {
-    return !!navigator.canShare?.({ files: [file] });
+    return touchFirst.matches && !!navigator.canShare?.({ files: [file] });
   } catch {
     return false;
   }

@@ -1461,6 +1461,32 @@ assert.equal(await page.locator('.wall-item').count(), hungOnline + 1, 'the pain
 await page.keyboard.press('Escape');
 await ctx.setOffline(false);
 
+// With a mouse (Safari on a Mac, Chrome on Windows), a browser that could share still downloads: those share sheets
+// have no way to save the file.
+{
+  const dctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block', acceptDownloads: true });
+  const p = await dctx.newPage();
+  await p.addInitScript(() => {
+    window.shared = 0;
+    navigator.canShare = () => true;
+    navigator.share = async () => void window.shared++;
+  });
+  await p.goto(base);
+  await p.waitForFunction(() => window.happyAccidents);
+  await p.evaluate(() => {
+    window.happyAccidents.skipIntro();
+    window.happyAccidents.randomAccident({ hint: 'cloud' });
+  });
+  await p.waitForFunction(() => !window.happyAccidents.busy && window.happyAccidents.accidents > 0, null, { timeout: 20000 });
+  await p.click('#signBtn');
+  await p.click('#signForm button[type=submit]');
+  await p.waitForSelector('#placard:not([hidden])', { timeout: 30000 });
+  assert.equal(await p.textContent('#downloadBtn'), 'Download image', 'with a mouse, the label offers the share sheet instead of a download');
+  await Promise.all([p.waitForEvent('download', { timeout: 5000 }), p.click('#downloadBtn')]).catch(() => assert.fail('with a mouse, Download image didn’t download'));
+  assert.equal(await p.evaluate(() => window.shared), 0, 'with a mouse, Download image opened the share sheet');
+  await dctx.close();
+}
+
 // The first minute. Left alone, the intro paints in and then the painter says "Your turn" (the only line that says you
 // can flick and hold), with the hint under the canvas, and nothing the intro paints talks over it.
 // Touching the canvas before the intro is over cuts it short but doesn't skip that: it comes once your first splat has

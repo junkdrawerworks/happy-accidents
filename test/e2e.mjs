@@ -67,6 +67,11 @@ const listen = () => S(() => {
   st.hooks.listening = true;
 });
 
+// Waits for the painter's line on show to be one of these lines (or to contain this text). Each line stays up long
+// enough to read before the next takes over, so a line can show a little after it was said. Says whether it came.
+const lineShows = (want, p = page, timeout = 4000) =>
+  p.waitForFunction((w) => { const t = document.getElementById('line').textContent; return Array.isArray(w) ? w.includes(t) : t.includes(w); }, want, { timeout }).then(() => true, () => false);
+
 await page.goto(base);
 await page.evaluate(() => document.fonts.ready);
 assert.equal(await S(() => document.fonts.check('24px Caprasimo')), true, 'the display font loaded from fonts/');
@@ -123,8 +128,7 @@ await S(async () => {
 });
 assert.equal(await S(() => window.happyAccidents.splats.filter((s) => s.state === 'merged').length), 1, 'the second splat ran into the first');
 assert.equal(await S(() => window.happyAccidents.splats.find((s) => s.mixPigment).mixPigment.family), 'green', 'yellow and blue mixed into green');
-await page.waitForTimeout(300);
-assert.match(await page.textContent('#line'), /green/, 'the painter says what color it made');
+assert.ok(await lineShows('green'), `the painter says what color it made (${await page.textContent('#line')})`);
 await page.waitForTimeout(200);
 await settle();
 const made = await S(() => ['bank', 'island'].reduce((n, k) => n + (window.happyAccidents.counts[k] || 0), 0));
@@ -432,7 +436,7 @@ assert.equal(await page.textContent('#autoBtn'), 'Let it happen');
 await settle();
 await page.waitForTimeout(800);
 const doneLines = await S(async () => (await import('./src/words.js')).LINES.done);
-assert.ok(doneLines.includes(await page.textContent('#line')), `the painter didn’t end on “that might be done” (${await page.textContent('#line')})`);
+assert.ok(await lineShows(doneLines), `the painter didn’t end on “that might be done” (${await page.textContent('#line')})`);
 
 // Things painted near the edges stay on the canvas: the sun or moon from paint at the very top, the bush beside a
 // cabin built at the edge of a bank, and the trees climbing a green mountain near a side.
@@ -695,8 +699,29 @@ assert.deepEqual([await page.textContent('#soundBtn'), await S(() => localStorag
 await page.waitForTimeout(1500);
 await settle();
 await page.keyboard.press('Control+z');
-await page.waitForTimeout(400);
-assert.ok((await S(async () => (await import('./src/words.js')).LINES.undo)).includes(await page.textContent('#line')), 'Ctrl+Z should get the line about there being no undo');
+assert.ok(await lineShows(await S(async () => (await import('./src/words.js')).LINES.undo)), 'Ctrl+Z should get the line about there being no undo');
+
+// In a burst (lines 300 ms apart, as a run of quick taps makes them), each line stays up at least 1.4 s, the lines in
+// between are dropped rather than queued, and it ends on the last one. After a quiet spell a line shows at once.
+await page.waitForTimeout(1600);
+const paced = await S(async () => {
+  const say = window.happyAccidents.hooks.onNarrate;
+  const el = document.getElementById('line');
+  const swaps = [];
+  const obs = new MutationObserver(() => swaps.push([el.textContent, performance.now()]));
+  obs.observe(el, { childList: true });
+  const t0 = performance.now();
+  for (let i = 1; i <= 12; i++) {
+    say({ line: `Line ${i}`, info: '' });
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  await new Promise((r) => setTimeout(r, 2000));
+  obs.disconnect();
+  return { first: swaps[0][1] - t0, gaps: swaps.slice(1).map((sw, i) => Math.round(sw[1] - swaps[i][1])), texts: swaps.map((sw) => sw[0]) };
+});
+assert.ok(paced.first < 500, `after a quiet spell the line took ${Math.round(paced.first)} ms to show`);
+assert.ok(Math.min(...paced.gaps) >= 1400, `in a burst a line was up only ${Math.min(...paced.gaps)} ms (${paced.texts.join(' / ')})`);
+assert.equal(paced.texts.at(-1), 'Line 12', 'a burst didn’t end on its last line');
 
 // The S key opens the sign form without typing an "s" into it.
 const watchTyping = () => S(() => {
@@ -822,9 +847,8 @@ assert.equal(await page.textContent('#galleryCount'), '1');
 assert.equal(await S(() => document.getElementById('app').inert), false);
 assert.equal(await S(() => document.activeElement.id), 'signBtn', 'after the label, focus goes back to Sign it');
 // Back at the easel the painter says it's on the wall, instead of still saying to sign it.
-await page.waitForTimeout(300);
 const hungLines = await S(async () => (await import('./src/words.js')).LINES.hung);
-assert.ok(hungLines.includes(await page.textContent('#line')), `after signing, the painter said “${await page.textContent('#line')}”`);
+assert.ok(await lineShows(hungLines), `after signing, the painter said “${await page.textContent('#line')}”`);
 
 // Sign it again with nothing new on the canvas brings its label back up, instead of hanging a second copy.
 await page.click('#signBtn');
@@ -1248,8 +1272,7 @@ assert.deepEqual(await wall(), hungNow, 'the wall changed when the browser would
 assert.equal(await page.textContent('#galleryCount'), '5');
 await S(() => (Storage.prototype.setItem = window.realSetItem));
 await page.click('#keepBtn');
-await page.waitForTimeout(300);
-assert.deepEqual(await S(async () => (await import('./src/words.js')).LINES.unkept), [await page.textContent('#line')], 'after a signing the browser wouldn’t keep, the painter didn’t say it isn’t on the wall');
+assert.ok(await lineShows(await S(async () => (await import('./src/words.js')).LINES.unkept)), 'after a signing the browser wouldn’t keep, the painter didn’t say it isn’t on the wall');
 
 // On the wall, Remove asks first: the first tap turns it into "Remove it?", and only a second one takes the painting
 // down. A painting opened there downloads as a JPEG named for its title.

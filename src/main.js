@@ -115,15 +115,28 @@ const pictures = (() => {
 
 // ——— narration ———
 
+// Each line stays up long enough to read (LINE_MS) before the next one takes over. Lines that come in the meantime
+// don't queue up: the latest one waits and the rest are dropped, so a burst of taps shows a few lines you can read and
+// ends on the last. The first line after a quiet spell shows at once.
+const LINE_MS = 1400;
 let lineTimer = 0;
+let lineShown = -Infinity;
+let nextLine = null;
 function narrate({ line: text, info }) {
   if (!text) return;
+  nextLine = { text, info };
+  if (lineTimer) return;
+  lineTimer = setTimeout(swapLine, Math.max(0, lineShown + LINE_MS - performance.now()));
+}
+function swapLine() {
   lineEl.classList.add('swap');
-  clearTimeout(lineTimer);
   lineTimer = setTimeout(() => {
-    lineEl.textContent = text;
-    toolEl.textContent = info || '';
+    lineEl.textContent = nextLine.text;
+    toolEl.textContent = nextLine.info || '';
     lineEl.classList.remove('swap');
+    nextLine = null;
+    lineTimer = 0;
+    lineShown = performance.now();
   }, 180);
 }
 

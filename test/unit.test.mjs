@@ -896,7 +896,7 @@ const REACTIONS = [
   { row: ['an evergreen', 'yellow or red', 'late light catches its side'], targets: ['evergreen'], paints: YELLOW_RED, first: () => ['treeGlow'] },
   { row: ['a leafy tree or bush', 'yellow or red', 'it turns to autumn'], targets: ['deciduous', 'bush'], paints: YELLOW_RED, first: () => ['autumn'] },
   {
-    row: ['a tree', 'anything else', 'a friend grows next to it (with no ground beside it, light catches it instead)'],
+    row: ['a tree', 'anything else', 'a friend grows next to it, two at most (after that, or with no ground beside it, light catches it once)'],
     targets: ['evergreen', 'deciduous', 'birch', 'bush', 'island tree'],
     paints: [...PAINTS.green, ...PAINTS.blue, ...PAINTS.brown],
     first: (target) => (target === 'island tree' ? ['treeGlow'] : ['friend']),
@@ -1416,3 +1416,25 @@ test('an accident aimed at a rock, an island, stars or an aurora makes one', () 
       assert.equal(aurora, 'aurora', `green aimed at an aurora made ${aurora}`);
     }
   }, 72));
+
+test('a tree grows two friends at most: then light catches it once, and after that the paint lands beside it', () =>
+  sameDice(() => {
+    // In a long session about 40% of the paint landing on something grew a friend, and every friend could grow more,
+    // until a wall of trees hid the lake.
+    for (const target of ['evergreen', 'deciduous', 'bush']) {
+      for (const id of ['sap-green', 'phthalo-blue', 'van-dyke-brown']) {
+        for (let n = 0; n < 5; n++) {
+          const el = { ...TARGETS[target](bareStudio('golden-hour')) };
+          const S = bareStudio('golden-hour', { land: leftBank, target: el });
+          const hits = [];
+          for (let i = 0; i < 4; i++) hits.push(decide(S, makeSplat({ ...hitOn('tree', el), R: rand(12, 24), pigment: paintOf(id) })));
+          const what = hits.map(reactionOf);
+          assert.deepEqual(what.slice(0, 3), ['friend', 'friend', 'treeGlow'], `${id} on a ${target}, three times: ${what.join(', ')}`);
+          const after = hits[3][0];
+          assert.ok(after.say !== 'company' && after.kind !== 'treeGlow', `the fourth ${id} on a ${target} made ${after.say ?? after.kind}`);
+          const spec = after.make();
+          if (spec?.meta?.x !== undefined && spec.kind !== 'flowers') assert.notEqual(Math.round(spec.meta.x), Math.round(el.meta.x), `the fourth ${id} on a ${target} grew a ${spec.kind} inside it`);
+        }
+      }
+    }
+  }, 73));

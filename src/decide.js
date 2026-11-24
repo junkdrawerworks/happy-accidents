@@ -12,6 +12,9 @@ import * as R from './paint/react.js';
 
 const step = (kind, make, extra = {}) => ({ kind, make, ...extra });
 
+// How many friends paint on one tree grows, at most.
+export const MAX_FRIENDS = 2;
+
 // Earthy yellows (ochre) make ground, the way greens and browns do; brighter yellows don't.
 export const earthy = (pigment) => pigment.family === 'yellow' && hsl(pigment.rgb).s < 0.7;
 
@@ -79,12 +82,14 @@ function react(S, t, b, c) {
       if (white && first(t, 'snow')) return [step('treeSnow', () => R.treeSnow(S, t, b))];
       if (warm && t.kind === 'evergreen' && first(t, 'glow')) return [step('treeGlow', () => R.treeGlow(S, t, b))];
       if (warm && t.kind !== 'evergreen' && first(t, 'autumn')) return [step('autumn', () => R.autumn(S, t, b))];
-      // A friend, if there's ground beside him: the tree this paint grows (blue a blue spruce, white a snowy pine or a
-      // birch), except that green, the plain tree color, grows one of his own kind. With no ground (an island tree, the
-      // tip of a bank), light catches him instead, once.
+      // A friend, if there's ground beside him and he hasn't had two already: the tree this paint grows (blue a blue
+      // spruce, white a snowy pine or a birch), except that green, the plain tree color, grows one of his own kind. After
+      // two, or with no ground (an island tree, the tip of a bank), light catches him instead, once; and after that the
+      // paint lands beside him (beside()), so one tree hit again and again doesn't fill the canvas with his friends.
       const look = fam === 'green' ? { kind: t.meta.type, p: t.meta.type === 'evergreen' ? { tintAmt: 0.15 } : { leaf: pal(S, LEAF.green) } } : treeLook(S, b, c, false, 'tree');
-      const buddy = friend(S, t, b.tint, Math.sign(b.x - t.meta.x) || 1, look);
+      const buddy = (t.friends || 0) < MAX_FRIENDS && friend(S, t, b.tint, Math.sign(b.x - t.meta.x) || 1, look);
       if (buddy) {
+        t.friends = (t.friends || 0) + 1;
         const grown = step(buddy.kind, () => buddy, { say: 'company' });
         return look.snow ? [grown, snowOn(S, grown, b)] : [grown];
       }

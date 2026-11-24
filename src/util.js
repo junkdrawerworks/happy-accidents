@@ -29,15 +29,20 @@ export function weighted(entries) {
   return entries[entries.length - 1][0];
 }
 
-// Like pick(), but avoids repeating the last few choices made under the same key.
+// Like pick(), but avoids repeating the last few choices made under the same key. It remembers all but one choice of a
+// list of three or fewer, and all but two of a longer one (nine at most). So from four on there are always two or more
+// to pick from, and the order never settles into a loop (remembering all but one played a list of up to seven as
+// A B C D A B C D forever), while a choice still doesn't come round again for as many picks as the list has, less one:
+// ten for a list of eleven.
 const recent = new Map();
+const memory = (n) => (n <= 3 ? n - 1 : Math.min(9, n - 2));
 export function pickFresh(key, list) {
   if (!list || !list.length) return '';
   const seen = recent.get(key) || [];
   const pool = list.filter((item) => !seen.includes(item));
   const choice = pick(pool.length ? pool : list);
   seen.push(choice);
-  while (seen.length > Math.min(6, list.length - 1)) seen.shift();
+  while (seen.length > memory(list.length)) seen.shift();
   recent.set(key, seen);
   return choice;
 }

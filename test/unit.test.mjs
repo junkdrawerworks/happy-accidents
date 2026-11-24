@@ -271,6 +271,33 @@ test('a line doesn’t come round again until most of the others have been said'
   for (let i = 7; i < got.length; i++) assert.ok(!got.slice(i - 6, i).includes(got[i]), `${got[i]} again within six: ${got.slice(i - 6, i + 1)}`);
 });
 
+test('a short list of lines doesn’t come round in the same order every time', () => {
+  // Remembering all but one of up to seven lines left one to pick from after the first pass: A B C A B C forever.
+  const periodic = (got, from) => [...Array(8).keys()].slice(1).find((p) => got.slice(from).every((x, i) => x === got[from + i + p] || from + i + p >= got.length));
+  for (const n of [4, 5, 7]) {
+    const list = Array.from({ length: n }, (_, i) => `line ${i}`);
+    const got = Array.from({ length: 400 }, () => pickFresh(`short${n}`, list));
+    for (let i = 0; i < got.length; i++) assert.ok(!got.slice(Math.max(0, i - (n - 2)), i).includes(got[i]), `${n} lines: ${got[i]} again within ${n - 2}`);
+    assert.equal(periodic(got, 20), undefined, `${n} lines come round in a fixed order: ${got.slice(20, 40).join(' ')}`);
+    for (const x of list) assert.ok(got.filter((g) => g === x).length > 400 / n / 2, `${x} hardly ever said`);
+  }
+  const eleven = Array.from({ length: 11 }, (_, i) => i);
+  const got = Array.from({ length: 1000 }, () => pickFresh('eleven', eleven));
+  for (let i = 0; i < got.length; i++) assert.ok(!got.slice(Math.max(0, i - 9), i).includes(got[i]), `${got[i]} again sooner than ten picks on`);
+  assert.equal(periodic(got, 20), undefined, 'eleven lines in a fixed order');
+});
+
+test('the things made most often have plenty to say, so a line doesn’t come round again within ten', () => {
+  // With one paint loaded, most of what it makes is one of these (a lab of 400 canvases had 12 to 15% of lines repeat
+  // one of the last ten, nearly all from them).
+  for (const key of ['cloud', 'glints', 'ripples', 'blueRipples', 'coolCloud', 'stormCloud', 'goldenCloud', 'sunsetCloud']) {
+    for (const s of SCHEMES) for (const auto of [false, true]) assert.ok(new Set(linesFor(key, { scheme: s.id, auto })).size >= 11, `${key} in ${s.id}`);
+  }
+  for (const key of ['sunlitCloud', 'evergreen']) {
+    for (const s of SCHEMES) assert.ok(new Set(linesFor(key, { scheme: s.id })).size >= 6, `${key} in ${s.id}`);
+  }
+});
+
 test('a tall tree with no land under it says “land first” for the land, and the tall tree line with the tree', () =>
   sameDice(() => {
     for (let i = 0; i < 10; i++) {

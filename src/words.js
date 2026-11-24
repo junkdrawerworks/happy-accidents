@@ -49,7 +49,7 @@ export const LINES = {
     'A row of trees on the far shore. Just a suggestion of them.',
   ],
   evergreen: [
-    'There’s a happy little tree in there. Let him grow.',
+    'There’s a little pine in there. Let him grow.',
     'Tap, tap, tap. Let the branches hang however they want.',
     'Trees don’t grow even, and neither should yours.',
     'That drip wanted to be a tree. Who are we to argue.',
@@ -532,15 +532,15 @@ export const LINES = {
 };
 
 const TOOLS = {
-  wash: ['2-inch brush', ['Liquid White', 'Phthalo Blue', 'Alizarin Crimson']],
+  wash: ['2-inch brush', ['thinned Titanium White', 'Phthalo Blue', 'Alizarin Crimson']],
   cloud: ['1-inch brush', ['Titanium White', 'a whisper of Alizarin Crimson']],
   stormCloud: ['1-inch brush', ['Midnight Black', 'Prussian Blue']],
   coolCloud: ['1-inch brush', ['Titanium White', 'Phthalo Blue']],
   sunsetCloud: ['1-inch brush', ['Titanium White', 'Alizarin Crimson']],
   goldenCloud: ['1-inch brush', ['Titanium White', 'Cadmium Yellow']],
   mountain: ['Palette knife', ['Van Dyke Brown', 'Prussian Blue', 'Titanium White']],
-  foothills: ['Fan brush', ['Sap Green', 'Liquid White']],
-  mist: ['2-inch brush', ['Liquid White']],
+  foothills: ['Fan brush', ['Sap Green', 'thinned Titanium White']],
+  mist: ['2-inch brush', ['thinned Titanium White']],
   treeline: ['Fan brush', ['Sap Green', 'Midnight Black']],
   evergreen: ['Fan brush', ['Midnight Black', 'Sap Green', 'Cadmium Yellow']],
   deciduous: ['Round brush', ['Sap Green', 'Yellow Ochre', 'Van Dyke Brown']],
@@ -570,7 +570,7 @@ const TOOLS = {
   alpenglow: ['Palette knife', ['Alizarin Crimson', 'Titanium White']],
   sunset: ['2-inch brush', ['Cadmium Yellow', 'Alizarin Crimson']],
   storm: ['1-inch brush', ['Midnight Black', 'Prussian Blue']],
-  rain: ['Fan brush', ['Liquid White']],
+  rain: ['Fan brush', ['thinned Titanium White']],
   snowShower: ['Fan brush', ['Titanium White']],
   sunlitCloud: ['1-inch brush', ['Cadmium Yellow', 'Titanium White']],
   lights: ['Liner brush', ['Cadmium Yellow', 'Indian Yellow']],
@@ -638,7 +638,7 @@ export function mixLine(names, color, main) {
 }
 
 // The family of each paint the painter names, for the ones that aren't on the palette too.
-const FAMILY = { ...Object.fromEntries(PIGMENTS.map((p) => [p.name, p.family])), 'Liquid White': 'white', 'Midnight Black': 'black', 'Dark Sienna': 'brown', 'Phthalo Green': 'green' };
+const FAMILY = { ...Object.fromEntries(PIGMENTS.map((p) => [p.name, p.family])), 'Midnight Black': 'black', 'Dark Sienna': 'brown', 'Phthalo Green': 'green' };
 const HUES = new Set(['yellow', 'red', 'green', 'blue']);
 const familyIn = (name) => FAMILY[Object.keys(FAMILY).find((n) => name.includes(n))];
 
@@ -777,7 +777,7 @@ const FEATURE_NAMES = [
   ['snowShower', 'a passing snow shower', 'passing snow showers'],
   ['rock', 'a rock', 'rocks'],
   ['mountain', 'a mountain', 'mountains'],
-  ['evergreen', 'a happy little tree', 'happy little trees'],
+  ['evergreen', 'a pine', 'pines'],
   ['leafy', 'a leafy tree', 'leafy trees'],
   ['bare', 'a bare tree', 'bare trees'],
   ['birch', 'a birch', 'birches'],

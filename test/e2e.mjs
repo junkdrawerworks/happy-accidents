@@ -913,8 +913,9 @@ const stillPalette = () => S(async () => {
   const names = PIGMENTS.map((p) => p.name).sort((a, b) => b.length - a.length);
   const lines = flat(LINES);
   for (let i = 0; i < 6; i++) for (const n of [2, 3, 4]) lines.push(mixLine(names.slice(0, n), 'nearly black'), mixLine(names.slice(0, n), 'pale yellow', names[n - 1]));
+  // (The sky's wash is only ever said with its own paints, at the start of a canvas, never a touch of a splat's.)
   const tools = ['', toolInfo('wash')];
-  for (const kind of [...Object.keys(LINES), 'rain', 'snowShower']) for (const p of [undefined, ...PIGMENTS]) tools.push(toolInfo(kind, p));
+  for (const kind of [...Object.keys(LINES), 'rain', 'snowShower']) if (kind !== 'wash') for (const p of [undefined, ...PIGMENTS]) tools.push(toolInfo(kind, p));
   const lineEl = document.getElementById('line');
   const toolEl = document.getElementById('tool');
   const was = [lineEl.textContent, toolEl.textContent];

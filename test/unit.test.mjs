@@ -46,25 +46,25 @@ function bareStudio(schemeId = 'golden-hour', { land = (x, y) => y > 480, target
 test('the placard lists what is in the painting in plain English', () => {
   assert.equal(featureLine({}), 'Mostly sky and water, which is plenty.');
   assert.equal(featureLine({ cabin: 1 }), 'Features a cabin.');
-  assert.equal(featureLine({ mountain: 2, evergreen: 1 }), 'Features two mountains and a happy little tree.');
-  assert.equal(featureLine({ mountain: 1, evergreen: 3, sun: 1 }), 'Features the sun, a mountain and three happy little trees.');
+  assert.equal(featureLine({ mountain: 2, evergreen: 1 }), 'Features two mountains and a pine.');
+  assert.equal(featureLine({ mountain: 1, evergreen: 3, sun: 1 }), 'Features the sun, a mountain and three pines.');
   const long = featureLine({ mountain: 2, evergreen: 3, deciduous: 2, bush: 1, cabin: 1, cloud: 2, rock: 1 });
-  assert.equal(long, 'Features a cabin, a rock, two mountains, three happy little trees and more.', 'four at most, then “and more”, with no comma before it');
-  assert.equal(featureLine({ evergreen: 14, birds: 1 }), 'Features fourteen happy little trees and a flock of birds.');
-  assert.equal(featureLine({ evergreen: 1, deciduous: 2, bush: 1, cloud: 3 }), 'Features a happy little tree, two leafy trees, a bush and three clouds.', 'four are all named');
+  assert.equal(long, 'Features a cabin, a rock, two mountains, three pines and more.', 'four at most, then “and more”, with no comma before it');
+  assert.equal(featureLine({ evergreen: 14, birds: 1 }), 'Features fourteen pines and a flock of birds.');
+  assert.equal(featureLine({ evergreen: 1, deciduous: 2, bush: 1, cloud: 3 }), 'Features a pine, two leafy trees, a bush and three clouds.', 'four are all named');
   // For a screen reader, the whole of it: no "and more".
   assert.equal(canvasContents({}), 'Nothing on it yet but sky and water.');
   assert.equal(canvasContents({ stars: 1 }), 'It has a sky full of stars.');
   assert.equal(
     canvasContents({ mountain: 2, evergreen: 3, deciduous: 2, bush: 1, cabin: 1, cloud: 2, rock: 1, moon: 1, stars: 2, aurora: 1 }),
-    'It has a cabin, the moon, an aurora, a sky full of stars, a rock, two mountains, three happy little trees, two leafy trees, a bush and two clouds.',
+    'It has a cabin, the moon, an aurora, a sky full of stars, a rock, two mountains, three pines, two leafy trees, a bush and two clouds.',
   );
   assert.equal(featureLine({ cloud: 20 }), 'Features twenty clouds.');
 });
 
 test('the label names what makes the painting first: the boat, the cabin, the moon, before the trees and clouds', () => {
-  // Winter Hush, signed with its sailboat out on the lake and the sun up, said “Features a mountain, a happy little
-  // tree, a leafy tree, two bushes, a cabin and more.”
+  // Winter Hush, signed with its sailboat out on the lake and the sun up, said “Features a mountain, a pine, a leafy
+  // tree, two bushes, a cabin and more.”
   const hush = { mountain: 1, evergreen: 1, deciduous: 1, bush: 2, cabin: 1, cloud: 3, sailboat: 1, sun: 1, birds: 1 };
   assert.equal(featureLine(hush), 'Features a cabin, a sailboat, the sun, a mountain and more.');
   // Golden Hour with a sailboat, a canoe and a waterfall named only its cabin.
@@ -427,6 +427,17 @@ test('while the signature goes on, the painter doesn’t ask you to sign it, or 
 
 test('the painter’s lines use curly apostrophes, like the rest of the page', () => {
   for (const text of everyLine()) assert.doesNotMatch(text, /'/, text);
+});
+
+// The painter is their own painter: no catchphrase or paint name borrowed from a real TV painter, in what they say, the
+// brushes and paints they name, the label or the page.
+test('the painter doesn’t echo a real TV painter', async () => {
+  const echoes = /happy little|liquid (white|clear|black)/i;
+  const kinds = [...Object.keys(LINES), 'rain', 'snowShower', 'stormCloud', 'treeSnow', 'treeGlow'];
+  const texts = [...everyLine(), ...kinds.flatMap((k) => [toolInfo(k), ...PIGMENTS.map((p) => toolInfo(k, p))])];
+  const all = Object.fromEntries(['evergreen', 'deciduous', 'bush', 'cabin', 'mountain', 'cloud', 'rock'].map((k) => [k, 3]));
+  texts.push(featureLine(all), canvasContents(all), await readFile(join(root, 'index.html'), 'utf8'), await readFile(join(root, 'README.md'), 'utf8'));
+  for (const text of texts) assert.doesNotMatch(text, echoes, text.slice(0, 120));
 });
 
 test('an ordinary brown tap on land can be a cabin', () => {

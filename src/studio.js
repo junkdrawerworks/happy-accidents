@@ -687,12 +687,29 @@ export class Studio {
     }
     this.elements = this.elements.filter((e) => e.kind !== 'signature');
     this.counts.signature = 0;
-    const el = this.addElement(signature(this, name));
+    // The signature looks at the painting under each corner to find one it can be read on: the painting as it is now,
+    // without an earlier signature or any wet paint.
+    this.render(performance.now(), { splats: false });
+    const el = this.addElement(signature(this, name, (b) => this.pixelsUnder(b)));
     // How many accidents it had when signed: paint added after that isn't on the gallery wall.
     this.signed = { name, at: Date.now(), accidents: this.accidents };
     return new Promise((resolve) => {
       el.onDone = () => resolve();
     });
+  }
+
+  // The painting's pixels under a box, as [r, g, b], from a small copy of it (32 across, up to 64 down).
+  pixelsUnder({ x, y, w, h }) {
+    const cw = 32;
+    const ch = clamp(Math.round((cw * h) / w), 4, 64);
+    this.sampler ??= Object.assign(document.createElement('canvas'), { width: cw, height: 64 }).getContext('2d', { willReadFrequently: true });
+    const c = this.sampler;
+    c.clearRect(0, 0, cw, 64);
+    c.drawImage(this.canvas, x * this.k, y * this.k, w * this.k, h * this.k, 0, 0, cw, ch);
+    const d = c.getImageData(0, 0, cw, ch).data;
+    const out = [];
+    for (let i = 0; i < d.length; i += 4) out.push([d[i], d[i + 1], d[i + 2]]);
+    return out;
   }
 
   get busy() {

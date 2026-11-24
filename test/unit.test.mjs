@@ -16,6 +16,7 @@ import * as P from '../src/paint/index.js';
 import { flowers, canoe, glints } from '../src/paint/index.js';
 import { autumn, treeGlow, sunlitCloud, treeSnow as treeSnowOf } from '../src/paint/react.js';
 import { ridgeAt } from '../src/paint/mountains.js';
+import { signSpot, poorGround } from '../src/paint/signature.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -1213,4 +1214,31 @@ test('birds in dark paint can be seen against the sky in every mood', () => {
   // At night the painter says so.
   assert.ok(linesFor('birds', { scheme: 'northern-night' }).includes('Night birds, heading home.'));
   assert.ok(!linesFor('birds', { scheme: 'golden-hour' }).includes('Night birds, heading home.'));
+});
+
+// Bright Red lettering is lost on red or orange paint (autumn leaves) and on dark ground (night), so the signature
+// looks at both bottom corners and goes where it can be read, or over a pale underpaint if it can't be read in either.
+test('the signature goes in a bottom corner it can be read in', () => {
+  const S = { W: 1200, H: 900 };
+  const patch = (rgb) => Array.from({ length: 64 }, () => rgb);
+  const fake = (right, left) => (box) => patch(box.x > 600 ? right : left);
+  const grass = [120, 150, 90];
+  const autumn = [226, 120, 40];
+  const night = [12, 30, 28];
+  assert.equal(poorGround(patch(autumn)), true, 'orange leaves');
+  assert.equal(poorGround(patch(hex('#c9321f'))), true, 'Bright Red');
+  assert.equal(poorGround(patch(night)), true, 'night ground');
+  assert.equal(poorGround(patch(grass)), false, 'grass');
+  assert.equal(poorGround(patch(hex('#f2c21a'))), false, 'yellow is still a field red can be read on');
+  const at = (sample) => signSpot(S, 150, 66, sample);
+  const right = at(fake(grass, autumn));
+  assert.deepEqual([right.x, right.y, right.under], [1200 - 28 - 150, 900 - 22 - 66, false], 'on grass it signs bottom right');
+  assert.deepEqual([at(fake(autumn, grass)).x, at(fake(autumn, grass)).under], [28, false], 'on red leaves at the right it signs bottom left');
+  assert.deepEqual([at(fake(night, grass)).x, at(fake(night, grass)).under], [28, false], 'on dark ground at the right it signs bottom left');
+  const both = at(fake(autumn, night));
+  assert.deepEqual([both.x, both.under], [1200 - 28 - 150, true], 'with neither corner readable it signs bottom right over an underpaint');
+  assert.deepEqual(at(undefined), { ...right, under: false }, 'without a look at the painting it signs bottom right');
+  // A long name in the left corner still stays on the canvas.
+  const long = signSpot(S, 500, 66, fake(autumn, grass));
+  assert.ok(long.x >= 0 && long.x + 500 <= 1200);
 });

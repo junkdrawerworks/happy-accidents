@@ -1105,6 +1105,16 @@ test('the moods come round like a shuffled deck: all six in every six canvases, 
     assert.deepEqual(moodsAfter(five, next.id), [next.id], 'a new round starts with the mood it picked');
   }, 141));
 
+test('a storm cloud, a cool cloud and a sunset cloud each get their own brush line', () => {
+  // Every cloud got the white cloud's: a storm cloud from an Oops was "Titanium White, a whisper of Alizarin Crimson".
+  const brown = paintOf('van-dyke-brown');
+  assert.doesNotMatch(toolInfo('stormCloud'), /Titanium White/);
+  assert.equal(toolInfo('cloud', brown, 'stormCloud'), '1-inch brush · Midnight Black, Prussian Blue · a touch of Van Dyke Brown');
+  assert.match(toolInfo('cloud', paintOf('phthalo-blue'), 'coolCloud'), /Phthalo Blue/);
+  assert.match(toolInfo('cloud', paintOf('bright-red'), 'sunsetCloud'), /Alizarin Crimson/);
+  assert.equal(toolInfo('cloud', paintOf('titanium-white'), 'wisp'), toolInfo('cloud', paintOf('titanium-white')), 'a line with no brush of its own uses the kind’s');
+});
+
 test('blue too near a mountain’s foot paints mist, and the mountain can still get its waterfall', () =>
   sameDice(() => {
     for (let i = 0; i < 20; i++) {

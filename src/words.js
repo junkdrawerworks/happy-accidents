@@ -402,6 +402,10 @@ export const LINES = {
 const TOOLS = {
   wash: ['2-inch brush', ['Liquid White', 'Phthalo Blue', 'Alizarin Crimson']],
   cloud: ['1-inch brush', ['Titanium White', 'a whisper of Alizarin Crimson']],
+  stormCloud: ['1-inch brush', ['Midnight Black', 'Prussian Blue']],
+  coolCloud: ['1-inch brush', ['Titanium White', 'Phthalo Blue']],
+  sunsetCloud: ['1-inch brush', ['Titanium White', 'Alizarin Crimson']],
+  goldenCloud: ['1-inch brush', ['Titanium White', 'Cadmium Yellow']],
   mountain: ['Palette knife', ['Van Dyke Brown', 'Prussian Blue', 'Titanium White']],
   foothills: ['Fan brush', ['Sap Green', 'Liquid White']],
   mist: ['2-inch brush', ['Liquid White']],
@@ -491,11 +495,12 @@ const FAMILY = { ...Object.fromEntries(PIGMENTS.map((p) => [p.name, p.family])),
 const HUES = new Set(['yellow', 'red', 'green', 'blue']);
 const familyIn = (name) => FAMILY[Object.keys(FAMILY).find((n) => name.includes(n))];
 
-// The brush and paints for a kind of thing, and a touch of the splat's own paint when they don't already name it. A
-// paint of another hue than the splat's is left out (a blue cloud gets no whisper of crimson); when that leaves none,
-// the splat's paint is the one named.
-export function toolInfo(kind, pigment) {
-  const t = TOOLS[kind];
+// The brush and paints for a kind of thing (or for the line the painter says about it, when that has its own: a storm
+// cloud is painted dark), and a touch of the splat's own paint when they don't already name it. A paint of another hue
+// than the splat's is left out (a blue cloud gets no whisper of crimson); when that leaves none, the splat's paint is the
+// one named.
+export function toolInfo(kind, pigment, key) {
+  const t = TOOLS[key] ?? TOOLS[kind];
   if (!t) return '';
   const [tool, all] = t;
   const clashes = (name) => pigment && HUES.has(pigment.family) && HUES.has(familyIn(name)) && familyIn(name) !== pigment.family;

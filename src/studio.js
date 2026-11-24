@@ -340,7 +340,7 @@ export class Studio {
   // In this canvas's mood, and for paint the toy threw itself (auto) or someone threw.
   say(key, kind, pigment, auto = false) {
     const ctx = { scheme: this.scheme?.id, auto };
-    this.hooks.onNarrate?.({ line: line(key, ctx) || line(kind, ctx), info: toolInfo(kind, pigment), kind });
+    this.hooks.onNarrate?.({ line: line(key, ctx) || line(kind, ctx), info: toolInfo(kind, pigment, key), kind });
   }
 
   // ——— elements ———

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { featureLine, madeFrom, durationText, makeTitle, toolInfo, keptNote, mixLine, line, linesFor, LINES } from '../src/words.js';
 import { topEdge, heights, at, span, sideProfile } from '../src/shape.js';
 import { ramp, mix, hex, mixPaint, familyOf, colorName } from '../src/color.js';
-import { weighted, pickFresh, clamp, rand, chance, pick, TAU } from '../src/util.js';
+import { weighted, pickFresh, clamp, rand, chance, pick, TAU, slug } from '../src/util.js';
 import { SCHEMES, PIGMENTS } from '../src/schemes.js';
 import { decide } from '../src/decide.js';
 import { makeSplat, splatShape } from '../src/splat.js';
@@ -90,6 +90,18 @@ test('painting time and accident counts read naturally', () => {
   assert.equal(madeFrom(1, 20), 'Painted wet-on-wet from one happy accident in 20 seconds.');
   assert.equal(madeFrom(14, 192), 'Painted wet-on-wet from 14 happy accidents in 3 min 12 s.');
   assert.equal(madeFrom(0, 2), 'Painted wet-on-wet without a single accident, in 2 seconds.', 'a blank canvas isn’t made from 0 happy accidents');
+});
+
+test('a download is named for its title, in whatever script the title is in', () => {
+  assert.equal(slug('Last Light at Otter’s Cove'), 'last-light-at-otter-s-cove');
+  assert.equal(slug('Café du Lac'), 'cafe-du-lac', 'accents come off');
+  assert.equal(slug('غروب فوق البحيرة'), 'غروب-فوق-البحيرة', 'Arabic letters stay');
+  assert.equal(slug('שקיעה באגם'), 'שקיעה-באגם', 'Hebrew letters stay');
+  assert.equal(slug('नमस्ते दुनिया'), 'नमस्ते-दुनिया', 'Devanagari keeps its vowel signs');
+  assert.equal(slug('호수 위의 노을'), '호수-위의-노을', 'Korean stays in whole syllables');
+  assert.equal(slug('🌅🌊'), 'happy-accident', 'a title of emoji alone');
+  assert.equal(slug(' -- '), 'happy-accident');
+  assert.equal(slug(`${'a'.repeat(59)} bcd`), 'a'.repeat(59), 'cut at 60 characters, with no hyphen left at the end');
 });
 
 test('the label says when the browser didn’t keep the painting, or took older ones down for it', () => {

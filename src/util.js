@@ -41,3 +41,17 @@ export function pickFresh(key, list) {
   recent.set(key, seen);
   return choice;
 }
+
+// A file name from a title: lower case, accents taken off (Café becomes cafe), every letter and digit kept in any script,
+// and anything else between them made one hyphen. Only the accents that sit on Latin, Greek and Cyrillic letters come
+// off; the vowel signs of scripts like Devanagari are part of the word and stay.
+export function slug(text) {
+  const words = String(text)
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .normalize('NFC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\p{M}]+/gu, '-')
+    .replace(/^-+|-+$/g, '');
+  return [...words].slice(0, 60).join('').replace(/-+$/, '') || 'happy-accident';
+}

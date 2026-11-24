@@ -1,7 +1,7 @@
 import { Studio } from './studio.js';
 import { PIGMENTS } from './schemes.js';
 import { makeTitle, featureLine, madeFrom, line, keptNote } from './words.js';
-import { pick, rand, gauss } from './util.js';
+import { pick, rand, gauss, slug } from './util.js';
 import * as sound from './sound.js';
 import { guardEdges } from './edge-guard.js';
 
@@ -611,10 +611,6 @@ $('signForm').addEventListener('submit', async (e) => {
     }
   }
 });
-
-function slug(text) {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'happy-accident';
-}
 
 // Where the label on show was opened from: 'signing' right after the signature went on ('unkept' when the browser
 // wouldn't keep the painting), 'wall' for a painting opened on the gallery wall, or null (the painting on the easel,

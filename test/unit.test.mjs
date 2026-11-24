@@ -1696,3 +1696,69 @@ test('birds and rain thin out once there are plenty: past eight flocks dark flec
       assert.ok(!plan.some((s) => s.kind === 'rain'), 'a storm cloud brought a fifth rain');
     }
   }, 75));
+
+// The sounds, on a stand-in for Web Audio that keeps every value each gain is sent to: the brush about twice as loud as
+// it was (its strokes peaked at 0.04 to 0.07, a knife's at 0.06 to 0.09, under the splat's 0.42), the signature a pen's
+// scratch (it made no sound), and a knock of wood for the label.
+test('the brush is loud enough to hear, the signature scratches like a pen, and the label goes up with a knock', async () => {
+  const made = [];
+  class Param {
+    constructor(v = 0) {
+      this.value = v;
+      this.to = [];
+    }
+    setValueAtTime(v) { this.to.push(v); }
+    linearRampToValueAtTime(v) { this.to.push(v); }
+    exponentialRampToValueAtTime(v) { this.to.push(v); }
+    setTargetAtTime(v) { this.to.push(v); }
+    cancelScheduledValues() {}
+  }
+  class Node {
+    connect(n) { return n; }
+    start() {}
+    stop() {}
+  }
+  const node = (kind, props) => {
+    const n = Object.assign(new Node(), props);
+    made.push([kind, n]);
+    return n;
+  };
+  class FakeAudio {
+    currentTime = 0;
+    sampleRate = 8000;
+    state = 'running';
+    destination = new Node();
+    createGain() { return node('gain', { gain: new Param(1) }); }
+    createDynamicsCompressor() { return node('compressor', { threshold: new Param(), knee: new Param(), ratio: new Param(), attack: new Param(), release: new Param() }); }
+    createBuffer(channels, length) { const d = new Float32Array(length).fill(0.5); return { getChannelData: () => d }; }
+    createBufferSource() { return node('source', {}); }
+    createBiquadFilter() { return node('filter', { type: 'lowpass', frequency: new Param(), Q: new Param() }); }
+    createOscillator() { return node('osc', { type: 'sine', frequency: new Param() }); }
+    resume() { return Promise.resolve(); }
+  }
+  globalThis.window = { AudioContext: FakeAudio };
+  let sound;
+  try {
+    sound = await import('../src/sound.js');
+    sound.setSound(true);
+  } finally {
+    delete globalThis.window;
+  }
+  const peaks = () => made.filter(([k]) => k === 'gain').flatMap(([, g]) => g.gain.to).filter((v) => v > 0.001);
+  made.length = 0;
+  sound.brush('evergreen', 2000);
+  assert.ok(Math.min(...peaks()) >= 0.08, `a brush stroke peaked at only ${Math.min(...peaks()).toFixed(3)}`);
+  made.length = 0;
+  sound.brush('mountain', 2000);
+  assert.ok(Math.min(...peaks()) >= 0.11, `a palette knife stroke peaked at only ${Math.min(...peaks()).toFixed(3)}`);
+  made.length = 0;
+  sound.brush('signature', 1300);
+  assert.ok(made.some(([k, f]) => k === 'filter' && f.type === 'highpass') && peaks().length >= 4, 'the signature made no pen scratch');
+  assert.ok(Math.max(...peaks()) <= 0.15, 'the pen scratch is louder than the brush');
+  made.length = 0;
+  sound.knock();
+  const oscs = made.filter(([k]) => k === 'osc').map(([, o]) => o.type);
+  assert.ok(oscs.includes('triangle') && Math.max(...peaks()) <= 0.2, `the label's knock (${oscs}) is missing or loud`);
+  // It swells in, rather than starting at full volume with a click.
+  for (const [k, g] of made) if (k === 'gain') assert.ok(g.gain.to[0] <= 0.001, 'a knock starts with a click');
+});

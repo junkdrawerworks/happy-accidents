@@ -1767,7 +1767,7 @@ const audioComplaints = [];
 page.on('console', (m) => { if (/AudioContext/.test(m.text())) audioComplaints.push(m.text()); });
 await ctx.addInitScript(() => {
   const Real = window.AudioContext;
-  if (Real) window.AudioContext = class extends Real { constructor(...args) { super(...args); (window.audioContexts ||= []).push(this); } createGain() { const g = super.createGain(); (window.gains ||= []).push(g); return g; } };
+  if (Real) window.AudioContext = class extends Real { constructor(...args) { super(...args); (window.audioContexts ||= []).push(this); } createGain() { const g = super.createGain(); (window.gains ||= []).push(g); return g; } createBiquadFilter() { const f = super.createBiquadFilter(); (window.filters ||= []).push(f); return f; } createOscillator() { const o = super.createOscillator(); (window.oscillators ||= []).push(o); return o; } };
 });
 await S(() => localStorage.setItem('happy-accidents:sound', 'true'));
 await page.reload();
@@ -1786,6 +1786,20 @@ await page.waitForTimeout(300);
 await S(() => window.happyAccidents.newCanvas());
 await page.waitForTimeout(150);
 assert.ok(await S(() => window.gains.slice(1).every((g) => g.gain.value < 0.001)), 'the brush went on sounding over a new canvas');
+// Signing scratches like a pen while the name goes on (the only sound with its low end cut off), and the label knocks
+// once as it goes up (the only sound with a triangle wave in it), not before.
+await settle();
+await S(() => window.happyAccidents.randomAccident());
+await page.waitForTimeout(200);
+await settle();
+await S(() => { window.filters = []; window.oscillators = []; });
+await page.keyboard.press('s');
+await page.click('#signForm button[type=submit]');
+await page.waitForFunction(() => window.filters.some((f) => f.type === 'highpass'), null, { timeout: 5000 }).catch(() => assert.fail('the signature went on without a pen scratch'));
+assert.equal(await S(() => window.oscillators.filter((o) => o.type === 'triangle').length), 0, 'the label knocked before it went up');
+await page.waitForSelector('#placard:not([hidden])', { timeout: 30000 });
+assert.equal(await S(() => window.oscillators.filter((o) => o.type === 'triangle').length), 1, 'the label didn’t knock once as it went up');
+await page.click('#keepBtn');
 
 // Works offline once it has been opened: it opens, paints, signs and hangs the painting on the wall.
 await page.waitForFunction(() => navigator.serviceWorker && navigator.serviceWorker.controller, null, { timeout: 15000 });

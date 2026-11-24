@@ -798,6 +798,8 @@ $('signForm').addEventListener('submit', async (e) => {
     const hung = hang(record, full, earlier);
     // What's on the wall from this canvas, and how many accidents it had then.
     Object.assign(studio.signed, { id: record.id, full, accidents: s.accidents, replaces: hung.kept ? null : earlier });
+    // A quiet knock of wood as it goes up.
+    sound.knock();
     showPlacard(record, full, 'signing', hung);
   } finally {
     signing = false;

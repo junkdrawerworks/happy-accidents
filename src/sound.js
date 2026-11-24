@@ -1,6 +1,7 @@
-// Soft, synthesized studio sounds: the damp pat of paint landing on canvas and the hush of a
-// brush. Everything is built from pink noise (softer than white noise) with gentle onsets and
-// the highs rolled off, so nothing clicks, cracks or hisses.
+// Soft, synthesized studio sounds: the damp pat of paint landing on canvas, the hush of a brush, a
+// pen's scratch for the signature and a knock of wood when the label goes up. They're built from
+// pink noise (softer than white noise) and a few low tones, with gentle onsets and the highs rolled
+// off, so nothing clicks, cracks or hisses.
 let ac = null;
 let master = null;
 let pink = null;
@@ -131,9 +132,10 @@ const KNIFE = new Set(['mountain', 'rock', 'cabin', 'snowfall', 'rockSnow', 'roo
 const brushing = new Set();
 
 // A brush on canvas: soft swishes that swell in and ease out, one per stroke, with the tone
-// rising and falling a little as the bristles drag.
+// rising and falling a little as the bristles drag. The signature is a pen, not a brush.
 export function brush(kind, ms) {
-  if (!enabled || !ac || kind === 'signature') return;
+  if (!enabled || !ac) return;
+  if (kind === 'signature') return scratch(ms);
   const t = ac.currentTime + 0.01;
   const dur = Math.min(2.6, ms / 1000);
   const knife = KNIFE.has(kind);
@@ -147,7 +149,7 @@ export function brush(kind, ms) {
   const len = dur / strokes;
   for (let i = 0; i < strokes; i++) {
     const s = t + i * len;
-    const peak = (knife ? 0.075 : 0.055) * (0.75 + Math.random() * 0.5);
+    const peak = (knife ? 0.15 : 0.11) * (0.75 + Math.random() * 0.5);
     g.gain.setTargetAtTime(peak, s, len * 0.16);
     g.gain.setTargetAtTime(0.0001, s + len * 0.55, len * 0.18);
     bp.frequency.setTargetAtTime(f0 * 1.25, s, len * 0.25);
@@ -158,6 +160,60 @@ export function brush(kind, ms) {
   src.connect(bp).connect(lp).connect(g).connect(master);
   brushing.add(g);
   src.onended = () => brushing.delete(g);
+}
+
+// How loud the pen's scratches get: about as loud as the brush, since a high sound carries more than a low one.
+const SCRATCH = 0.1;
+
+// A fine pen on canvas while the name goes on: short, dry scratches, a few a second the way a hand writes, high but
+// with the very top rolled off so it never hisses.
+function scratch(ms) {
+  const t = ac.currentTime + 0.01;
+  const dur = Math.min(2.4, ms / 1000);
+  const hp = filter('highpass', 1600, 0.7);
+  const bp = filter('bandpass', 3000, 1.2);
+  const lp = filter('lowpass', 5200, 0.5);
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  for (let s = t; s < t + dur - 0.06; ) {
+    const len = 0.05 + Math.random() * 0.1;
+    g.gain.setTargetAtTime(SCRATCH * (0.7 + Math.random() * 0.6), s, 0.008);
+    g.gain.setTargetAtTime(0.0001, s + len * 0.7, 0.018);
+    bp.frequency.setTargetAtTime(2500 + Math.random() * 1300, s, 0.02);
+    s += len + 0.03 + Math.random() * 0.07;
+  }
+  g.gain.setTargetAtTime(0.0001, t + dur, 0.04);
+  const src = noise(t, t + dur + 0.4, true);
+  src.connect(hp).connect(bp).connect(lp).connect(g).connect(master);
+  brushing.add(g);
+  src.onended = () => brushing.delete(g);
+}
+
+// The label going up after a signing: one quiet knock of wood, like a frame touching the wall. A low, hollow body
+// and a brighter tap on top, swelling in over 2 ms (no click) and gone in about a tenth of a second.
+export function knock() {
+  if (!enabled || !ac) return;
+  const t = ac.currentTime + 0.01;
+  for (const [type, f, peak, decay] of [['triangle', 196, 0.12, 0.045], ['sine', 452, 0.05, 0.028], ['sine', 1010, 0.02, 0.014]]) {
+    const o = ac.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(f, t);
+    o.frequency.exponentialRampToValueAtTime(f * 0.92, t + 0.12);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(peak, t + 0.002);
+    g.gain.setTargetAtTime(0.0001, t + 0.004, decay);
+    o.connect(g).connect(master);
+    o.start(t);
+    o.stop(t + 0.4);
+  }
+  // The tap of the wood itself: a few milliseconds of noise around 1.8 kHz.
+  const bp = filter('bandpass', 1800, 1.4);
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.08, t + 0.002);
+  g.gain.setTargetAtTime(0.0001, t + 0.003, 0.006);
+  noise(t, t + 0.1).connect(bp).connect(g).connect(master);
 }
 
 // Fades out every brush still going, over 80 ms (no click): the strokes it went with are gone with the old canvas.

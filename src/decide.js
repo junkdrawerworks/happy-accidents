@@ -14,6 +14,10 @@ const step = (kind, make, extra = {}) => ({ kind, make, ...extra });
 
 // How many friends paint on one tree grows, at most.
 export const MAX_FRIENDS = 2;
+// Once the sky has this many flocks of birds, small dark flecks up high are wisps of cloud instead; and once this many
+// clouds are raining, dark paint still makes storms, but no more rain.
+export const MAX_FLOCKS = 8;
+export const MAX_RAIN = 4;
 
 // Earthy yellows (ochre) make ground, the way greens and browns do; brighter yellows don't.
 export const earthy = (pigment) => pigment.family === 'yellow' && hsl(pigment.rgb).s < 0.7;
@@ -140,7 +144,10 @@ function react(S, t, b, c) {
     case 'cloud':
       // Any red or yellow lights its edges, the deep Alizarin Crimson too; the dark blues and browns make weather.
       if (warm) return first(t, 'lit') ? [step('sunlitCloud', () => R.sunlitCloud(S, t, b))] : null;
-      if (lum(b.tint) < 0.3 && first(t, 'storm')) return [step('storm', () => R.storm(S, t, b)), step('rain', () => R.rain(S, t, b), { quiet: true })];
+      if (lum(b.tint) < 0.3 && first(t, 'storm')) {
+        const storm = step('storm', () => R.storm(S, t, b));
+        return S.count('rain') < MAX_RAIN ? [storm, step('rain', () => R.rain(S, t, b), { quiet: true })] : [storm];
+      }
       return null;
 
     case 'cabin': {
@@ -269,7 +276,7 @@ function sky(S, b, c, hint) {
   if (b.R < 14 && !hint && !lowSky) {
     const bright = c.fam === 'white' || c.fam === 'yellow';
     if (bright && (night || (S.scheme.stars && chance(0.5)))) return [step('stars', () => P.stars(S, b))];
-    if (bright || c.fam === 'red') return [step('cloud', () => P.cloud(S, { ...b, elong: Math.max(b.elong, 2.6), ...cloudLook(S, c) }), { say: 'wisp' })];
+    if (bright || c.fam === 'red') return [wispStep(S, b, c)];
     return [birdsStep(S, b, c)];
   }
   if (hint === 'birds') return [birdsStep(S, b, c)];
@@ -306,7 +313,7 @@ function sky(S, b, c, hint) {
     case 'brown':
     default:
       if (mountainy(0.75)) return [mountainStep(S, b, { tintAmt: 0.45 }, 'brownMountain')];
-      if (!hint && !lowSky && b.R < 18 && chance(0.15)) return [birdsStep(S, b, c)];
+      if (!hint && !lowSky && b.R < 18 && S.count('birds') < MAX_FLOCKS && chance(0.15)) return [birdsStep(S, b, c)];
       return stormSteps(S, b, c, 0.4);
   }
 }
@@ -339,11 +346,17 @@ function stormLook(S, c) {
 
 function stormSteps(S, b, c, rainChance) {
   const steps = [step('cloud', () => P.cloud(S, { ...b, ...stormLook(S, c) }), { say: 'stormCloud' })];
-  if (chance(rainChance)) steps.push(step('rain', (prev) => R.rain(S, prev), { quiet: true }));
+  if (S.count('rain') < MAX_RAIN && chance(rainChance)) steps.push(step('rain', (prev) => R.rain(S, prev), { quiet: true }));
   return steps;
 }
 
+// A wisp of cloud: a small fleck up high in bright paint, or dark paint once the sky has plenty of birds.
+function wispStep(S, b, c) {
+  return step('cloud', () => P.cloud(S, { ...b, elong: Math.max(b.elong, 2.6), ...cloudLook(S, c) }), { say: 'wisp' });
+}
+
 function birdsStep(S, b, c) {
+  if (S.count('birds') >= MAX_FLOCKS) return wispStep(S, b, c);
   const sky = S.skyAt?.(b.x, b.y) ?? ramp(S.scheme.sky, clamp(b.y / S.hy, 0, 1));
   return step('birds', () => P.birds(S, { ...b, color: birdColor(S.scheme, c.rgb, sky) }));
 }

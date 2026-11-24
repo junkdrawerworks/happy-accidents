@@ -704,7 +704,10 @@ const CELLS = {
     red: { text: 'a sunset cloud', allows: [may('cloud')] },
     green: { text: 'the top of a tall pine (or far-off trees, where it would stand in front of another), or an aurora at night', allows: [may('tall pine'), may('aurora', night)] },
     blue: { text: 'a cool cloud, or a storm from Prussian Blue', allows: [may('cloud'), may('storm cloud', { only: ['prussian-blue'] })] },
-    brown: { text: 'a storm cloud, or birds', allows: [may('storm cloud'), may('birds')] },
+    brown: {
+      text: 'a storm cloud, or birds (until there are eight flocks)',
+      allows: [may('storm cloud'), may('birds'), may('storm cloud', { counts: { birds: 8 } }), may('cloud', { counts: { birds: 8 } })],
+    },
   },
   'low in the sky': {
     white: { text: 'a snowy mountain or a cloud', allows: [may('mountain'), may('cloud')] },
@@ -751,9 +754,10 @@ const PLACES = {
 
 // Small flecks up high are birds, stars or wisps of cloud, whatever the paint (How it plays): splats under R 14, about a
 // quarter of taps. Only up high: low in the sky (below 0.45 of the way down to the horizon), a tap is what the table says.
+// Once there are eight flocks (counts on the canvas), no more birds.
 const FLECK_R = 14;
 const FLECKS = ['birds', 'stars', 'cloud'];
-const fleck = (what, sp) => sp.R < FLECK_R && sp.y < 480 * 0.45 && FLECKS.includes(what);
+const fleck = (what, sp, counts = {}) => sp.R < FLECK_R && sp.y < 480 * 0.45 && FLECKS.includes(what) && !(what === 'birds' && (counts.birds || 0) >= 8);
 
 // A splat of any size the page makes: half of them taps (R 11 to 22), half bigger flicks and pours, some stretched.
 function throwAt(spot, id) {
@@ -808,7 +812,7 @@ for (const [place, cells] of Object.entries(CELLS)) {
           const states = [undefined, ...new Set(cell.allows.filter((a) => a.counts).map((a) => JSON.stringify(a.counts)))];
           for (const state of states) {
             const fits = (a, id) => (!a.when || a.when === time) && (!a.only || a.only.includes(id)) && JSON.stringify(a.counts) === state;
-            const allowed = (what, id, sp) => cell.allows.some((a) => fits(a, id) && a.is.includes(what)) || (sky && fleck(what, sp));
+            const allowed = (what, id, sp) => cell.allows.some((a) => fits(a, id) && a.is.includes(what)) || (sky && fleck(what, sp, state ? JSON.parse(state) : {}));
             const { made, wrong } = throwMany(place, PAINTS[fam], time, 250, allowed, state ? JSON.parse(state) : {});
             assert.equal(wrong.size, 0, `${state ? `with ${state} on the canvas: ` : ''}${reportWrong(wrong)}`);
             for (const a of cell.allows) {
@@ -910,7 +914,7 @@ const REACTIONS = [
   { row: ['a mountain', 'anything else', 'trees up the slope, or a drift of mist'], targets: ['mountain'], paints: PAINTS.brown, first: () => ['foothills', 'mist'] },
   { row: ['the sun or moon', 'warm or white', 'the whole sky warms into a sunset, or lights up around the moon'], targets: ['sun'], paints: [...PAINTS.white, ...YELLOW_RED], first: () => ['sunset'] },
   { row: ['the sun or moon', 'anything else', 'a cloud drifts across it'], targets: ['sun'], paints: [...PAINTS.green, ...PAINTS.blue, ...PAINTS.brown], first: () => ['cloudOverSun'] },
-  { row: ['a cloud', 'something dark', 'it turns stormy and rains'], targets: ['cloud'], paints: [...PAINTS.blue, ...PAINTS.brown], first: () => ['storm'] },
+  { row: ['a cloud', 'something dark', 'it turns stormy and rains (once four clouds are raining, only stormy)'], targets: ['cloud'], paints: [...PAINTS.blue, ...PAINTS.brown], first: () => ['storm'] },
   { row: ['a cloud', 'yellow or red', 'its edges catch the light'], targets: ['cloud'], paints: YELLOW_RED, first: () => ['sunlitCloud'] },
   {
     row: ['the cabin', 'white / warm / anything', 'snow on the roof / the lights come on (if they aren\'t on already) / the lights come on, or a garden'],
@@ -1464,3 +1468,34 @@ test('a tall pine never stands in front of another: there, green high in the sky
       assert.equal(decide(T, makeSplat({ x: 150, y: T.hy * 0.2, R: 30, pigment: paintOf('sap-green') }))[0].kind, 'treeline');
     }
   }, 74));
+
+test('birds and rain thin out once there are plenty: past eight flocks dark flecks are wisps, past four rain clouds storms stay dry', () =>
+  sameDice(() => {
+    // A 30-minute session ended with 20 flocks of birds and 15 rain clouds, grey streaks across the whole sky.
+    for (let i = 0; i < 200; i++) {
+      const mood = pick([...DAY, ...NIGHT]);
+      const id = pick(['van-dyke-brown', 'prussian-blue', 'phthalo-blue', 'sap-green']);
+      const fleckAt = (S) => makeSplat({ x: rand(30, 1170), y: S.hy * rand(0.05, 0.42), R: rand(10, 13.9), pigment: paintOf(id) });
+      const few = bareStudio(mood, { land: leftBank, counts: { birds: 7 } });
+      assert.equal(outcomeOf(decide(few, fleckAt(few))), 'birds', `with seven flocks, a ${id} fleck wasn't birds`);
+      const many = bareStudio(mood, { land: leftBank, counts: { birds: 8 } });
+      const wisp = decide(many, fleckAt(many));
+      assert.equal(wisp[0].say, 'wisp', `with eight flocks, a ${id} fleck made ${outcomeOf(wisp)}`);
+      assert.notEqual(decide(many, makeSplat({ ...fleckAt(many), hint: 'birds' }))[0].kind, 'birds', 'an accident aimed at birds made a ninth flock');
+    }
+    const darkOn = (rain, id) => {
+      const el = { ...TARGETS.cloud(bareStudio()) };
+      const S = bareStudio('golden-hour', { land: leftBank, target: el, counts: { rain } });
+      return decide(S, makeSplat({ ...hitOn('cloud', el), R: rand(12, 26), pigment: paintOf(id) })).map((s) => s.kind);
+    };
+    for (const id of [...PAINTS.blue, ...PAINTS.brown]) {
+      assert.deepEqual(darkOn(3, id), ['storm', 'rain'], `${id} on a cloud with three raining`);
+      assert.deepEqual(darkOn(4, id), ['storm'], `${id} on a cloud with four raining`);
+    }
+    // Nor do storm clouds from dark paint up high bring more rain.
+    for (let i = 0; i < 100; i++) {
+      const S = bareStudio('golden-hour', { land: leftBank, counts: { rain: 4 } });
+      const plan = decide(S, makeSplat({ x: rand(30, 1170), y: S.hy * rand(0.05, 0.42), R: rand(20, 50), pigment: paintOf('van-dyke-brown') }));
+      assert.ok(!plan.some((s) => s.kind === 'rain'), 'a storm cloud brought a fifth rain');
+    }
+  }, 75));

@@ -4,7 +4,7 @@ import { SCHEMES, PIGMENTS, pickScheme, moodsAfter } from './schemes.js';
 import { TAU, rand, clamp, chance, pick, weighted } from './util.js';
 import { rgba, darken, mix, mixPaint, familyOf, colorName } from './color.js';
 import { makeSplat, renderSplat } from './splat.js';
-import { decide, earthy } from './decide.js';
+import { decide, earthy, MAX_FLOCKS } from './decide.js';
 import { sky, signature, SIGNATURE_FONT } from './paint/index.js';
 import { bristle, linePts } from './brush.js';
 import { line, toolInfo, mixLine, LINES } from './words.js';
@@ -958,7 +958,7 @@ export class Studio {
       ['cloud', c('cloud') < 3 ? 2.2 : 0.7],
       ['mountain', c('mountain') === 0 ? 3.5 : c('mountain') < 3 ? 1.1 : 0],
       ['sun', this.has('sun') || this.has('moon') ? 0 : 0.7],
-      ['birds', 0.45],
+      ['birds', c('birds') < MAX_FLOCKS ? 0.45 : 0],
       ['treeline', c('treeline') < 2 ? 1.3 : 0.25],
       ['bank', c('bank') < 2 ? 2.8 : c('bank') < 4 ? 1 : 0.25],
       ['tree', land ? 3.2 + c('bank') * 0.3 : 0],

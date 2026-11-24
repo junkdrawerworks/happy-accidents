@@ -19,7 +19,7 @@
 ## How it plays
 
 - **Tap** for a small splat, **flick** (drag and let go) to fling a stretched one with droplets, or **press and hold** to let the paint pool until you let go.
-- **The paint's color decides what it becomes, and where it lands decides which version** (table below). White high in the sky is a cloud; out on the lake it's a sailboat. Brown up high is a storm cloud; on land it's a cabin or a bare tree. On the horizon, any paint makes a far-off row of trees in its color, and small flecks up high are birds, stars or wisps of cloud.
+- **The paint's color decides what it becomes, and where it lands decides which version** (table below). White high in the sky is a cloud; out on the lake it's a sailboat. Brown up high is a storm cloud; on land it's a cabin or a bare tree. On the horizon, any paint makes a far-off row of trees in its color, and small flecks up high are birds (until there are eight flocks), stars or wisps of cloud.
 - **The shape of the splat carries through.** A mountain's ridge is the top edge of the splat, blown up, so spikes become needle peaks. A cloud has the splat's silhouette, land in the lake takes its outline, and a leafy tree's crown is the splat. The droplets flung off with it become birds, stars, flowers or ripples alongside it.
 - **Paint on something changes it** (second table).
 - **Wet paint mixes like paint.** Two splats that touch while they're still wet run together into one bigger splat, and the mixed color decides what it becomes: yellow into blue makes green, red into yellow makes orange, white into red makes pink, red into green makes brown. A wet splat takes a dozen more before it's full, and the next one to hit it starts a splat of its own. Picking another paint keeps the last splat wet for a moment, so you can hit it again.
@@ -37,7 +37,7 @@
 | Red | a sunset cloud | a red-rock mountain or a sunset cloud | a canoe, or glints once there are three | a red tree or bush, or a red cabin, or flowers from a small splat |
 | Green | the top of a tall pine (or far-off trees, where it would stand in front of another), or an aurora at night | a wooded mountain | land, an island or a mossy rock | pines, leafy trees and bushes |
 | Blue | a cool cloud, or a storm from Prussian Blue | a blue mountain or a cool cloud | ripples | a blue spruce, or flowers from a small splat |
-| Brown | a storm cloud, or birds | a mountain or a storm cloud | land, or a rock | a cabin, a bare tree or a bush |
+| Brown | a storm cloud, or birds (until there are eight flocks) | a mountain or a storm cloud | land, or a rock | a cabin, a bare tree or a bush |
 
 Paint that lands on something already there changes it instead:
 
@@ -51,7 +51,7 @@ Paint that lands on something already there changes it instead:
 | a mountain | anything else | trees up the slope, or a drift of mist |
 | the sun or moon | warm or white | the whole sky warms into a sunset, or lights up around the moon |
 | the sun or moon | anything else | a cloud drifts across it |
-| a cloud | something dark | it turns stormy and rains |
+| a cloud | something dark | it turns stormy and rains (once four clouds are raining, only stormy) |
 | a cloud | yellow or red | its edges catch the light |
 | the cabin | white / warm / anything | snow on the roof / the lights come on (if they aren't on already) / the lights come on, or a garden |
 | a rock | green / white | moss / snow |

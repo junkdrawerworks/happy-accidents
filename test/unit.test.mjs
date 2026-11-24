@@ -352,6 +352,10 @@ test('the brush line names each paint once, and no paint of another hue than the
   }
 });
 
+test('while the signature goes on, the painter doesn’t ask you to sign it, or say which corner it’s in', () => {
+  for (const text of LINES.signature) assert.doesNotMatch(text, /^Now sign|\b(left|right)\b/i, text);
+});
+
 test('the painter’s lines use curly apostrophes, like the rest of the page', () => {
   for (const text of everyLine()) assert.doesNotMatch(text, /'/, text);
 });

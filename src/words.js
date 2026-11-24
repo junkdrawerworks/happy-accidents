@@ -386,10 +386,11 @@ export const LINES = {
     'A few blue lines. The lake’s breathing.',
     'Some ripples. Something swam by, maybe.',
   ],
+  // Said while the name goes on, in whichever bottom corner it can be read in.
   signature: [
-    'Now sign it. That makes it yours.',
-    'A little red, down in the corner. That makes it yours.',
+    'There. A little red in the corner, and it’s yours.',
     'Sign it small, in the corner. Good paintings don’t shout.',
+    'Just your name, down in the corner. That makes it yours.',
   ],
   hung: [
     'It’s on the wall. Paint on if you like, or start a fresh one.',

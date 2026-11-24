@@ -702,7 +702,7 @@ const CELLS = {
     white: { text: 'a white cloud, the sun or moon, or stars at night', allows: [may('cloud'), may('sun', day), may('moon', night), may('stars', night)] },
     yellow: { text: 'the sun (or the moon at night), then golden clouds', allows: [may('sun', day), may('moon', night), may('cloud')] },
     red: { text: 'a sunset cloud', allows: [may('cloud')] },
-    green: { text: 'the top of a tall pine, or an aurora at night', allows: [may('tall pine'), may('aurora', night)] },
+    green: { text: 'the top of a tall pine (or far-off trees, where it would stand in front of another), or an aurora at night', allows: [may('tall pine'), may('aurora', night)] },
     blue: { text: 'a cool cloud, or a storm from Prussian Blue', allows: [may('cloud'), may('storm cloud', { only: ['prussian-blue'] })] },
     brown: { text: 'a storm cloud, or birds', allows: [may('storm cloud'), may('birds')] },
   },
@@ -1438,3 +1438,29 @@ test('a tree grows two friends at most: then light catches it once, and after th
       }
     }
   }, 73));
+
+test('a tall pine never stands in front of another: there, green high in the sky makes far-off trees', () =>
+  sameDice(() => {
+    // A long session grew a wall of full-height pines across the front of the lake, hiding it and the mountains.
+    for (let i = 0; i < 40; i++) {
+      const mood = pick(DAY);
+      const S = bareStudio(mood, { land: leftBank });
+      const spot = () => ({ x: rand(60, 240), y: S.hy * rand(0.05, 0.3), R: rand(22, 40), pigment: paintOf('sap-green') });
+      const first = decide(S, makeSplat(spot()));
+      assert.equal(outcomeOf(first), 'tall pine', `green high over the bank made ${outcomeOf(first)}`);
+      const pine = first.at(-1).make(first.length > 1 ? first[0].make() : undefined);
+      S.elements.push(pine);
+      const next = decide(S, makeSplat(spot()));
+      if (outcomeOf(next) === 'tall pine') {
+        const other = next.at(-1).make();
+        assert.ok(Math.abs(other.meta.x - pine.meta.x) >= (other.meta.size + pine.meta.size) * 0.22, 'a tall pine grew in front of another');
+      } else assert.equal(next[0].kind, 'treeline', `green high over a tall pine made ${outcomeOf(next)}`);
+      // Over open water, with no land under it, the tall pine brings its own bit of shore, unless that would put it in
+      // front of the one already there.
+      const T = bareStudio(mood, { land: () => false });
+      const shore = decide(T, makeSplat({ x: 150, y: T.hy * 0.2, R: 30, pigment: paintOf('sap-green') }));
+      assert.equal(shore[0].kind, 'bank');
+      T.elements.push({ kind: 'evergreen', meta: { x: T.W * 0.15, baseY: 800, size: 600, tall: true } });
+      assert.equal(decide(T, makeSplat({ x: 150, y: T.hy * 0.2, R: 30, pigment: paintOf('sap-green') }))[0].kind, 'treeline');
+    }
+  }, 74));

@@ -409,22 +409,38 @@ function greenMountain(S, b) {
 }
 
 // Green high in the sky is the top of a tall tree growing up from the land below. If
-// there's no land under it, the tree brings a bit of shore with it.
+// there's no land under it, the tree brings a bit of shore with it. It never stands in front of (or behind) another tall
+// pine: where it would, the paint makes a row of far-off trees on the horizon instead, so a long session doesn't wall
+// off the lake and the mountains with them.
 function tallTree(S, b) {
   const { W, H, hy } = S;
   const nearY = hy + (H - hy) * 0.35;
   const look = { kind: 'evergreen', p: { tintAmt: 0.15 } };
   // As tall as the paint was high, but with its tip on the canvas, not up under the easel's clamp.
-  const grow = (x, baseY) => P.evergreen(S, { ...b, x, baseY, h: clamp(baseY - b.y + b.R, 80, baseY - 16), tintAmt: look.p.tintAmt, haze: 0 });
+  const height = (baseY) => clamp(baseY - b.y + b.R, 80, baseY - 16);
+  const grow = (x, baseY) => {
+    const spec = P.evergreen(S, { ...b, x, baseY, h: height(baseY), tintAmt: look.p.tintAmt, haze: 0 });
+    spec.meta.tall = true;
+    return spec;
+  };
+  // Whether a tall pine here, this tall, would overlap one already there (a pine is about 0.44 of its height across).
+  const crowded = (x, h) => S.elements.some((e) => e.kind === 'evergreen' && e.meta?.tall && Math.abs(e.meta.x - x) < (e.meta.size + h) * 0.22);
+  const far = () => [step('treeline', () => P.treeline(S, { ...b, y: hy, tintAmt: 0.15 }))];
+  let blocked = false;
   for (const dx of [0, -25, 25, -55, 55, -90, 90]) {
     const x = b.x + dx;
     if (x < 10 || x > W - 10) continue;
     for (let y = nearY; y < H - 6; y += 6) {
-      if (S.isLand(x, y)) return [step('evergreen', () => grow(x, y + 4), { say: 'tallTree' })];
+      if (!S.isLand(x, y)) continue;
+      if (!crowded(x, height(y + 4))) return [step('evergreen', () => grow(x, y + 4), { say: 'tallTree' })];
+      blocked = true;
+      break;
     }
   }
+  if (blocked) return far();
   const side = b.x < W / 2 ? -1 : 1;
   const bx = side < 0 ? clamp(b.x, W * 0.1, W * 0.36) : clamp(b.x, W * 0.64, W * 0.9);
+  if (crowded(bx, height(hy + (H - hy) * 0.74))) return far();
   const land = step(
     'bank',
     () => {

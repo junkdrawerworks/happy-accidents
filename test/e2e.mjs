@@ -31,7 +31,8 @@ const problems = [];
 page.on('pageerror', (e) => problems.push(e.message));
 page.on('console', (m) => { if (m.type() === 'error') problems.push(m.text()); });
 page.on('requestfailed', (r) => problems.push('failed: ' + r.url()));
-page.on('request', (r) => { if (!r.url().startsWith(base) && !r.url().startsWith('data:')) problems.push('left the site: ' + r.url()); });
+// (A blob: link of the page's own, such as the video Save the replay downloads, stays on the site.)
+page.on('request', (r) => { if (!r.url().startsWith(base) && !r.url().startsWith('data:') && !r.url().startsWith(`blob:${base}`)) problems.push('left the site: ' + r.url()); });
 // Every file the page asks for while it paints, signs, hangs paintings and opens the wall (checked against the offline
 // copy's list at the end).
 const asked = new Set();
@@ -1368,9 +1369,98 @@ assert.ok(playing > 0.5, `a second and a half into Watch it again, only ${Math.r
 await page.click('#replayBtn');
 assert.equal(await page.isHidden('#film'), true, 'Stop didn’t stop Watch it again');
 assert.equal(await page.textContent('#replayBtn'), 'Watch it again');
+// Save the replay records the replay as it plays and saves it as a video: an MP4 where the browser can make one (this
+// Chromium can), downloaded here, or on a phone that can share it, shared from a second tap. A second press, Stop or
+// closing the label stops it, and nothing is kept; whatever happens, nothing is left recording.
+await S(() => {
+  window.recorders = [];
+  window.streams = [];
+  window.videos = [];
+  window.downloads = 0;
+  const MR = window.MediaRecorder;
+  window.MediaRecorder = class extends MR {
+    constructor(...a) {
+      super(...a);
+      window.recorders.push(this);
+    }
+  };
+  const capture = HTMLCanvasElement.prototype.captureStream;
+  HTMLCanvasElement.prototype.captureStream = function (...a) {
+    const st = capture.apply(this, a);
+    window.streams.push(st);
+    return st;
+  };
+  const objectUrl = URL.createObjectURL;
+  URL.createObjectURL = (b) => (b instanceof Blob && b.type.startsWith('video/') && window.videos.push(b), objectUrl(b));
+});
+let videoDownloads = 0;
+const countDownloads = () => videoDownloads++;
+page.on('download', countDownloads);
+const recording = () => S(() => ({
+  recorders: window.recorders.length,
+  live: window.recorders.filter((r) => r.state !== 'inactive').length + window.streams.flatMap((s) => s.getTracks()).filter((t) => t.readyState !== 'ended').length,
+}));
+assert.equal(await page.isVisible('#videoBtn'), true, 'the label of a painting just signed has no Save the replay');
+assert.equal(await page.textContent('#videoBtn'), 'Save the replay');
+for (const how of ['videoBtn', 'replayBtn']) {
+  const before = (await recording()).recorders;
+  await page.click('#videoBtn');
+  assert.equal(await page.textContent('#videoBtn'), 'Making the video…');
+  assert.equal(await page.isVisible('#film'), true, 'Save the replay didn’t play the replay on the frame');
+  assert.equal(await page.textContent('#replayBtn'), 'Stop');
+  await page.waitForTimeout(1000);
+  assert.equal((await recording()).recorders, before + 1, 'Save the replay didn’t record the replay');
+  await page.click(`#${how}`);
+  assert.equal((await recording()).live, 0, `${how === 'videoBtn' ? 'a second press of Save the replay' : 'Stop'} left the video recording`);
+  assert.equal(await page.textContent('#videoBtn'), 'Save the replay');
+  assert.equal(await page.isHidden('#film'), true, `${how === 'videoBtn' ? 'a second press of Save the replay' : 'Stop'} left the replay playing`);
+}
+assert.equal(videoDownloads, 0, 'a video that was stopped was saved anyway');
+// Right through: a playable video of the replay, named for the painting, downloaded once it's done.
+let [dl] = await Promise.all([page.waitForEvent('download', { timeout: 40000 }), page.click('#videoBtn')]);
+assert.match(dl.suggestedFilename(), /^test-pattern-at-otter-cove\.mp4$/, `Save the replay downloaded ${dl.suggestedFilename()}`);
+const videoFile = await readFile(await dl.path());
+assert.ok(videoFile.length > 10000 && videoFile.subarray(4, 8).toString() === 'ftyp', `Save the replay downloaded ${videoFile.length} bytes that aren’t an MP4`);
+assert.equal((await recording()).live, 0, 'a finished video left the replay recording');
+assert.equal(await page.textContent('#videoBtn'), 'Save the replay');
+assert.equal(await page.isHidden('#film'), true, 'a finished video left the replay on the frame');
+const watched = await S(async () => {
+  const v = document.createElement('video');
+  v.muted = true;
+  v.src = URL.createObjectURL(window.videos.at(-1));
+  await new Promise((resolve, reject) => ((v.onloadedmetadata = resolve), (v.onerror = reject)));
+  if (!isFinite(v.duration)) {
+    v.currentTime = 1e6;
+    await new Promise((resolve) => (v.ondurationchange = resolve));
+  }
+  return { seconds: v.duration, width: v.videoWidth, height: v.videoHeight };
+});
+assert.ok(watched.seconds > 2 && watched.seconds < 16 && watched.width === 560 && watched.height === 420, `the saved replay is ${JSON.stringify(watched)}`);
+// On a phone that can share the video, it's ready to share from a second tap (the share sheet only opens for a tap
+// the browser has just seen, and the video takes longer to make than that).
+await S(() => {
+  navigator.canShare = (d) => d.files.every((f) => f instanceof File);
+  navigator.share = async (d) => (window.shared = d.files.map((f) => ({ name: f.name, type: f.type, size: f.size })));
+});
+await page.click('#videoBtn');
+await page.waitForFunction(() => document.getElementById('videoBtn').textContent === 'Save or share the video', null, { timeout: 40000 });
+assert.equal((await recording()).live, 0, 'a video waiting to be shared left the replay recording');
+assert.equal(await S(() => window.shared), undefined, 'the video went to the share sheet without a tap');
+await page.click('#videoBtn');
+const shared = await S(() => window.shared);
+assert.ok(shared?.length === 1 && shared[0].type === 'video/mp4' && shared[0].name === 'test-pattern-at-otter-cove.mp4' && shared[0].size > 10000, `Save or share the video shared ${JSON.stringify(shared)}`);
+assert.equal(await page.textContent('#videoBtn'), 'Save the replay');
+await S(() => {
+  delete navigator.canShare;
+  delete navigator.share;
+});
+assert.equal(videoDownloads, 1, 'Save the replay downloaded the video more than once, or downloaded one it shared');
+page.off('download', countDownloads);
 await page.click('#replayBtn');
+await page.click('#videoBtn');
 await page.click('#keepBtn');
 assert.equal(await page.isHidden('#film'), true, 'closing the label left Watch it again playing');
+assert.equal((await recording()).live, 0, 'closing the label left the video recording');
 assert.equal(await S(() => window.happyAccidents.film.frames.length), film.n, 'going back to the easel lost the film');
 assert.equal(await page.textContent('#galleryCount'), '1');
 assert.equal(await S(() => document.getElementById('app').inert), false);

@@ -189,3 +189,90 @@ export function play(out, frames, { start, W, H, reduced = false }) {
     },
   };
 }
+
+// Save the replay: the replay recorded as it plays on the label, as a short video to keep or send. Only where the
+// browser can record a canvas (MediaRecorder and captureStream). MP4 where the browser can make one (Safari, and Chrome
+// from version 126), since every phone's photos open that; WebM, which some don't, only where it can't.
+const VIDEO_TYPES = ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+
+// The kind of video this browser can record a canvas as, or null where it can't.
+export function videoType() {
+  try {
+    if (typeof MediaRecorder === 'undefined' || typeof HTMLCanvasElement.prototype.captureStream !== 'function') return null;
+    return VIDEO_TYPES.find((t) => MediaRecorder.isTypeSupported(t)) || null;
+  } catch {
+    return null;
+  }
+}
+
+export const videoExt = (type) => (/^video\/mp4/.test(type) ? 'mp4' : 'webm');
+
+// Records what's painted on canvas, a frame each time the screen is drawn, until finish() (which gives the video as a
+// Blob, or null if nothing came of it) or cancel() (which throws it away). Either way the recorder and the canvas's
+// stream are stopped and let go, and both are safe to call again.
+export function record(canvas, type) {
+  let stream = canvas.captureStream(0);
+  let track = stream.getVideoTracks()[0];
+  // A frame on every redraw where the browser lets the page ask for one; elsewhere 30 a second, as it changes.
+  if (typeof track?.requestFrame !== 'function') {
+    stream.getTracks().forEach((t) => t.stop());
+    stream = canvas.captureStream(30);
+    track = null;
+  }
+  const release = () => stream.getTracks().forEach((t) => t.stop());
+  let rec;
+  try {
+    rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 2500000 });
+  } catch (err) {
+    release();
+    throw err;
+  }
+  const chunks = [];
+  rec.ondataavailable = (e) => e.data?.size && chunks.push(e.data);
+  let raf = 0;
+  const tick = () => {
+    track?.requestFrame();
+    raf = requestAnimationFrame(tick);
+  };
+  rec.start(500);
+  tick();
+  let closed = false;
+  const close = () => {
+    closed = true;
+    cancelAnimationFrame(raf);
+  };
+  return {
+    recorder: rec,
+    stream,
+    finish() {
+      if (closed) return Promise.resolve(null);
+      close();
+      return new Promise((resolve) => {
+        const done = () => {
+          release();
+          resolve(chunks.length ? new Blob(chunks, { type: (rec.mimeType || type).split(';')[0] }) : null);
+        };
+        rec.onstop = done;
+        rec.onerror = done;
+        try {
+          rec.stop();
+        } catch {
+          done();
+        }
+      });
+    },
+    cancel() {
+      if (closed) return;
+      close();
+      rec.ondataavailable = null;
+      rec.onstop = null;
+      try {
+        if (rec.state !== 'inactive') rec.stop();
+      } catch {
+        /* already stopped */
+      }
+      release();
+      chunks.length = 0;
+    },
+  };
+}

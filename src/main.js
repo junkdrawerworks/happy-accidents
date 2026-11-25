@@ -5,7 +5,7 @@ import { pick, rand, gauss, slug } from './util.js';
 import * as sound from './sound.js';
 import { guardEdges } from './edge-guard.js';
 import { labelledPicture } from './label.js';
-import { play, FRAME_WIDTH } from './film.js';
+import { play, FRAME_WIDTH, videoType, videoExt, record } from './film.js';
 import { renderGuide, guideIntro, isKey } from './guide.js';
 
 const $ = (id) => document.getElementById(id);
@@ -50,9 +50,16 @@ const toolEl = $('tool');
 const hintEl = $('hint');
 const replayBtn = $('replayBtn');
 const filmCanvas = $('film');
+const videoBtn = $('videoBtn');
+// The kind of video Save the replay makes here, or null where the browser can't record the replay.
+const VIDEO = videoType();
 const calm = window.matchMedia('(prefers-reduced-motion: reduce)');
 // The replay playing on the label, if there is one (see Watch it again).
 let replay = null;
+// Save the replay's recording under way, a finished video waiting for its tap, and which go is the one going on now.
+let taping = null;
+let video = null;
+let videoTurn = 0;
 const inFrame = (() => {
   try {
     return window.self !== window.top;
@@ -679,6 +686,7 @@ const overlays = [$('signSheet'), $('placard'), $('gallery'), $('guide')];
 let returnFocus = null;
 function openOverlay(el, focusEl) {
   stopReplay();
+  dropVideo();
   returnFocus ??= document.activeElement;
   for (const o of overlays) o.hidden = o !== el;
   app.inert = true;
@@ -689,6 +697,7 @@ function openOverlay(el, focusEl) {
 }
 function closeOverlay(el, focusEl = returnFocus) {
   stopReplay();
+  dropVideo();
   el.hidden = true;
   app.inert = false;
   returnFocus = null;
@@ -883,6 +892,7 @@ function showPlacard(record, src, from = null, hung = null) {
   // Watch it again is on the label of the painting on the easel, signed just now (or opened again from Sign it with
   // nothing added), not on one opened from the wall.
   replayBtn.hidden = !(from !== 'wall' && studio.signed?.id === record.id && studio.film.frames.length > 1);
+  videoBtn.hidden = replayBtn.hidden || !VIDEO || (inFrame && !downloads);
   placardFrom = from === 'signing' && hung && !hung.kept ? 'unkept' : from;
   $('keepBtn').textContent = from === 'wall' ? 'Back to the wall' : 'Back to the easel';
   const img = $('placardImg');
@@ -972,28 +982,130 @@ function stopReplay() {
   filmCanvas.hidden = true;
   replayBtn.textContent = 'Watch it again';
   replayBtn.classList.remove('playing');
+  if (taping) dropVideo();
+}
+// Starts the replay on the label's frame; returns it (see film.js's play()), or null if there's nothing to play.
+function startReplay() {
+  const frames = studio.film.ready;
+  if (!frames.length) return null;
+  filmCanvas.width = FRAME_WIDTH;
+  // (Even, for the video: an MP4 can't be an odd number of pixels high.)
+  filmCanvas.height = 2 * Math.round((FRAME_WIDTH * studio.H) / studio.W / 2);
+  filmCanvas.hidden = false;
+  placeFilm();
+  replayBtn.textContent = 'Stop';
+  replayBtn.classList.add('playing');
+  replay = play(filmCanvas, frames, { start: studio.paper, W: studio.W, H: studio.H, reduced: calm.matches });
+  return replay;
 }
 replayBtn.addEventListener('click', async () => {
   if (replay) {
     stopReplay();
     return;
   }
-  const frames = studio.film.ready;
-  if (!frames.length) return;
-  filmCanvas.width = FRAME_WIDTH;
-  filmCanvas.height = Math.round((FRAME_WIDTH * studio.H) / studio.W);
-  filmCanvas.hidden = false;
-  placeFilm();
-  replayBtn.textContent = 'Stop';
-  replayBtn.classList.add('playing');
-  const run = play(filmCanvas, frames, { start: studio.paper, W: studio.W, H: studio.H, reduced: calm.matches });
-  replay = run;
+  const run = startReplay();
+  if (!run) return;
   await run.done;
   if (replay === run) stopReplay();
 });
 window.addEventListener('resize', () => {
   if (replay) placeFilm();
 });
+
+// Save the replay records the replay as it plays on the label (about ten seconds) and saves it as a video: on a phone
+// or tablet that can share it, a second tap on Save or share the video opens the share sheet (the browser only opens it
+// for a tap it has just seen, and the video takes longer than that to make); elsewhere it downloads when it's done.
+// Pressed while it's being made, or by Stop, or by anything that closes the label, it stops and nothing is kept.
+function dropVideo() {
+  videoTurn++;
+  taping?.cancel();
+  taping = null;
+  video = null;
+  videoBtn.textContent = 'Save the replay';
+  videoBtn.classList.remove('playing');
+  videoBtn.removeAttribute('aria-live');
+}
+videoBtn.addEventListener('click', async () => {
+  if (video) {
+    const { file, title } = video;
+    dropVideo();
+    saveVideo(file, title);
+    return;
+  }
+  if (taping) {
+    stopReplay();
+    return;
+  }
+  stopReplay();
+  dropVideo();
+  const record0 = onShow;
+  const run = startReplay();
+  if (!run) return;
+  let rec;
+  try {
+    rec = record(filmCanvas, VIDEO);
+  } catch {
+    stopReplay();
+    videoBtn.hidden = true;
+    return;
+  }
+  const turn = videoTurn;
+  taping = rec;
+  videoBtn.textContent = 'Making the video…';
+  videoBtn.classList.add('playing');
+  await run.done;
+  // The finished painting stays a moment longer at the end of the video than it does on the label.
+  if (turn === videoTurn) await new Promise((r) => setTimeout(r, 800));
+  if (turn !== videoTurn) return;
+  taping = null;
+  const blob = await rec.finish();
+  if (replay === run) stopReplay();
+  if (turn !== videoTurn || onShow !== record0 || $('placard').hidden) return;
+  dropVideo();
+  let file = null;
+  try {
+    if (blob) file = new File([blob], `${slug(record0.title)}.${videoExt(blob.type)}`, { type: blob.type });
+  } catch {
+    /* no File */
+  }
+  if (!file) {
+    videoBtn.hidden = true;
+    return;
+  }
+  if (!downloads && shareable(file)) {
+    video = { file, title: record0.title };
+    videoBtn.textContent = 'Save or share the video';
+    videoBtn.setAttribute('aria-live', 'polite');
+    return;
+  }
+  saveVideo(file, record0.title);
+});
+// While it's being made, the video stops if the page goes out of sight (it would hold still for as long as it's away).
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && taping) stopReplay();
+});
+
+async function saveVideo(file, title) {
+  if (downloads) {
+    try {
+      await downloads.save({ filename: file.name, data: new Uint8Array(await file.arrayBuffer()) });
+    } catch (err) {
+      if (err?.code !== 'declined' && err?.code !== 'rate_limited') videoBtn.hidden = true;
+    }
+    return;
+  }
+  if (shareable(file)) {
+    try {
+      await navigator.share({ files: [file], title });
+      return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+    }
+  }
+  const url = URL.createObjectURL(file);
+  download(url, file.name);
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
 
 // Take it down asks first: the first tap turns it into "Take it down?" for three seconds, and only a tap on that takes
 // the painting off the wall (a double-click is one tap, as for Start over?). Then it's back to the wall, where it was.

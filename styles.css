@@ -1059,7 +1059,14 @@ kbd {
   display: block;
 }
 
-/* Watch it again, on the label itself, under what the painting was made from, with a little red play mark. */
+/* Watch it again, on the label itself, under what the painting was made from, with a little red play mark, and Save the
+   replay beside it (under it, when there isn't room) with a red dot. */
+.label .replays {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 8px;
+}
+
 .label .replay {
   display: flex;
   min-height: 44px;
@@ -1090,6 +1097,29 @@ kbd {
   height: 8px;
   border: 0;
   background: var(--red);
+}
+
+.label .replay + .replay {
+  margin-left: 0;
+}
+
+.label .replay.video::before {
+  width: 8px;
+  height: 8px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--red);
+}
+
+/* While the video is being made, its dot blinks, like a camera's. */
+.label .replay.video.playing::before {
+  animation: taping 1.2s steps(2, jump-none) infinite;
+}
+
+@keyframes taping {
+  to {
+    opacity: 0.2;
+  }
 }
 
 .label-credit {
@@ -1196,8 +1226,12 @@ kbd {
     font-size: 11px;
   }
 
-  /* Here Watch it again runs on after what it was made from, like a link, with no line of its own; it's still as tall
-     as a finger, without pushing the lines apart. */
+  /* Here Watch it again (and Save the replay) runs on after what it was made from, like a link, with no line of its
+     own; it's still as tall as a finger, without pushing the lines apart. */
+  .label .replays {
+    display: inline;
+  }
+
   .label .replay {
     display: inline-block;
     min-height: 0;
@@ -1218,6 +1252,10 @@ kbd {
   .label .replay::before {
     display: inline-block;
     margin-right: 5px;
+  }
+
+  .label .replay + .replay {
+    margin-left: 4px;
   }
 
   .placard-actions {

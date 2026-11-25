@@ -2583,8 +2583,10 @@ await noScript.close();
 assert.deepEqual(problems, [], 'problems while painting offline, or since');
 // Offline, checked the junkdrawer house kit's way, from a server that answers like GitHub Pages: a browser may keep
 // each file for ten minutes, and asks again by its ETag. `net` is the connection: 'up', 'down' (the server drops every
-// connection) or 'stalled' (a plane's or a train's wifi: it takes each request and holds on to it). With `release`
-// set it serves the next release. The server's own switches are needed because the browser's offline switch can't
+// connection), 'stalled' (a plane's or a train's wifi: it takes each request and holds on to it), 'files stalled' (it
+// answers for a page, then holds on to the files the page loads) or 'scripts stalled' (it holds on to the scripts
+// only). With `release` set it serves the next release; with `release` 'files', a next release that changes the css
+// and js but not index.html. The server's own switches are needed because the browser's offline switch can't
 // make a stall, and in some Chromium builds it doesn't stop the service worker's own requests.
 {
   const { createServer } = await import('node:http');
@@ -2597,8 +2599,12 @@ assert.deepEqual(problems, [], 'problems while painting offline, or since');
   let net = 'up', release = false;
   const held = [];
   const server = createServer((req, res) => {
+    const path = new URL(req.url, 'http://x').pathname;
     if (net === 'down') { req.socket.destroy(); return; }
-    if (net === 'stalled') { held.push([req, res]); return; }
+    if (net === 'stalled' || (net === 'files stalled' && !/(\/|\.html)$/.test(path)) || (net === 'scripts stalled' && path.endsWith('.js'))) {
+      held.push([req, res]);
+      return;
+    }
     serve(req, res);
   }).listen(0);
   async function serve(req, res) {
@@ -2607,7 +2613,8 @@ assert.deepEqual(problems, [], 'problems while painting offline, or since');
     let body;
     try { body = await readFile(join(root, path)); } catch { res.writeHead(404); res.end(); return; }
     if (release && path === '/sw.js') body = Buffer.from(String(body).replace(/const FILES = '[0-9a-f]*'/, "const FILES = 'next'"));
-    if (release && path === '/index.html') body = Buffer.concat([body, Buffer.from('<!-- the next release -->\n')]);
+    else if (release && /\.(css|js)$/.test(path)) body = Buffer.concat([body, Buffer.from('\n/* the next release */\n')]);
+    if (release === true && path === '/index.html') body = Buffer.concat([body, Buffer.from('<!-- the next release -->\n')]);
     const etag = `"${createHash('sha1').update(body).digest('hex').slice(0, 16)}"`;
     const head = { etag, 'cache-control': 'max-age=600', 'content-type': TYPES[extname(path)] || 'text/html' };
     if (req.headers['if-none-match'] === etag) { res.writeHead(304, head); res.end(); return; }
@@ -2615,6 +2622,8 @@ assert.deepEqual(problems, [], 'problems while painting offline, or since');
     res.end(body);
   }
   const base = `http://localhost:${server.address().port}/`;
+  // The connection comes back: the held requests are answered (as things are now, before `release` next changes).
+  const unstall = () => { net = 'up'; return Promise.all(held.splice(0).map(([req, res]) => serve(req, res))); };
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
   const page = await ctx.newPage();
   const problems = [];
@@ -2693,8 +2702,34 @@ assert.deepEqual(problems, [], 'problems while painting offline, or since');
   const took = Date.now() - t0;
   assert.ok(took < 8000, `the page took ${took} ms to open on a stalled connection`);
   assert.equal(await page.title(), title, 'the page did not open on a stalled connection');
-  net = 'up';
-  for (const [req, res] of held.splice(0)) serve(req, res);
+  await unstall();
+
+  // On a connection that answers for the page but then holds on to the files it loads, it opens too: after the same
+  // wait, a file the copy has comes from it, and the rest of that page's files come from it straight away.
+  net = 'files stalled';
+  const t1 = Date.now();
+  await page.reload({ timeout: 10000 }).catch(() => {});
+  const took1 = Date.now() - t1;
+  assert.ok(took1 < 7000 && await page.evaluate(() => document.readyState) === 'complete', `the page took ${took1} ms to open when the files it loads stalled`);
+  await unstall();
+
+  // But never as a mix of two releases: a page the network has started sending newer files than the copy's (here the
+  // next release's css, the page itself unchanged), or a page newer than the copy's, waits on for the network.
+  const waitsForNetwork = async (what) => {
+    await page.reload({ timeout: 5500 }).catch(() => {});
+    assert.notEqual(await page.evaluate(() => document.readyState), 'complete', what);
+  };
+  release = 'files';
+  net = 'scripts stalled';
+  await waitsForNetwork("the copy's scripts opened a page beside the next release's css");
+  release = false;
+  await unstall();
+  await page.waitForFunction(() => document.readyState === 'complete');
+  release = true;
+  net = 'files stalled';
+  await waitsForNetwork("the copy's files opened the next release's page");
+  await unstall();
+  await page.waitForFunction(() => document.readyState === 'complete');
 
   // A new release: every file in the new copy comes from the server, though the browser still has its own copies of
   // the old ones for ten minutes. (The next release changes index.html, and so FILES in sw.js, as a real one does.)

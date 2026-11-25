@@ -1,7 +1,7 @@
 // Offline support: keep a copy of Happy Accidents so it paints with no signal.
 // Signed paintings live in localStorage and IndexedDB, not here.
 // Network first, so a new version shows up as soon as you're online, but a page the network hasn't answered in a few
-// seconds opens from the copy instead (see page()).
+// seconds opens from the copy instead (see page()), and so does a page whose files it hasn't (see file()).
 // When you add, rename or remove a file the page loads, update SHELL (npm test checks it) and bump CACHE.
 
 // An installed copy downloads the whole list again only when this file changes by a byte. Otherwise each file in it is
@@ -33,19 +33,23 @@ self.addEventListener('activate', e => {
     .then(() => self.clients.claim()));
 });
 
-// How long a page waits for the network before it opens from the copy instead.
+// How long a page, or a file it loads, waits for the network before it comes from the copy instead.
 const PATIENCE = 4000; // ms
-// The pages (by their client ids) that opened from the copy: the rest of their files come from it too, so a page
-// never mixes the copy's files with newer ones. (The browser stops the worker once it has been idle a while, and the
-// list goes with it.)
+// The pages (by their client ids) that opened from the copy, or took a file from it: the rest of their files come from
+// it too, so a page never mixes the copy's files with newer ones. (The browser stops the worker once it has been idle a
+// while, and the lists go with it.)
 const fromCopy = new Set();
+// The pages that came from the network just as the copy has them, and every file the network has sent them so far too
+// (see compare()): so far they're exactly what they would be from the copy, so one of their files can come from it.
+const likeCopy = new Set();
+const remember = (list, id) => { list.add(id); if (list.size > 50) list.delete(list.values().next().value); }; // the oldest, long gone
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
   if (e.request.mode === 'navigate') e.respondWith(page(e));
   else if (fromCopy.has(e.clientId)) e.respondWith(kept(e.request).then(r => r || network(e)));
-  else e.respondWith(network(e).catch(() => offline(e.request)));
+  else e.respondWith(file(e));
 });
 
 // A page, from the network. On a connection that's up but not answering (a train, a captive wifi, one bar of signal),
@@ -64,8 +68,7 @@ function page(e) {
     const slow = setTimeout(() => kept(e.request).then(copy => {
       if (!copy || answered) return;
       copied = true;
-      fromCopy.add(e.resultingClientId);
-      if (fromCopy.size > 50) fromCopy.delete(fromCopy.values().next().value); // the oldest, long gone
+      remember(fromCopy, e.resultingClientId);
       answer(copy);
     }), PATIENCE);
     net.then(res => { clearTimeout(slow); answer(res); },
@@ -73,15 +76,52 @@ function page(e) {
   });
 }
 
+// A file a page loads, from the network. On a connection that answered for the page but then holds on to its files,
+// the page would never open. So, as in page(): after PATIENCE the file comes from the copy instead, if the copy has it
+// and the page is still likeCopy, and the rest of that page's files come from the copy straight away. The network's
+// late answer still goes into the copy. A page that isn't likeCopy waits on for the network, as before: the network has
+// sent it something newer than the copy's (a release the worker hasn't fetched yet), and the copy's file beside that
+// would be a mix of two releases.
+function file(e) {
+  const id = e.clientId;
+  return new Promise((resolve, reject) => {
+    let answered = false;
+    const answer = res => { if (!answered) { answered = true; resolve(res); } };
+    const slow = setTimeout(() => likeCopy.has(id) && kept(e.request).then(copy => {
+      if (!copy || answered) return;
+      remember(fromCopy, id);
+      answer(copy);
+    }), PATIENCE);
+    network(e).then(res => {
+      clearTimeout(slow);
+      // The page went over to the copy while this was on its way: the copy's, in case this one is newer.
+      if (fromCopy.has(id)) kept(e.request).then(copy => answer(copy || res)); else answer(res);
+    }, () => { clearTimeout(slow); offline(e.request).then(answer, reject); });
+  });
+}
+
 // A file from the network, kept in the copy for next time (unless keep() says not). The worker stays up until it's in.
 function network(e, keep = () => true) {
   let stored;
   const got = fresh(e.request).then(res => {
-    if (res.ok && keep()) { const copy = res.clone(); stored = caches.open(CACHE).then(c => c.put(keyFor(e.request), copy)); }
+    if (res.ok && keep()) {
+      const copy = res.clone(), key = keyFor(e.request);
+      stored = caches.open(CACHE).then(c => c.match(key).then(was => { compare(e, res, was); return c.put(key, copy); }));
+    }
     return res;
   });
   try { e.waitUntil(got.then(() => stored, () => {})); } catch { /* the event is over: the copy goes in anyway */ }
   return got;
+}
+
+// Before the network's answer goes into the copy: is it what the copy had (the same ETag)? A page that is goes on
+// likeCopy; a page or file that isn't (from a release the worker hasn't fetched yet) takes its page off. A file the copy
+// hasn't got leaves it as it is: there's no copy of it to mix in.
+function compare(e, res, was) {
+  const id = e.resultingClientId || e.clientId, isPage = e.request.mode === 'navigate', tag = res.headers.get('etag');
+  if (!id || (!was && !isPage)) return;
+  if (tag && was?.headers.get('etag') === tag) { if (isPage) remember(likeCopy, id); }
+  else likeCopy.delete(id);
 }
 
 // A page is kept under its address without the query string, so a page opened from a shared link (?fbclid=…) is the

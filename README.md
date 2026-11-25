@@ -97,7 +97,7 @@ It's Canvas 2D with no framework and no image files: everything on the canvas is
 - `src/util.js`: small helpers for the randomness: picks, weighted choices, and lines that don't come round again too soon.
 - `src/edge-guard.js`: a Back that comes mid-flick (Android's back gesture, set off by a finger near the screen's side) is taken for a slip, and the painting stays.
 - `fonts/`: Caprasimo, Figtree and Mrs Saint Delafield (SIL Open Font License), served from here so nothing loads from elsewhere.
-- `sw.js`: keeps a copy for painting offline. `npm test` checks that it lists every file the page needs. On a connection that isn't answering, a page opens from that copy after four seconds. `FILES` in it is a fingerprint of the files it keeps: change one and `npm test` says what to set it to, so a release never leaves the copy half old.
+- `sw.js`: keeps a copy for painting offline. `npm test` checks that it lists every file the page needs. On a connection that isn't answering, a page opens from that copy after four seconds, and so does one whose files stall after the page itself arrives, unless the network has already sent it something newer than the copy's, so the copy's files never join a newer release's. `FILES` in it is a fingerprint of the files it keeps: change one and `npm test` says what to set it to, so a release never leaves the copy half old.
 - `tools/`: the screenshot and icon scripts above. `scripts/build.mjs`: the single-file build.
 
 The studio is on `window.happyAccidents` if you want to play from the console:

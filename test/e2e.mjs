@@ -30,7 +30,10 @@ const page = await ctx.newPage();
 const problems = [];
 page.on('pageerror', (e) => problems.push(e.message));
 page.on('console', (m) => { if (m.type() === 'error') problems.push(m.text()); });
-page.on('requestfailed', (r) => problems.push('failed: ' + r.url()));
+// (The test's own look at the saved video, further down, loads it from a blob: link the browser may drop half-read
+// when that look is over; that isn't the page failing to load something.)
+const probes = new Set();
+page.on('requestfailed', (r) => { if (!probes.has(r.url())) problems.push(`failed: ${r.url()} ${r.failure()?.errorText ?? ''}`.trim()); });
 // (A blob: link of the page's own, such as the video Save the replay downloads, stays on the site.)
 page.on('request', (r) => { if (!r.url().startsWith(base) && !r.url().startsWith('data:') && !r.url().startsWith(`blob:${base}`)) problems.push('left the site: ' + r.url()); });
 // Every file the page asks for while it paints, signs, hangs paintings and opens the wall (checked against the offline
@@ -1427,16 +1430,21 @@ assert.ok(videoFile.length > 10000 && videoFile.subarray(4, 8).toString() === 'f
 assert.equal((await recording()).live, 0, 'a finished video left the replay recording');
 assert.equal(await page.textContent('#videoBtn'), 'Save the replay');
 assert.equal(await page.isHidden('#film'), true, 'a finished video left the replay on the frame');
+probes.add(await S(() => (window.probe = URL.createObjectURL(window.videos.at(-1)))));
 const watched = await S(async () => {
   const v = document.createElement('video');
   v.muted = true;
-  v.src = URL.createObjectURL(window.videos.at(-1));
+  v.src = window.probe;
   await new Promise((resolve, reject) => ((v.onloadedmetadata = resolve), (v.onerror = reject)));
   if (!isFinite(v.duration)) {
     v.currentTime = 1e6;
     await new Promise((resolve) => (v.ondurationchange = resolve));
   }
-  return { seconds: v.duration, width: v.videoWidth, height: v.videoHeight };
+  const seen = { seconds: v.duration, width: v.videoWidth, height: v.videoHeight };
+  v.removeAttribute('src');
+  v.load();
+  URL.revokeObjectURL(window.probe);
+  return seen;
 });
 assert.ok(watched.seconds > 2 && watched.seconds < 16 && watched.width === 560 && watched.height === 420, `the saved replay is ${JSON.stringify(watched)}`);
 // On a phone that can share the video, it's ready to share from a second tap (the share sheet only opens for a tap

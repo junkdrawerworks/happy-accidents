@@ -982,6 +982,7 @@ function stopReplay() {
   filmCanvas.hidden = true;
   replayBtn.textContent = 'Watch it again';
   replayBtn.classList.remove('playing');
+  replayBtn.style.minWidth = '';
   if (taping) dropVideo();
 }
 // Starts the replay on the label's frame; returns it (see film.js's play()), or null if there's nothing to play.
@@ -993,6 +994,8 @@ function startReplay() {
   filmCanvas.height = 2 * Math.round((FRAME_WIDTH * studio.H) / studio.W / 2);
   filmCanvas.hidden = false;
   placeFilm();
+  // Stop keeps the width Watch it again had, so the buttons beside it don't move up a line and back while it plays.
+  replayBtn.style.minWidth = `${replayBtn.getBoundingClientRect().width}px`;
   replayBtn.textContent = 'Stop';
   replayBtn.classList.add('playing');
   replay = play(filmCanvas, frames, { start: studio.paper, W: studio.W, H: studio.H, reduced: calm.matches });
@@ -1023,6 +1026,7 @@ function dropVideo() {
   video = null;
   videoBtn.textContent = 'Save the replay';
   videoBtn.classList.remove('playing');
+  videoBtn.style.minWidth = '';
   videoBtn.removeAttribute('aria-live');
 }
 videoBtn.addEventListener('click', async () => {
@@ -1039,6 +1043,8 @@ videoBtn.addEventListener('click', async () => {
   stopReplay();
   dropVideo();
   const record0 = onShow;
+  // (Kept as wide as it was while it records, like Stop beside it, so the label doesn't shift under the finger.)
+  const wide = videoBtn.getBoundingClientRect().width;
   const run = startReplay();
   if (!run) return;
   let rec;
@@ -1051,7 +1057,8 @@ videoBtn.addEventListener('click', async () => {
   }
   const turn = videoTurn;
   taping = rec;
-  videoBtn.textContent = 'Making the video…';
+  videoBtn.style.minWidth = `${wide}px`;
+  videoBtn.textContent = 'Recording…';
   videoBtn.classList.add('playing');
   await run.done;
   // The finished painting stays a moment longer at the end of the video than it does on the label.

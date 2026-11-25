@@ -1242,6 +1242,8 @@ kbd {
     font: inherit;
     font-weight: 600;
     vertical-align: baseline;
+    /* (Stop and Recording… keep the width they had, and read on from the left like the words they follow.) */
+    text-align: start;
   }
 
   .label .replay:hover {

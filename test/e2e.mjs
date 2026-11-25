@@ -1404,8 +1404,11 @@ assert.equal(await page.isVisible('#videoBtn'), true, 'the label of a painting j
 assert.equal(await page.textContent('#videoBtn'), 'Save the replay');
 for (const how of ['videoBtn', 'replayBtn']) {
   const before = (await recording()).recorders;
+  const at = () => S(() => ['replayBtn', 'videoBtn'].map((id) => { const r = document.getElementById(id).getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round).join(); }));
+  const idle = await at();
   await page.click('#videoBtn');
-  assert.equal(await page.textContent('#videoBtn'), 'Making the video…');
+  assert.equal(await page.textContent('#videoBtn'), 'Recording…');
+  assert.deepEqual(await at(), idle, 'Stop and Recording… moved the buttons on the label');
   assert.equal(await page.isVisible('#film'), true, 'Save the replay didn’t play the replay on the frame');
   assert.equal(await page.textContent('#replayBtn'), 'Stop');
   await page.waitForTimeout(1000);

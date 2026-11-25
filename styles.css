@@ -478,6 +478,21 @@ kbd {
   }
 }
 
+/* Phones under 390 px wide: three buttons don't fit beside the name on one line (with some moods' names, not even at
+   375), so Sound goes on a line of its own above Guide and Gallery, all to the right, beside the canvas's number. */
+@media (max-width: 389px) {
+  .top-actions {
+    display: grid;
+    grid-template-columns: auto auto;
+    justify-content: end;
+  }
+
+  #soundBtn {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+}
+
 /* The narrowest phones: the header's buttons pack closer, clear of the name. */
 @media (max-width: 359px) {
   .top-actions {
@@ -1369,6 +1384,224 @@ kbd {
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     overflow: hidden;
+  }
+}
+
+/* ——— the field guide: what paint does ——— */
+
+/* Also on the gallery wall, under its note: the way to it on a phone held sideways that's too narrow for it in the
+   header (below). */
+.wall-guide {
+  margin: -8px 0 0;
+}
+
+.wall-guide button {
+  margin-left: -15px;
+}
+
+/* A phone held sideways, under 740 px wide: the header has room for the name, the canvas's line and two buttons on
+   one line, and a second line would push Sign it off the screen, so Guide is reached from the gallery wall there. */
+@media (orientation: landscape) and (max-height: 600px) and (min-width: 520px) and (max-width: 739px) {
+  #guideBtn {
+    display: none;
+  }
+}
+
+.guide-part {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.guide-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.guide-paint,
+.guide-hit {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Each paint's name with a dab of it. */
+.guide-paint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.guide-paint::before {
+  content: '';
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+
+.guide-with {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+.guide-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.guide-chips li {
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+/* Something made: its name, on the label's paper. Something not made yet: a blank outline the size of a short name. */
+.guide-chips .found {
+  background: var(--label);
+  color: var(--label-ink);
+}
+
+.guide-chips .blank {
+  width: 76px;
+  border: 1px dashed rgba(241, 233, 220, 0.28);
+}
+
+.guide-place {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* On a wide screen, the first table is a table: a paint to a row, a place to a column, the places named once at the
+   top. The second is a row for each thing paint can land on, what it does beside it. */
+.guide-becomes {
+  display: grid;
+  grid-template-columns: 130px repeat(4, minmax(0, 1fr));
+  gap: 0 16px;
+}
+
+.guide-head,
+.guide-becomes .guide-row {
+  display: contents;
+}
+
+.guide-head span {
+  padding-bottom: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.guide-becomes .guide-paint,
+.guide-becomes .guide-cell {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.guide-becomes .guide-paint {
+  align-self: stretch;
+  align-items: flex-start;
+}
+
+.guide-becomes .guide-paint::before {
+  margin-top: 3px;
+}
+
+.guide-becomes .guide-place {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.guide-hits {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+  gap: 0 16px;
+}
+
+.guide-hits .guide-row {
+  display: contents;
+}
+
+.guide-hits .guide-hit,
+.guide-hits .guide-chips {
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.guide-hits .guide-chips {
+  align-content: flex-start;
+}
+
+/* A phone: each paint is a block of its own, its name and then the four places one under another, each named on the
+   left. */
+@media (max-width: 719px) {
+  .guide-becomes,
+  .guide-hits {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .guide-head {
+    display: none;
+  }
+
+  .guide-becomes .guide-row,
+  .guide-hits .guide-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .guide-becomes .guide-paint,
+  .guide-becomes .guide-cell,
+  .guide-hits .guide-hit,
+  .guide-hits .guide-chips {
+    padding: 0;
+    border: 0;
+  }
+
+  .guide-becomes .guide-cell {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+  }
+
+  .guide-becomes .guide-place {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+    line-height: 1.3;
   }
 }
 

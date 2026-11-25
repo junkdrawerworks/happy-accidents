@@ -5,6 +5,7 @@ import { TAU, rand, clamp, chance, pick, weighted } from './util.js';
 import { rgba, darken, mix, mixPaint, familyOf, colorName } from './color.js';
 import { makeSplat, renderSplat } from './splat.js';
 import { decide, earthy, MAX_FLOCKS } from './decide.js';
+import { findOf } from './guide.js';
 import { sky, signature, SIGNATURE_FONT } from './paint/index.js';
 import { bristle, linePts } from './brush.js';
 import { line, toolInfo, mixLine, LINES } from './words.js';
@@ -907,6 +908,9 @@ export class Studio {
     }
     st.spec = spec;
     if (!st.quiet) this.say(lineKey(st, spec), spec.kind, sp.mixPigment || sp.pigment, sp.auto);
+    // Something in the rules tables, for the field guide (the page keeps only what your own paint made).
+    const found = findOf(plan.cell, st, spec, { index: i, plan, night: !!this.scheme.night });
+    if (found) this.hooks.onFind?.(found, sp);
     const el = spec.onto ? this.paintOnto(spec.onto, spec) : this.addElement(spec);
     spec.el = el;
     el.onProgress = (t) => {

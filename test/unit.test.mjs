@@ -18,6 +18,7 @@ import { autumn, treeGlow, sunlitCloud, treeSnow as treeSnowOf } from '../src/pa
 import { ridgeAt } from '../src/paint/mountains.js';
 import { signSpot, poorGround } from '../src/paint/signature.js';
 import { Film, MAX_FRAMES, stepMs } from '../src/film.js';
+import { findOf, PAINTS as GUIDE_PAINTS, PLACES as GUIDE_PLACES, HITS as GUIDE_HITS, KEYS as GUIDE_KEYS } from '../src/guide.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -992,6 +993,148 @@ for (const [i, r] of REACTIONS.entries()) {
     }, 200 + i),
   );
 }
+
+const placeOf = { 'high in the sky': 'high', 'low in the sky': 'low', 'on the lake': 'lake', 'on land': 'land' };
+
+// The field guide is the README's two tables: the same paints, places and rows, and each thing in a cell named in that
+// cell's own words (a word of four letters or more in the guide's name is in the README's cell, give or take a plural).
+test('the field guide is the two rules tables in the README', async () => {
+  const readme = await readFile(join(root, 'README.md'), 'utf8');
+  assert.deepEqual(GUIDE_PAINTS.map((p) => p.fam), FAMILIES);
+  assert.ok(readme.includes(`| Paint | ${GUIDE_PLACES.map(([, name]) => name).join(' | ')} |`), 'the guide’s places aren’t the first table’s columns');
+  assert.deepEqual(GUIDE_HITS.map((r) => [r.hit, r.with]), REACTIONS.map((r) => r.row.slice(0, 2)), 'the guide’s rows aren’t the second table’s');
+  assert.equal(new Set(GUIDE_KEYS).size, GUIDE_KEYS.length, 'two outcomes share a key');
+  const words = (text) => (text.toLowerCase().match(/[a-z]{4,}/g) || []).map((w) => w.replace(/(sh)es$|s$/, '$1'));
+  const unsaid = [];
+  for (const [place, cells] of Object.entries(CELLS)) {
+    const at = placeOf[place];
+    for (const p of GUIDE_PAINTS) {
+      const cell = words(cells[p.fam].text);
+      for (const x of p[at]) for (const w of words(x.name)) if (!cell.includes(w)) unsaid.push(`${p.name} ${place}: “${x.name}”`);
+    }
+  }
+  for (const [i, r] of GUIDE_HITS.entries()) {
+    const cell = words(REACTIONS[i].row[2]);
+    for (const x of r.outcomes) for (const w of words(x.name)) if (!cell.includes(w)) unsaid.push(`${r.hit} with ${r.with}: “${x.name}”`);
+  }
+  assert.deepEqual(unsaid, [], 'named in words the README’s table doesn’t use');
+});
+
+// Everything in the first table can be found: a few hundred splats of every paint at every place, by day and by night,
+// each step read as the guide reads it, and every outcome in the guide turns up. (The dock and far-off trees from green
+// are checked on canvases of their own: the rules canvas seldom throws paint right at the shore, and has no tall pine.)
+test('the field guide: everything in the first table turns up, and only in its own cell', () =>
+  sameDice(() => {
+    const found = new Set();
+    const wrong = new Set();
+    for (const [place, at] of Object.entries(placeOf)) {
+      for (const fam of FAMILIES) {
+        for (const time of ['day', 'night']) {
+          for (const counts of [{}, { canoe: 3 }]) {
+            for (let n = 0; n < 160; n++) {
+              const id = pick(PAINTS[fam]);
+              const S = bareStudio(pick(time === 'night' ? NIGHT : DAY), { land: leftBank, sunUp: chance(0.4), counts });
+              const sp = throwAt(PLACES[place](S), id);
+              const plan = decide(S, sp);
+              for (const [i, st] of plan.entries()) {
+                const key = findOf(plan.cell, st, null, { index: i, plan, night: S.scheme.night });
+                if (!key) continue;
+                found.add(key);
+                const [kf, kat] = key.split('.');
+                // The middle of the sky reads as either column; the high and low columns' throws stay clear of it.
+                if (kf !== fam || (kat !== at && !(at === 'high' && kat === 'low') && !(at === 'low' && kat === 'high'))) wrong.add(`${id} ${place} found ${key}`);
+              }
+            }
+          }
+        }
+      }
+    }
+    assert.deepEqual([...wrong], []);
+    const rare = new Set(['brown.lake.dock', 'green.high.far']);
+    const missing = GUIDE_KEYS.filter((k) => !k.startsWith('on.') && !found.has(k) && !rare.has(k));
+    assert.deepEqual(missing, [], 'never found');
+  }, 400));
+
+test('the field guide: brown right at the shore finds the dock, and green over a tall pine far-off trees', () =>
+  sameDice(() => {
+    const S = bareStudio('golden-hour', { land: leftBank });
+    const plan = decide(S, makeSplat({ x: 310, y: 640, R: 12, pigment: paintOf('van-dyke-brown') }));
+    assert.equal(findOf(plan.cell, plan[0], null, { plan }), 'brown.lake.dock');
+    const T = bareStudio('golden-hour', { land: () => false });
+    T.elements.push({ kind: 'evergreen', meta: { x: T.W * 0.15, baseY: 800, size: 600, tall: true } });
+    const far = decide(T, makeSplat({ x: 150, y: T.hy * 0.2, R: 30, pigment: paintOf('sap-green') }));
+    assert.equal(findOf(far.cell, far[0], null, { plan: far }), 'green.high.far');
+  }, 401));
+
+// Makes each step of a plan, as the studio does (each from the one before it), and reads each as the field guide does.
+function paintPlan(S, plan) {
+  const keys = [];
+  for (const [i, st] of plan.entries()) {
+    st.spec = st.make(plan[i - 1]?.spec);
+    const key = st.spec && findOf(plan.cell, st, st.spec, { index: i, plan, night: S.scheme.night });
+    if (key) keys.push(key);
+  }
+  return keys;
+}
+
+// Everything in the second table can be found, from paint on the things the rules tests paint for real. A dry storm
+// needs four clouds raining, the moon a night mood, snow from a cloud Winter Hush, and moonlight on a pine a night mood.
+test('the field guide: everything in the second table turns up', () =>
+  sameDice(() => {
+    const found = new Set();
+    for (const r of REACTIONS) {
+      for (const mood of SCHEMES.map((s) => s.id)) {
+        for (const target of r.targets) {
+          for (const id of r.paints) {
+            for (const counts of [{}, { rain: 4 }]) {
+              for (let n = 0; n < 4; n++) {
+                const el = { ...TARGETS[target](bareStudio(mood, { land: leftBank })) };
+                if (el.kind === 'cabin') el.meta.glow = target === 'lit cabin';
+                if (el.kind === 'sun' && SCHEMES.find((s) => s.id === mood).night) el.kind = 'moon';
+                const S = bareStudio(mood, { land: leftBank, target: el, counts });
+                const plan = decide(S, makeSplat({ ...hitOn(target, el), R: rand(12, 26), pigment: paintOf(id) }));
+                for (const key of paintPlan(S, plan)) found.add(key);
+              }
+            }
+          }
+        }
+      }
+    }
+    // Mist where blue hits a mountain too near its foot for a waterfall is found on its own, below.
+    const missing = GUIDE_KEYS.filter((k) => k.startsWith('on.') && !found.has(k) && k !== 'on.mountain.mist');
+    assert.deepEqual(missing, [], 'never found');
+  }, 402));
+
+test('the field guide: blue too near a mountain’s foot for a waterfall finds the mist there', () =>
+  sameDice(() => {
+    const S0 = bareStudio('golden-hour', { land: leftBank });
+    const m = TARGETS.mountain(S0);
+    // Out along the flank, where the ridge comes down to within a few pixels of the mountain's foot.
+    let x = m.meta.peak[0];
+    while (m.meta.base - ridgeAt(m.meta, x) > 12) x += 4;
+    const S = bareStudio('golden-hour', { land: leftBank, target: m });
+    const plan = decide(S, makeSplat({ x, y: m.meta.base - 6, R: 14, pigment: paintOf('phthalo-blue') }));
+    assert.deepEqual(paintPlan(S, plan), ['on.mountain.mist']);
+  }, 403));
+
+// The guide reads what was really painted: blue that paints mist in a waterfall's place is mist, a rock with no room on
+// the water is the ripples it became, and accidents Oops throws are told apart by the page, not here.
+test('the field guide reads what was painted, not only what was planned', () => {
+  const fall = { kind: 'waterfall' };
+  assert.equal(findOf({ hit: 'mountain', fam: 'blue' }, fall, { kind: 'waterfall' }), 'on.mountain.falls');
+  assert.equal(findOf({ hit: 'mountain', fam: 'blue' }, fall, { kind: 'mist' }), 'on.mountain.mist');
+  assert.equal(findOf({ hit: 'mountain', fam: 'brown' }, { kind: 'mist' }, { kind: 'mist' }), 'on.mountain-other.mist');
+  assert.equal(findOf({ fam: 'brown', at: 'lake' }, { kind: 'rock' }, { kind: 'rock' }), 'brown.lake.rock');
+  assert.equal(findOf({ fam: 'brown', at: 'lake' }, { kind: 'rock' }, { kind: 'ripples' }), null);
+  assert.equal(findOf({ fam: 'white', at: 'lake' }, { kind: 'sailboat' }, { kind: 'glints' }), 'white.lake.light');
+  // Light on a tree after its friends: an evergreen with warm paint is the evergreen row (moonlight at night), anything
+  // else is the friends' row.
+  assert.equal(findOf({ hit: 'evergreen', fam: 'red' }, { kind: 'treeGlow' }, null, { night: true }), 'on.evergreen-warm.moon');
+  assert.equal(findOf({ hit: 'deciduous', fam: 'green' }, { kind: 'treeGlow' }, null), 'on.tree-other.light');
+  // The quiet extras (a cabin's bush, a sun's path on the water) aren't in the first table.
+  assert.equal(findOf({ fam: 'red', at: 'land' }, { kind: 'bush', quiet: true }, null), null);
+  assert.equal(findOf(undefined, { kind: 'treeline' }, null), null);
+});
 
 // The README's mixes. Yellow into blue makes green for every yellow and every blue, half and half. Red into yellow makes
 // orange, which acts like yellow (a little red into more yellow: half and half, Alizarin and Yellow Ochre make a brick

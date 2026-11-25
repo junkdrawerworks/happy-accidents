@@ -28,6 +28,7 @@
     </div>
     <div class="top-actions">
       <button type="button" class="quiet" id="soundBtn" title="Sound on or off (M)" aria-keyshortcuts="M">Sound: off</button>
+      <button type="button" class="quiet" id="guideBtn" title="What paint does">Guide</button>
       <button type="button" class="quiet" id="galleryBtn" title="Your gallery wall (G)" aria-keyshortcuts="G">Gallery <span class="count" id="galleryCount"></span></button>
     </div>
   </header>
@@ -129,7 +130,27 @@
     <p class="wall-empty" id="wallEmpty">Nothing hanging yet. Sign a painting and it goes up on this wall.</p>
     <ul class="wall-grid" id="wallGrid"></ul>
     <p class="wall-note">The wall keeps your 12 newest paintings, in this browser only. Save one to keep it for good.</p>
+    <p class="wall-guide"><button type="button" class="quiet" id="wallGuideBtn">What paint does</button></p>
     <p class="sr-only sr-status" role="status"></p>
+  </div>
+</div>
+
+<div class="overlay" id="guide" hidden>
+  <div class="wall guide" role="dialog" aria-modal="true" aria-labelledby="guideTitle" aria-describedby="guideIntro">
+    <div class="wall-head">
+      <h2 class="wall-title" id="guideTitle">What paint does</h2>
+      <button type="button" class="quiet" id="closeGuide">Close</button>
+    </div>
+    <p class="wall-empty" id="guideIntro"></p>
+    <section class="guide-part" aria-labelledby="guideBecomesTitle">
+      <h3 class="guide-title" id="guideBecomesTitle">What a paint becomes, by where it lands</h3>
+      <div class="guide-becomes" id="guideBecomes"></div>
+    </section>
+    <section class="guide-part" aria-labelledby="guideHitsTitle">
+      <h3 class="guide-title" id="guideHitsTitle">Paint on something already there</h3>
+      <div class="guide-hits" id="guideHits"></div>
+    </section>
+    <p class="wall-note">Kept in this browser only. Only paint you threw counts, not Oops or Let it happen.</p>
   </div>
 </div>
 

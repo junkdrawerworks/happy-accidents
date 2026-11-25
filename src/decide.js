@@ -63,17 +63,32 @@ export function decide(S, sp) {
 
   // Paint that lands on something already there changes it. If this paint has nothing left to do to it, the paint
   // lands beside it instead of inside it.
+  // Each plan is marked with the cell of the README's tables it comes from (plan.cell), for the field guide (guide.js):
+  // what it hit and with which paint, or the paint and where it landed. The horizon's far-off trees are in neither.
   const hit = S.elementAt(b.x, b.y, b.R);
   if (hit) {
-    const plan = react(S, hit, b, c) || beside(S, hit, b, c, hint, vertical);
-    if (plan) return plan;
+    const reaction = react(S, hit, b, c);
+    if (reaction) return marked(reaction, { hit: hit.kind, fam: c.fam });
+    const plan = beside(S, hit, b, c, hint, vertical);
+    // Beside a boat or a rock is on the lake; beside the cabin or a tree, on land.
+    let at = 'land';
+    if (AFLOAT[hit.kind]) at = 'lake';
+    if (plan) return marked(plan, { fam: c.fam, at });
   }
 
   const band = H * 0.035;
-  if (b.y < hy - band) return sky(S, b, c, hint);
+  if (b.y < hy - band) {
+    const cell = { fam: c.fam, at: 'high' };
+    if (b.y / hy > LOW_SKY) cell.at = 'low';
+    return marked(sky(S, b, c, hint), cell);
+  }
   if (b.y < hy + band) return [step('treeline', () => P.treeline(S, { ...b, ...treelineLook(c) }), { say: c.fam === 'white' ? 'snowyTreeline' : undefined })];
   return low(S, b, c, hint, vertical);
 }
+
+const marked = (plan, cell) => Object.assign(plan, { cell });
+// How far down the sky (0 at the top, 1 at the horizon) the low sky begins.
+const LOW_SKY = 0.45;
 
 // True the first time this kind of change happens to this element, so the same thing
 // doesn't pile up on itself (a second sunset on the same sun, say).
@@ -272,7 +287,7 @@ function afloat(S, b, c, paint) {
 
 function sky(S, b, c, hint) {
   const skyT = b.y / S.hy; // 0 at the top of the canvas, 1 at the horizon
-  const lowSky = skyT > 0.45;
+  const lowSky = skyT > LOW_SKY;
   const { night } = S.scheme;
   const lit = S.has('sun') || S.has('moon');
   const room = S.count('mountain') < (hint === 'mountain' ? 4 : 3);
@@ -510,8 +525,8 @@ function low(S, b, c, hint, vertical) {
   const dT = (b.y - hy) / (H - hy);
   const footY = Math.min(H - 4, b.y + b.R * 0.3);
   const onLand = S.isLand(b.x, footY) || S.isLand(b.x, b.y);
-  if (onLand && hint !== 'bank' && hint !== 'water') return land(S, { ...b, y: footY }, c, hint, vertical, dT);
-  return water(S, b, c, hint, vertical, dT);
+  if (onLand && hint !== 'bank' && hint !== 'water') return marked(land(S, { ...b, y: footY }, c, hint, vertical, dT), { fam: c.fam, at: 'land' });
+  return marked(water(S, b, c, hint, vertical, dT), { fam: c.fam, at: 'lake' });
 }
 
 // Greens, browns and ochre make ground; other paints stay on the water.

@@ -1162,6 +1162,99 @@ for (const [width, height] of [[390, 844], [360, 740]]) {
   await tctx.close();
 }
 
+// The field guide (Guide, "What paint does"): the README's two tables, each thing in them a blank outline until your own
+// paint makes it in this browser. Oops and Let it happen don't fill anything in; a real tap of Titanium White high in the
+// sky fills in one of White's high-in-the-sky things, by name, and it's still there after a reload. The sheet fits a
+// phone's width, and the header's three buttons stay clear of the name at every phone width.
+{
+  const gctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
+  const p = await gctx.newPage();
+  const errors = [];
+  p.on('pageerror', (e) => errors.push(e.message));
+  await p.goto(base);
+  await p.waitForFunction(() => window.happyAccidents?.skipIntro);
+  await p.evaluate(() => window.happyAccidents.skipIntro());
+  const settled = () => p.waitForFunction(() => !window.happyAccidents.busy && !window.happyAccidents.active.length, null, { timeout: 20000 });
+  const guide = async () => {
+    await p.tap('#guideBtn');
+    const seen = await p.evaluate(async () => {
+      const { KEYS } = await import('./src/guide.js');
+      const chips = [...document.querySelectorAll('#guide .guide-chips li')];
+      return {
+        open: !document.getElementById('guide').hidden,
+        all: chips.length === KEYS.length && chips.every((li, i) => li.dataset.key === KEYS[i]),
+        found: chips.filter((li) => li.classList.contains('found')).map((li) => [li.dataset.key, li.textContent]),
+        blankNamed: chips.filter((li) => li.classList.contains('blank') && li.textContent !== 'Not found yet').length,
+        intro: document.getElementById('guideIntro').textContent,
+        wide: document.getElementById('guide').scrollWidth > innerWidth,
+      };
+    });
+    await p.tap('#closeGuide');
+    return seen;
+  };
+  let g = await guide();
+  assert.deepEqual({ ...g, intro: undefined }, { open: true, all: true, found: [], blankNamed: 0, intro: undefined, wide: false }, 'a new field guide isn’t every outcome, blank');
+  assert.match(g.intro, /^Everything paint can turn into is here, 85 things in all\./);
+  await p.evaluate(() => window.happyAccidents.newCanvas('golden-hour'));
+  await settled();
+  for (let i = 0; i < 4; i++) {
+    await p.tap('#oopsBtn');
+    await p.waitForTimeout(150);
+  }
+  await settled();
+  await p.tap('#autoBtn');
+  await p.waitForFunction(() => window.happyAccidents.accidents >= 7, null, { timeout: 20000 });
+  await p.tap('#autoBtn');
+  await settled();
+  assert.deepEqual((await guide()).found, [], 'Oops or Let it happen filled in the field guide');
+  await p.evaluate(() => window.happyAccidents.newCanvas('golden-hour'));
+  await settled();
+  await p.tap('.dab[data-id=titanium-white]');
+  const gb = await p.locator('#canvas').boundingBox();
+  await p.touchscreen.tap(gb.x + gb.width * 0.3, gb.y + gb.height * 0.12);
+  await p.waitForFunction(() => window.happyAccidents.accidents === 1, null, { timeout: 5000 });
+  await p.waitForTimeout(300);
+  await settled();
+  g = await guide();
+  assert.equal(g.found.length, 1, `one tap found ${g.found.length} things`);
+  assert.match(g.found[0][0], /^white\.high\./, 'a tap of white high in the sky found something else');
+  assert.ok(g.found[0][1].length > 3, 'what was found isn’t named');
+  assert.match(g.intro, /^1 of 85 found so far\./);
+  await p.reload();
+  await p.waitForFunction(() => window.happyAccidents?.skipIntro);
+  assert.deepEqual((await guide()).found, g.found, 'what was found was forgotten on a reload');
+  // It opens from the gallery wall too (the way to it on a phone held sideways, where the header has no room for it).
+  await p.tap('#galleryBtn');
+  await p.tap('#wallGuideBtn');
+  assert.deepEqual(await p.evaluate(() => [document.getElementById('guide').hidden, document.getElementById('gallery').hidden]), [false, true], 'What paint does on the gallery wall didn’t open the field guide');
+  await p.tap('#closeGuide');
+  for (const width of [320, 360, 375, 389, 390, 414]) {
+    await p.setViewportSize({ width, height: 740 });
+    // Every mood: their names make the line under the name wider or narrower, and with it the name's column.
+    const clash = await p.evaluate(async () => {
+      const { SCHEMES } = await import('./src/schemes.js');
+      const out = [];
+      for (const { id: mood } of SCHEMES) {
+        window.happyAccidents.newCanvas(mood);
+        const range = document.createRange();
+        range.selectNodeContents(document.querySelector('.brand'));
+        const name = [...range.getClientRects()];
+        for (const id of ['#soundBtn', '#guideBtn', '#galleryBtn']) {
+          const r = document.querySelector(id).getBoundingClientRect();
+          if (name.some((n) => n.right > r.left - 4 && n.left < r.right && n.bottom > r.top && n.top < r.bottom)) out.push(`${id} in ${mood}`);
+        }
+      }
+      return out;
+    });
+    assert.deepEqual(clash, [], `at ${width} px the header's buttons run into the name`);
+    await p.tap('#guideBtn');
+    assert.equal(await p.evaluate(() => document.getElementById('guide').scrollWidth <= innerWidth), true, `the field guide is wider than a ${width} px screen`);
+    await p.tap('#closeGuide');
+  }
+  assert.deepEqual(errors, [], 'problems in the field guide');
+  await gctx.close();
+}
+
 // Sign it: the label shows and the painting goes up in the gallery. Anything still being painted when you sign is
 // finished before the painting is framed, even something slow (here a splat that stays wet for eight seconds, longer
 // than the wait used to last), and until then New canvas, Sign it, Let it happen and the gallery wall wait, from the

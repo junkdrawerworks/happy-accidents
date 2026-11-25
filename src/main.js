@@ -6,6 +6,7 @@ import * as sound from './sound.js';
 import { guardEdges } from './edge-guard.js';
 import { labelledPicture } from './label.js';
 import { play, FRAME_WIDTH } from './film.js';
+import { renderGuide, guideIntro, isKey } from './guide.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -36,7 +37,10 @@ const KEY = {
   canvases: 'happy-accidents:canvases',
   moods: 'happy-accidents:moods',
   welcomed: 'happy-accidents:welcomed',
+  found: 'happy-accidents:found',
 };
+// The things in the field guide found in this browser, by their keys (see the field guide, below).
+const found = new Set(((v) => (Array.isArray(v) ? v.filter(isKey) : []))(store.get(KEY.found, [])));
 
 const canvas = $('canvas');
 const stage = $('stage');
@@ -189,6 +193,7 @@ const studio = new Studio(canvas, {
   onBrush(kind, ms) {
     sound.brush(kind, ms);
   },
+  onFind,
 });
 
 // What's on the canvas, for a screen reader (the canvas's description, read when it gets focus): its number, its mood
@@ -660,6 +665,8 @@ autoBtn.addEventListener('click', () => setAuto(!autoTimer));
 newBtn.addEventListener('click', newCanvas);
 $('signBtn').addEventListener('click', openSign);
 $('galleryBtn').addEventListener('click', openGallery);
+$('guideBtn').addEventListener('click', openGuide);
+$('wallGuideBtn').addEventListener('click', openGuide);
 soundBtn.addEventListener('click', () => setSound(!sound.soundOn()));
 
 // ——— overlays ———
@@ -668,7 +675,7 @@ soundBtn.addEventListener('click', () => setSound(!sound.soundOn()));
 // One overlay can take over from another (the label once the signature is on, a painting opened from the wall);
 // when the last one closes, focus goes back to whatever opened the first.
 const app = $('app');
-const overlays = [$('signSheet'), $('placard'), $('gallery')];
+const overlays = [$('signSheet'), $('placard'), $('gallery'), $('guide')];
 let returnFocus = null;
 function openOverlay(el, focusEl) {
   stopReplay();
@@ -1213,6 +1220,37 @@ function renderWall() {
 }
 
 $('closeGallery').addEventListener('click', () => closeOverlay($('gallery')));
+
+// ——— the field guide ———
+
+// What paint does (the README's two tables), each thing in them named once your own paint has made it in this browser
+// and a blank outline until then (see guide.js). Paint the toy threw itself (Oops, Let it happen, the intro) doesn't
+// count; a splat that any of your paint ran into does.
+function onFind(key, sp) {
+  if (sp.auto || found.has(key)) return;
+  found.add(key);
+  store.set(KEY.found, [...found]);
+  if (!$('guide').hidden) renderGuideSheet();
+}
+
+function renderGuideSheet() {
+  $('guideIntro').textContent = guideIntro(found.size);
+  renderGuide($('guideBecomes'), $('guideHits'), found);
+}
+
+function openGuide() {
+  if (signing) return;
+  setAuto(false);
+  renderGuideSheet();
+  const el = $('guide');
+  openOverlay(el, $('closeGuide'));
+  el.scrollTop = 0;
+  markGuideScrolled();
+}
+const guideEl = $('guide');
+const markGuideScrolled = () => guideEl.classList.toggle('scrolled', guideEl.scrollTop > 4);
+guideEl.addEventListener('scroll', markGuideScrolled, { passive: true });
+$('closeGuide').addEventListener('click', () => closeOverlay($('guide')));
 
 // ——— keyboard ———
 
